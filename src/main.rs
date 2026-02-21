@@ -5,7 +5,7 @@ use clap::Parser;
 use walkdir::WalkDir;
 
 use vibecheck::output::{self, OutputFormat};
-use vibecheck::report::Report;
+use vibecheck::report::{ModelFamily, Report};
 
 #[derive(Parser)]
 #[command(name = "vibecheck", about = "Detect AI-generated code")]
@@ -16,6 +16,11 @@ struct Cli {
     /// Output format: pretty, text, or json.
     #[arg(long, default_value = "pretty")]
     format: String,
+
+    /// Exit with code 1 if any file is NOT attributed to one of these families.
+    /// Comma-separated, e.g. --assert-family claude,gpt
+    #[arg(long, value_delimiter = ',')]
+    assert_family: Option<Vec<String>>,
 }
 
 fn parse_format(s: &str) -> Result<OutputFormat> {
@@ -55,9 +60,28 @@ fn format_report(report: &Report, fmt: OutputFormat) -> String {
     }
 }
 
+fn parse_families(names: &[String]) -> Result<Vec<ModelFamily>> {
+    names
+        .iter()
+        .map(|s| match s.to_lowercase().as_str() {
+            "claude" => Ok(ModelFamily::Claude),
+            "gpt" => Ok(ModelFamily::Gpt),
+            "gemini" => Ok(ModelFamily::Gemini),
+            "copilot" => Ok(ModelFamily::Copilot),
+            "human" => Ok(ModelFamily::Human),
+            other => anyhow::bail!("unknown family: {other}"),
+        })
+        .collect()
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let fmt = parse_format(&cli.format)?;
+    let allowed_families = cli
+        .assert_family
+        .as_ref()
+        .map(|f| parse_families(f))
+        .transpose()?;
 
     let files = collect_files(&cli.path).context("failed to collect files")?;
 
@@ -72,12 +96,39 @@ fn main() -> Result<()> {
         .context("failed to analyze files")?;
 
     if fmt == OutputFormat::Json && reports.len() > 1 {
-        // Emit a JSON array for multiple files
         let json = serde_json::to_string_pretty(&reports)?;
         println!("{json}");
     } else {
         for report in &reports {
             println!("{}", format_report(report, fmt));
+        }
+    }
+
+    if let Some(ref allowed) = allowed_families {
+        let mut failures = Vec::new();
+        for report in &reports {
+            if !allowed.contains(&report.attribution.primary) {
+                failures.push(report);
+            }
+        }
+        if !failures.is_empty() {
+            eprintln!("\n--- VIBECHECK FAILED ---");
+            for report in &failures {
+                let path = report
+                    .metadata
+                    .file_path
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "<stdin>".into());
+                eprintln!(
+                    "  {} — detected as {} ({:.0}%), expected one of: {}",
+                    path,
+                    report.attribution.primary,
+                    report.attribution.confidence * 100.0,
+                    allowed.iter().map(|f| f.to_string()).collect::<Vec<_>>().join(", "),
+                );
+            }
+            std::process::exit(1);
         }
     }
 

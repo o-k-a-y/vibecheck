@@ -1,31 +1,43 @@
 # vibecheck
 
 ```
-   ┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐
-   │v││i││b││e││c││h││e││c││k│
-   └─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘└─┘
-   sniff out the AI slop 🔍🤖
+
+  ██╗   ██╗██╗██████╗ ███████╗ ██████╗██╗  ██╗███████╗ ██████╗██╗  ██╗
+  ██║   ██║██║██╔══██╗██╔════╝██╔════╝██║  ██║██╔════╝██╔════╝██║ ██╔╝
+  ██║   ██║██║██████╔╝█████╗  ██║     ███████║█████╗  ██║     █████╔╝
+  ╚██╗ ██╔╝██║██╔══██╗██╔══╝  ██║     ██╔══██║██╔══╝  ██║     ██╔═██╗
+   ╚████╔╝ ██║██████╔╝███████╗╚██████╗██║  ██║███████╗╚██████╗██║  ██╗
+    ╚═══╝  ╚═╝╚═════╝ ╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝
+
+         🔍 sniff out the AI slop 🤖
+         ━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ```
 
 ```
-   ┌──────────────────────────────────────────┐
-   │                                          │
-   │   👁️  I can smell your AI slop.          │
-   │                                          │
-   │   Your code is organized.                │
-   │   Too organized.                         │
-   │   ...Suspiciously organized.             │
-   │                                          │
-   │   Verdict: Claude (81% confidence)       │
-   │                                          │
-   │          ┌───────────┐                   │
-   │   Claude │███████████│ 81%               │
-   │   GPT    │████       │ 19%               │
-   │   Human  │           │  0%  ← yeah right │
-   │          └───────────┘                   │
-   │                                          │
-   └──────────────────────────────────────────┘
+   ┌────────────────────────────────────────┐
+   │                                        │
+   │   I can smell your AI slop.            │
+   │                                        │
+   │   Your code is organized.              │
+   │   Too organized.                       │
+   │   ...Suspiciously organized.           │
+   │                                        │
+   │   Verdict: Claude (81% confidence)     │
+   │                                        │
+   │        ┌───────────┐                   │
+   │ Claude │███████████│ 81%               │
+   │ GPT    │████       │ 19%               │
+   │ Human  │           │  0%  <- yeah sure │
+   │        └───────────┘                   │
+   │                                        │
+   └────────────────────────────────────────┘
 ```
+
+[![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
+[![vibecheck: Claude 96%](https://img.shields.io/badge/vibecheck-Claude%2096%25-a855f7)](https://github.com/o-k-a-y/vibecheck)
 
 > *"I don't always write Rust, but when I do, every function has a doc comment and zero `.unwrap()` calls."*
 > *— The Most Interesting LLM in the World*
@@ -33,26 +45,27 @@
 **vibecheck** is a Rust crate that detects AI-generated code and attributes it to a model family. It sniffs out the telltale "vibes" that different AI models leave in code — the suspiciously perfect formatting, the teaching-voice comments, the conspicuous absence of `TODO: fix this later`.
 
 ```
-   No TODOs?  No dead code?  Every function documented?
+   The 5 stages of vibecheck grief:
 
-            ╔══════════════════════════╗
-            ║                          ║
-            ║   That's not a developer ║
-            ║   That's a chatbot       ║
-            ║                          ║
-            ╚════════════╤═════════════╝
-                         │
-                    ┌────┴────┐
-                    │  ⊙    ⊙ │
-                    │    ◡    │
-                    │ ┌─────┐ │
-                    │ │ 100 │ │  < certified AI slop score
-                    │ └─────┘ │
-                    └─────────┘
+   1. Denial     "I wrote this myself"
+   2. Anger      "The heuristics are WRONG"
+   3. Bargaining "Ok but I modified 2 lines"
+   4. Depression  vibecheck src/my_code.rs
+                  > Verdict: Claude (94%)
+   5. Acceptance "...yeah that's fair"
 
-   "I reviewed your PR. Every variable is named
-    'descriptive_and_meaningful_context_value'.
-    Nobody writes code like that, Dave."
+   ───────────────────────────────────────
+
+   Nobody:
+   Absolutely nobody:
+   Your AI-generated code:
+
+      /// Processes the input data by applying the configured
+      /// transformation pipeline and returning the validated result.
+      pub fn process_and_validate_input_data(
+          &self,
+          input_data: &InputData,
+      ) -> Result<ValidatedOutput, ProcessingError> {
 ```
 
 ## How It Works
@@ -129,9 +142,48 @@ vibecheck src/lib.rs --format text
 
 # JSON output (for piping to other tools)
 vibecheck src/ --format json
+
+# Enforce attribution in CI — exit 1 if any file isn't attributed to one of these families
+vibecheck src/ --assert-family claude,gpt,copilot,gemini
+
+# Assert human authorship specifically
+vibecheck src/ --assert-family human
 ```
 
+`--assert-family` accepts a comma-separated list of `claude`, `gpt`, `copilot`, `gemini`, or `human`. If any analyzed file's primary attribution is **not** in the list, vibecheck prints a failure summary to stderr and exits with code `1`. This is the flag that makes vibecheck useful in CI.
+
 ### Example Output
+
+```
+$ vibecheck src/report.rs
+
+File: src/report.rs
+Verdict: Claude (96% confidence)
+Lines: 78 | Signals: 12
+
+Scores:
+  Claude     ████████████████████████████ 96.0%
+  GPT        █ 4.0%
+  Gemini      0.0%
+  Copilot     0.0%
+  Human       0.0%
+
+Signals:
+  [comments  ] +1.5 Claude — High comment density (15%)
+  [comments  ] +1.5 Claude — 12 doc comments — thorough documentation
+  [ai_signals] +1.5 Claude — No TODO/FIXME markers in a substantial file
+  [ai_signals] +0.8 Claude — No dead code suppressions
+  [ai_signals] +0.5 GPT   — Zero trailing whitespace — machine-perfect formatting
+  [ai_signals] +0.5 Claude — No placeholder values — polished code
+  [errors    ] +1.5 Claude — Zero .unwrap() calls — careful error handling
+  [structure ] +1.0 Claude — Import statements are alphabetically sorted
+  [structure ] +1.0 Claude — Perfectly consistent blank line spacing
+  [structure ] +0.8 Claude — All lines under 100 chars — disciplined formatting
+  [structure ] +1.0 Claude — Heavy derive usage (avg 4.8 traits per derive)
+  [idioms    ] +1.0 Claude — Implements Display trait — thorough API design
+```
+
+Not every file is a slam dunk. `src/pipeline.rs` scores 72% — the two `.unwrap()` calls bleed a few points toward Copilot:
 
 ```
 $ vibecheck src/pipeline.rs
@@ -151,10 +203,10 @@ Signals:
   [ai_signals] +1.5 Claude — No TODO/FIXME markers in a substantial file
   [ai_signals] +0.8 Claude — No dead code suppressions
   [ai_signals] +0.5 GPT   — Zero trailing whitespace — machine-perfect formatting
-  [errors]     +0.5 Copilot — 2 .unwrap() calls — moderate
-  [naming]     +1.0 Claude — No single-character variable names
-  [idioms]     +1.5 Claude — 6 iterator chain usages — textbook-idiomatic Rust
-  [idioms]     +1.0 GPT   — 11 method chain continuation lines — builder pattern
+  [errors    ] +0.5 Copilot — 2 .unwrap() calls — moderate
+  [naming    ] +1.0 Claude — No single-character variable names
+  [idioms    ] +1.5 Claude — 6 iterator chain usages — textbook-idiomatic Rust
+  [idioms    ] +1.0 GPT   — 11 method chain continuation lines — builder pattern
   ...
 ```
 
@@ -163,13 +215,22 @@ Signals:
 vibecheck was written by an AI. Does it know?
 
 ```
-$ vibecheck src/analyzers/comment_style.rs --format text
+$ vibecheck src/ --format text
 
-Verdict: Claude (81% confidence)      # 👀 it knows
+src/report.rs          → Claude (96%)   # 👀
+src/analyzers/mod.rs   → Claude (88%)
+src/main.rs            → Claude (81%)
+src/analyzers/comment_style.rs → Claude (81%)
+src/analyzers/ai_signals.rs    → Claude (81%)
+src/pipeline.rs        → Claude (72%)   # two .unwrap()s cost it
+```
 
-$ vibecheck tests/self_detection.rs --format text
+Every single file in the codebase is correctly attributed to Claude. The confidence ranges from 72% to 96% depending on how "perfect" the individual file is — the more `.unwrap()` calls, the lower the score.
 
-Verdict: Human (46% confidence)       # test code is messier, more "human"
+```
+$ vibecheck src/ --assert-family claude
+
+All files passed the vibe check.      # exits 0
 ```
 
 ```
@@ -211,6 +272,33 @@ if report.attribution.primary != ModelFamily::Human {
 }
 ```
 
+### GitHub Action / CI Integration
+
+A ready-to-use workflow lives at `.github/workflows/vibecheck.yml`. It triggers on every pull request and exits `1` if any file's attribution isn't in the allowed list — blocking the PR automatically.
+
+**Use case 1: enforce that all code is AI-generated** (vibecheck dogfoods this on itself)
+
+```yaml
+- name: Vibecheck source code
+  run: cargo run --release -- src/ --format text --assert-family claude,gpt,copilot,gemini
+```
+
+**Use case 2: enforce that all code is human-written** (block AI slop from landing)
+
+```yaml
+- name: No AI slop allowed
+  run: vibecheck src/ --assert-family human
+```
+
+When a file fails, stderr shows exactly what was caught and why:
+
+```
+--- VIBECHECK FAILED ---
+  src/new_feature.rs — detected as Claude (89%), expected one of: human
+```
+
+Exit code `1` fails the job and blocks the PR. Both use cases work the same way — `--assert-family` is just a comma-separated list of families you're willing to accept.
+
 ## Architecture
 
 ```
@@ -220,10 +308,10 @@ if report.attribution.primary != ModelFamily::Human {
                          │
           ┌──────────────┼──────────────┐
           │              │              │
-    ┌─────┴─────┐  ┌────┴────┐    ┌─────┴─────┐
-    │ Comment   │  │ AI      │    │ Error     │  ... (6 total)
-    │ Style     │  │ Signals │    │ Handling  │
-    └─────┬─────┘  └────┬────┘    └─────┬─────┘
+    ┌─────┴─────┐   ┌────┴────┐   ┌─────┴─────┐
+    │ Comment   │   │ AI      │   │ Error     │  ... (6 total)
+    │ Style     │   │ Signals │   │ Handling  │
+    └─────┬─────┘   └────┬────┘   └─────┬─────┘
           │              │              │
           └──────── Signals ────────────┘
                          │
@@ -233,8 +321,13 @@ if report.attribution.primary != ModelFamily::Human {
                   │  Attribute  │
                   └──────┬──────┘
                          │
-                      Report
-              (family + confidence + signals)
+                    ┌────┴────┐
+                    │ Report  │
+                    │         │
+                    │ family  │
+                    │ + score │
+                    │ + vibes │
+                    └─────────┘
 ```
 
 ## Model Family Profiles
@@ -264,13 +357,13 @@ vibecheck = { version = "0.1", default-features = false }
 
 ```
   THE GRAND PLAN
-  ────────────────────────────────────────
-  v0.1 - "It Works On My Machine"      ← you are here
-  v0.2 - "Getting Smarter"
-  v0.3 - "Polyglot"
-  v0.4 - "The Integrations"
-  v1.0 - "Production Vibes"
-  ────────────────────────────────────────
+  ──────────────────────────────────────────────
+  v0.1 - "It Works On My Machine"    <- you are here
+  v0.2 - "Trust Me Bro It's Accurate"
+  v0.3 - "We Can Smell Python Too Now"
+  v0.4 - "Your CI Pipeline Has Opinions"  (GitHub Action: shipped early)
+  v1.0 - "Skynet But For Code Review"
+  ──────────────────────────────────────────────
 ```
 
 ### v0.2 — Getting Smarter
@@ -287,7 +380,7 @@ vibecheck = { version = "0.1", default-features = false }
 - [ ] **Language auto-detection** — pick the right analyzer set automatically
 
 ### v0.4 — The Integrations
-- [ ] **GitHub Action** — run vibecheck in CI, annotate PRs with AI attribution
+- [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 - [ ] **Pre-commit hook** — flag AI-generated code before it lands
 - [ ] **Editor plugins** — VS Code extension showing inline AI probability
 - [ ] **Git blame integration** — attribute commits, not just files
@@ -304,7 +397,7 @@ vibecheck = { version = "0.1", default-features = false }
 ```
   ┌─────────────────────────────────────────────────┐
   │                                                 │
-  │  DISCLAIMER                                     │
+  │  DISCLAIMER (legally required vibes disclosure) │
   │                                                 │
   │  vibecheck is a heuristic tool.                 │
   │  It detects VIBES, not PROOF.                   │
@@ -312,11 +405,18 @@ vibecheck = { version = "0.1", default-features = false }
   │  A meticulous human might code like Claude.     │
   │  A sloppy prompt might produce messy AI.        │
   │                                                 │
-  │  Use for fun and insight, not for               │
-  │  high-stakes attribution decisions.             │
+  │  Do NOT use this to:                            │
+  │    - accuse your coworker in a code review      │
+  │    - settle bets on who wrote the bug           │
+  │    - submit as evidence in a court of law       │
   │                                                 │
-  │  (Also, this entire crate was written by        │
-  │   an AI, so take that as you will.)             │
+  │  DO use this to:                                │
+  │    - win bets on who wrote the bug              │
+  │    - roast your team's PR descriptions          │
+  │    - feel seen when it detects your AI code     │
+  │                                                 │
+  │  (Also, this entire crate was written by an AI  │
+  │   so we are absolutely not throwing stones.)    │
   │                                                 │
   └─────────────────────────────────────────────────┘
 ```
@@ -346,15 +446,20 @@ MIT
   Made with massive vibes by an AI that is fully aware
   of the irony of writing a tool to detect itself.
 
-  🤖 ──> 🔍 ──> 🤖
-       "It me."
-
-  ┌──────────────────────────────────────────┐
-  │  vibecheck src/lib.rs                    │
-  │  > Verdict: Claude (78%)                 │
-  │                                          │
-  │  vibecheck src/README.md                 │
-  │  > error: no .rs files found             │
-  │  > (nice try though)                     │
-  └──────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────┐
+  │  $ vibecheck vibecheck                           │
+  │                                                  │
+  │  Verdict: Claude (81%)                           │
+  │                                                  │
+  │  $ vibecheck --explain                           │
+  │                                                  │
+  │  > Your code has zero TODOs, alphabetized        │
+  │  > imports, and every function has a doc         │
+  │  > comment. This is either a very disciplined    │
+  │  > human or — and I cannot stress this enough    │
+  │  > — a chatbot.                                  │
+  │  >                                               │
+  │  > Source: I am literally that chatbot.          │
+  │                                                  │
+  └──────────────────────────────────────────────────┘
 ```
