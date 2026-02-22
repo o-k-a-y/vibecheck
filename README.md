@@ -167,34 +167,7 @@ vibecheck src/ --no-cache
 
 ### Example Output
 
-```
-$ vibecheck src/report.rs
-
-File: src/report.rs
-Verdict: Claude (96% confidence)
-Lines: 78 | Signals: 12
-
-Scores:
-  Claude     ████████████████████████████ 96.0%
-  GPT        █ 4.0%
-  Gemini      0.0%
-  Copilot     0.0%
-  Human       0.0%
-
-Signals:
-  [comments  ] +1.5 Claude — High comment density (15%)
-  [comments  ] +1.5 Claude — 12 doc comments — thorough documentation
-  [ai_signals] +1.5 Claude — No TODO/FIXME markers in a substantial file
-  [ai_signals] +0.8 Claude — No dead code suppressions
-  [ai_signals] +0.5 GPT   — Zero trailing whitespace — machine-perfect formatting
-  [ai_signals] +0.5 Claude — No placeholder values — polished code
-  [errors    ] +1.5 Claude — Zero .unwrap() calls — careful error handling
-  [structure ] +1.0 Claude — Import statements are alphabetically sorted
-  [structure ] +1.0 Claude — Perfectly consistent blank line spacing
-  [structure ] +0.8 Claude — All lines under 100 chars — disciplined formatting
-  [structure ] +1.0 Claude — Heavy derive usage (avg 4.8 traits per derive)
-  [idioms    ] +1.0 Claude — Implements Display trait — thorough API design
-```
+![vibecheck src/report.rs](.github/assets/example.svg)
 
 Not every file is a slam dunk. `src/pipeline.rs` scores 72% — the two `.unwrap()` calls bleed a few points toward Copilot:
 
@@ -209,18 +182,22 @@ Scores:
   Claude     █████████████████████ 72.5%
   GPT        ██████ 22.9%
   Copilot    █ 4.6%
-  Gemini      0.0%
-  Human       0.0%
+  Gemini     0.0%
+  Human      0.0%
 
 Signals:
   [ai_signals] +1.5 Claude — No TODO/FIXME markers in a substantial file
   [ai_signals] +0.8 Claude — No dead code suppressions
-  [ai_signals] +0.5 GPT   — Zero trailing whitespace — machine-perfect formatting
-  [errors    ] +0.5 Copilot — 2 .unwrap() calls — moderate
-  [naming    ] +1.0 Claude — No single-character variable names
-  [idioms    ] +1.5 Claude — 6 iterator chain usages — textbook-idiomatic Rust
-  [idioms    ] +1.0 GPT   — 11 method chain continuation lines — builder pattern
-  ...
+  [ai_signals] +0.5 GPT — Zero trailing whitespace — machine-perfect formatting
+  [errors] +0.5 Copilot — 2 .unwrap() calls — moderate
+  [naming] +1.0 Claude — No single-character variable names
+  [idioms] +1.5 Claude — 6 iterator chain usages — textbook-idiomatic Rust
+  [idioms] +1.0 GPT — 11 method chain continuation lines — builder pattern
+  [structure] +1.0 Claude — Import statements are alphabetically sorted
+  [structure] +0.8 Claude — All lines under 100 chars — disciplined formatting
+  [rust_cst] +2.5 Claude — Low average cyclomatic complexity (1.2) — simple, linear functions
+  [rust_cst] +1.5 Claude — Low average nesting depth (2.1) — flat, readable structure
+  [rust_cst] +1.0 Claude — use declarations are alphabetically sorted
 ```
 
 ### The Ultimate Test: Self-Detection
@@ -361,9 +338,9 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
                     │   └─────────────┬────────────┘      │
                     └─────────────────┼───────────────────┘
                                       │
-                      ┌───────────────┼───────────────┐
-                      │               │               │
-               ┌──────┴──────┐  ┌─────┴──────┐   ┌────┴──────────┐
+                      ┌───────────────┼──────────────────┐
+                      │               │                  │
+               ┌──────┴──────┐  ┌─────┴──────┐   ┌───────┴───────┐
                │vibecheck-cli│  │  external  │   │ Trend Store   │
                │             │  │  tools /   │   │ (SQLite/redb) │
                │ TUI browser │  │  importers │   │               │
