@@ -14,26 +14,6 @@
 
 ```
 
-```
-   ┌────────────────────────────────────────┐
-   │                                        │
-   │   I can smell your AI slop.            │
-   │                                        │
-   │   Your code is organized.              │
-   │   Too organized.                       │
-   │   ...Suspiciously organized.           │
-   │                                        │
-   │   Verdict: Claude (81% confidence)     │
-   │                                        │
-   │        ┌───────────┐                   │
-   │ Claude │███████████│ 81%               │
-   │ GPT    │████       │ 19%               │
-   │ Human  │           │  0%  <- yeah sure │
-   │        └───────────┘                   │
-   │                                        │
-   └────────────────────────────────────────┘
-```
-
 [![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
@@ -43,6 +23,8 @@
 > *— The Most Interesting LLM in the World*
 
 **vibecheck** is a Rust crate that detects AI-generated code and attributes it to a model family. It sniffs out the telltale "vibes" that different AI models leave in code — the suspiciously perfect formatting, the teaching-voice comments, the conspicuous absence of `TODO: fix this later`.
+
+![vibecheck example output](.github/assets/example.svg)
 
 ```
    The 5 stages of vibecheck grief:
@@ -96,36 +78,6 @@ Each signal has a **weight** (positive = evidence for, negative = evidence again
 
 Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of file contents) so unchanged files are never re-analyzed.
 
-```
- ┌────────────────────────┬────────────────────────┬────────────────────────┐
- │   THE AI CODE          │   ALIGNMENT            │   CHART                │
- ├────────────────────────┼────────────────────────┼────────────────────────┤
- │                        │                        │                        │
- │  CLAUDE                │  GPT                   │  COPILOT               │
- │                        │                        │                        │
- │  /// Every function    │  let x: i32 = 5;       │  fn main() {           │
- │  /// is documented.    │  // types on           │    things().unwrap();  │
- │  pub fn perfectly_     │  // EVERYTHING         │    stuff().unwrap();   │
- │  named_function()      │  impl Builder {        │    more().unwrap();    │
- │                        │    fn with_x()         │    // works lol        │
- │  Zero .unwrap() calls  │    fn with_y()         │  }                     │
- │  Sorted imports        │    fn with_z()         │                        │
- │  format!() only        │    fn build()          │  "ship it"             │
- │                        │                        │                        │
- ├────────────────────────┼────────────────────────┼────────────────────────┤
- │                        │                        │                        │
- │  GEMINI                │  HUMAN                 │  HUMAN (at 2 AM)       │
- │                        │                        │                        │
- │  (we're still          │  // TODO               │  // WHY DOES THIS WORK │
- │   collecting           │  // HACK               │  // DO NOT TOUCH       │
- │   data on this one)    │  // FIXME later        │  let x = 42;           │
- │                        │  let x = 42;           │  let xx = x;           │
- │                        │  let mut s = "";       │  // let xxx = xx;      │
- │  🔬                    │  s = s + &thing;       │  panic!("WHY");        │
- │                        │                        │                        │
- └────────────────────────┴────────────────────────┴────────────────────────┘
-```
-
 ## Installation
 
 ```bash
@@ -166,8 +118,6 @@ vibecheck src/ --no-cache
 `--assert-family` accepts a comma-separated list of `claude`, `gpt`, `copilot`, `gemini`, or `human`. If any analyzed file's primary attribution is **not** in the list, vibecheck prints a failure summary to stderr and exits with code `1`. This is the flag that makes vibecheck useful in CI.
 
 ### Example Output
-
-![vibecheck src/report.rs](.github/assets/example.svg)
 
 Not every file is a slam dunk. `src/pipeline.rs` scores 72% — the two `.unwrap()` calls bleed a few points toward Copilot:
 
@@ -533,15 +483,14 @@ MIT
   │                                                  │
   │  Verdict: Claude (81%)                           │
   │                                                  │
-  │  $ vibecheck --explain                           │
+  │  Signals:                                        │
+  │    [ai_signals] Zero TODOs, alphabetized         │
+  │    imports, and every function has a doc         │
+  │    comment. This is either a very disciplined    │
+  │    human or — and I cannot stress this enough    │
+  │    — a chatbot.                                  │
   │                                                  │
-  │  > Your code has zero TODOs, alphabetized        │
-  │  > imports, and every function has a doc         │
-  │  > comment. This is either a very disciplined    │
-  │  > human or — and I cannot stress this enough    │
-  │  > — a chatbot.                                  │
-  │  >                                               │
-  │  > Source: I am literally that chatbot.          │
+  │    Source: I am literally that chatbot.          │
   │                                                  │
   └──────────────────────────────────────────────────┘
 ```
