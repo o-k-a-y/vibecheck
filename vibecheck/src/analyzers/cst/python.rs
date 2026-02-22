@@ -150,6 +150,84 @@ fn count_type_annotations(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, u
     (typed, total)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::CstAnalyzer;
+    use crate::report::ModelFamily;
+
+    fn parse_and_run(source: &str) -> Vec<Signal> {
+        let analyzer = PythonCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer.analyze_tree(&tree, source)
+    }
+
+    #[test]
+    fn docstring_coverage_is_claude() {
+        let source = r#"
+def process(data):
+    """Process the input data and return result."""
+    return data
+
+def validate(value):
+    """Validate the given value against constraints."""
+    return bool(value)
+
+def transform(item):
+    """Transform item into the required format."""
+    return str(item)
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 2.0
+                && s.description.contains("Docstring")),
+            "expected docstring coverage Claude signal; got: {:?}", signals
+        );
+    }
+
+    #[test]
+    fn type_annotation_coverage_is_claude() {
+        let source = r#"
+def add(a: int, b: int) -> int:
+    return a + b
+
+def greet(name: str, greeting: str) -> str:
+    return f"{greeting}, {name}"
+
+def compute(x: float, y: float, z: float) -> float:
+    return x + y + z
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 1.5
+                && s.description.contains("annotation")),
+            "expected type annotation Claude signal; got: {:?}", signals
+        );
+    }
+
+    #[test]
+    fn fstring_only_is_claude() {
+        let source = r#"
+def greet(name):
+    return f"Hello, {name}"
+
+def describe(item, count):
+    return f"{count} items of type {item}"
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 1.0
+                && s.description.contains("f-string")),
+            "expected f-string Claude signal; got: {:?}", signals
+        );
+    }
+}
+
 /// Count f-strings and old-style %-formatted strings in the tree.
 fn count_string_styles(root: Node<'_>, src_bytes: &[u8]) -> (usize, usize) {
     let mut fstrings = 0usize;

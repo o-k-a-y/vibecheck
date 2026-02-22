@@ -3,6 +3,88 @@ use crate::report::{ModelFamily, Signal};
 
 pub struct CodeStructureAnalyzer;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        CodeStructureAnalyzer.analyze(source)
+    }
+
+    #[test]
+    fn sorted_imports_is_claude() {
+        let source = "\
+use std::collections::HashMap;\n\
+use std::fmt;\n\
+use std::path::PathBuf;\n\
+let x = 1;\nlet y = 2;\nlet z = 3;\nlet a = 4;\nlet b = 5;\nlet c = 6;\nlet d = 7;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+                && s.description.contains("sorted")),
+            "expected sorted imports Claude signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn high_annotation_ratio_is_gpt() {
+        // 8 annotated out of 10 total = 80% > 70%
+        let source = "\
+let x: i32 = 1;\n\
+let y: String = String::new();\n\
+let z: Vec<u8> = vec![];\n\
+let w: bool = true;\n\
+let a: u64 = 0;\n\
+let b: f64 = 0.0;\n\
+let c: usize = 0;\n\
+let d: i64 = 0;\n\
+let v = 0;\n\
+let u = 0;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Gpt && s.weight == 1.0),
+            "expected high annotation ratio Gpt signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn low_annotation_ratio_is_claude() {
+        // <20% annotated with 5+ let bindings
+        let source = "\
+let value_one = 1;\n\
+let value_two = 2;\n\
+let value_three = 3;\n\
+let value_four = 4;\n\
+let value_five = 5;\n\
+let value_six = 6;\n\
+let x: i32 = 0;\n\
+let y = 0;\nlet z = 0;\nlet a = 0;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8
+                && s.description.contains("inference")),
+            "expected low annotation ratio Claude signal (weight 0.8)"
+        );
+    }
+
+    #[test]
+    fn all_lines_under_100_chars_is_claude() {
+        // 10+ non-empty lines, all ≤ 100 chars
+        let source = (0..12)
+            .map(|i| format!("let value_{i} = {i};"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8
+                && s.description.contains("100")),
+            "expected all-lines-under-100 Claude signal (weight 0.8)"
+        );
+    }
+}
+
 impl Analyzer for CodeStructureAnalyzer {
     fn name(&self) -> &str {
         "structure"

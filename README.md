@@ -89,7 +89,8 @@ vibecheck runs your source code through two layers of analysis:
 |----------|---------|
 | **Rust** | Cyclomatic complexity, doc comment coverage on pub fns, identifier entropy, nesting depth, import ordering |
 | **Python** | Docstring coverage, type annotation coverage, f-string vs %-format ratio |
-| **JavaScript / Go** | Stubs (signals coming in Phase 2) |
+| **JavaScript** | Arrow function ratio, async/await vs `.then()` chaining, optional chaining density |
+| **Go** | Godoc coverage on exported functions, goroutine count, `err != nil` check density |
 
 Each signal has a **weight** (positive = evidence for, negative = evidence against) and points to a **model family**. The pipeline aggregates all signals into a probability distribution.
 
@@ -128,16 +129,11 @@ Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of f
 ## Installation
 
 ```bash
-# Clone and build the CLI binary
-git clone https://github.com/o-k-a-y/vibecheck.git
-cd vibecheck
-cargo build --release -p vibecheck-cli
+# Install the CLI
+cargo install vibecheck-cli
 
-# The binary is at target/release/vibecheck
-
-# Or add the core library as a dependency in your own tool:
-# Cargo.toml:
-# vibecheck = { path = "path/to/vibecheck/vibecheck" }
+# Add the library to your project
+cargo add vibecheck
 ```
 
 ## Usage
@@ -323,21 +319,21 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 ### Current (Phase 1) — Workspace + CST Engine
 
 ```
-                    ┌────────────────────────────────────┐
+                    ┌─────────────────────────────────────┐
                     │            vibecheck                │
-                    │                                    │
-  source code ───►  │  SHA-256 → redb cache lookup       │
-  (.rs/.py/etc.)    │         │ (hit: return cached)     │
+                    │                                     │
+  source code ───►  │  SHA-256 → redb cache lookup        │
+  (.rs/.py/etc.)    │         │ (hit: return cached)      │
                     │         ▼ (miss: analyze)           │
                     │  TextAnalyzers[]  CstAnalyzers[]    │
                     │   (6 pattern)    (tree-sitter)      │
-                    │         └──────────┬──────────┘     │
+                    │         └─────────┬──────────┘      │
                     │                Signals              │
                     │                   │                 │
                     │          Aggregate + Normalize      │
                     │                   │                 │
                     │               Report ──► cache.put  │
-                    └───────────────────┼────────────────┘
+                    └───────────────────┼─────────────────┘
                                         │
                                vibecheck-cli
                            (--format, --assert-family,
@@ -347,33 +343,33 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 ### Target (v2) — Trend Tracking + ML
 
 ```
-                    ┌────────────────────────────────────┐
+                    ┌─────────────────────────────────────┐
                     │            vibecheck                │
-                    │                                    │
-  source code ───►  │  tree-sitter CST (multi-language)  │
-  (Rust/Py/TS/Go)   │         │                          │
+                    │                                     │
+  source code ───►  │  tree-sitter CST (multi-language)   │
+  (.rs/.py/etc.)    │         │                           │
                     │  CstAnalyzers[]  TextAnalyzers[]    │
-                    │         └──────────┬─────────────┘  │
-                    │                Signals              │
-                    │                   │                 │
-                    │   ┌───────────────┴──────────────┐  │
+                    │       └─────────┬───────────┘       │
+                    │              Signals                │
+                    │                 │                   │
+                    │   ┌─────────────┴────────────────┐  │
                     │   │  Aggregate · Normalize · ML  │  │
-                    │   └───────────────┬──────────────┘  │
-                    │                   │                 │
-                    │   ┌───────────────┴──────────┐      │
+                    │   └─────────────┬────────────────┘  │
+                    │                 │                   │
+                    │   ┌─────────────┴────────────┐      │
                     │   │  Report + SymbolReport   │      │
-                    │   └───────┬──────────────────┘      │
-                    └──────────┼────────────────────────┘
-                               │
-               ┌───────────────┼───────────────┐
-               │               │               │
-        ┌──────┴──────┐  ┌─────┴──────┐  ┌────┴──────────┐
-        │vibecheck-cli│  │  external  │  │ Trend Store   │
-        │             │  │  tools /   │  │ (SQLite/redb) │
-        │ TUI browser │  │  importers │  │               │
-        │ watch mode  │  │  (library) │  │ git history   │
-        │ git history │  │            │  │ + live watch  │
-        └─────────────┘  └────────────┘  └───────────────┘
+                    │   └─────────────┬────────────┘      │
+                    └─────────────────┼───────────────────┘
+                                      │
+                      ┌───────────────┼───────────────┐
+                      │               │               │
+               ┌──────┴──────┐  ┌─────┴──────┐   ┌────┴──────────┐
+               │vibecheck-cli│  │  external  │   │ Trend Store   │
+               │             │  │  tools /   │   │ (SQLite/redb) │
+               │ TUI browser │  │  importers │   │               │
+               │ watch mode  │  │  (library) │   │ git history   │
+               │ git history │  │            │   │ + live watch  │
+               └─────────────┘  └────────────┘   └───────────────┘
 ```
 
 **Crate split:**
@@ -404,11 +400,19 @@ The codebase is split into two crates. `vibecheck` is a clean library with no CL
 | `vibecheck` | `corpus` | No | SQLite corpus + trend store (`rusqlite`) |
 | `vibecheck-cli` | — | — | CLI binary; always has `clap`, `walkdir`, `colored`, `anyhow` |
 
+### The `corpus` feature
+
+The corpus store is separate from the content-addressed redb cache. They serve different purposes:
+
+- **redb cache** (always on) — performance. If a file's SHA-256 hash hasn't changed, return the cached `Report` instantly without re-running any analyzers.
+- **corpus store** (opt-in) — data collection. Every result is written to SQLite in two tables:
+  - `corpus_entries` — one deduplicated row per unique file hash, recording its attribution and confidence. This builds a labeled dataset of (file → AI family) pairs that will feed the Phase 4 ML classifier.
+  - `trend_entries` — a timestamped row on every analysis run (no deduplication). This lets you plot how a file's attribution drifts over time — e.g. as you edit it, or as the heuristics improve.
+
 To enable the corpus store:
 
-```toml
-[dependencies]
-vibecheck = { path = "...", features = ["corpus"] }
+```bash
+cargo add vibecheck --features corpus
 ```
 
 ## What's Coming
@@ -463,8 +467,8 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 ### Phase 1 — Infrastructure ✅
 - [x] **Crate split** — `vibecheck` (library) + `vibecheck-cli` (binary)
 - [x] **Content-addressed cache** — SHA-256 per file; skip re-analysis of unchanged files (redb)
-- [x] **tree-sitter CST analysis** — Rust (5 signals) + Python (3 signals) fully implemented; JS/Go stubs
-- [x] **Corpus store** — SQLite corpus + trend tables, feature-gated (`--features corpus`)
+- [x] **tree-sitter CST analysis** — Rust (5 signals), Python (3 signals), JavaScript (3 signals), Go (3 signals)
+- [x] **Corpus store** — SQLite-backed labeled dataset + trend log, feature-gated (`--features corpus`); feeds the Phase 4 ML classifier
 
 ### Phase 2 — Visible Product
 - [ ] **Historical trend tracking** — `vibecheck history <path>` replays git log
@@ -484,9 +488,9 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 
 ### Already Shipped
 - [x] **6 text-pattern analyzers** — comment style, AI signals, error handling, naming, code structure, idiom usage
-- [x] **tree-sitter CST analyzers** — Rust (5 signals) + Python (3 signals)
+- [x] **tree-sitter CST analyzers** — Rust (5), Python (3), JavaScript (3), Go (3)
 - [x] **Content-addressed cache** — redb backend, SHA-256 keyed, instant on cache hit
-- [x] **Corpus store** — SQLite trend + labeled corpus tables (`--features corpus`)
+- [x] **Corpus store** — accumulates labeled samples and per-file trend history in SQLite (`--features corpus`)
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 - [x] **JSON output** — pipe results to other tools
 - [x] **Library API** — `vibecheck` is a clean library crate with no CLI dependencies
@@ -521,7 +525,6 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 ```
 
 **Current limitations (Phase 1):**
-- **JS/Go CST stubs** — tree-sitter parsers are wired in but signal implementations are placeholders (Phase 2)
 - **Heuristic-based** — no ML model; weights are hand-tuned, not learned from a corpus
 - **Not adversarial-resistant** — deliberately obfuscated AI code will fool it
 - **Model family overlap** — GPT and Claude share many patterns; attribution between them is fuzzy
@@ -534,7 +537,7 @@ Contributions welcome! Some high-impact areas:
 
 1. **More signals** — if you notice a pattern that screams "AI wrote this", open a PR
 2. **Weight tuning** — help calibrate signal weights against real-world code
-3. **JS and Go CST analyzers** — tree-sitter parsers are wired in but `analyze_tree` returns empty; implement `CstAnalyzer` to add real signals (see `src/analyzers/cst/javascript.rs` and `go.rs` for the planned signal list)
+3. **More CST signals** — extend the existing JS/Go/Rust/Python CST analyzers or add a new language (implement `CstAnalyzer` and register in `default_cst_analyzers()`)
 4. **Test corpus** — curate labeled examples of human vs AI code for training and benchmarking
 5. **New text analyzers** — implement the `Analyzer` trait (`analyze(&str) -> Vec<Signal>`) and register in `default_analyzers()`; new CST analyzers implement `CstAnalyzer` and register in `default_cst_analyzers()`
 

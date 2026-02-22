@@ -29,8 +29,11 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Run tests
-        run: cargo test
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Check test coverage
+        run: cargo llvm-cov -p vibecheck --ignore-filename-regex "cst/(go|javascript)" --fail-under-lines 65
 
       - name: Vibecheck source code
         run: |

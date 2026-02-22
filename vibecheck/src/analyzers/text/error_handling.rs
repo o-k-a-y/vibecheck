@@ -3,6 +3,127 @@ use crate::report::{ModelFamily, Signal};
 
 pub struct ErrorHandlingAnalyzer;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        ErrorHandlingAnalyzer.analyze(source)
+    }
+
+    fn pad(base: &str, total: usize) -> String {
+        let mut lines: Vec<String> = base.lines().map(|l| l.to_string()).collect();
+        while lines.len() < total {
+            lines.push("let padding = 0;".to_string());
+        }
+        lines.join("\n")
+    }
+
+    #[test]
+    fn short_source_no_signals() {
+        let source = (0..5).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
+        assert!(run(&source).is_empty());
+    }
+
+    #[test]
+    fn zero_unwrap_in_large_file_is_claude() {
+        let source = pad("fn process() -> Result<(), String> { Ok(()) }", 35);
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected zero-unwrap Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn five_unwraps_is_human() {
+        let lines: Vec<String> = (0..5)
+            .map(|_| "let v = opt.unwrap();".to_string())
+            .chain((0..30).map(|i| format!("let x{i} = {i};")))
+            .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 1.5),
+            "expected 5+ unwraps Human signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn one_to_three_unwraps_is_copilot() {
+        let lines: Vec<String> = vec![
+            "let v = opt.unwrap();".to_string(),
+            "let w = other.unwrap();".to_string(),
+        ]
+        .into_iter()
+        .chain((0..10).map(|i| format!("let x{i} = {i};")))
+        .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Copilot && s.weight == 0.5),
+            "expected 1-3 unwraps Copilot signal (weight 0.5)"
+        );
+    }
+
+    #[test]
+    fn two_expect_calls_is_claude() {
+        let lines: Vec<String> = vec![
+            r#"let v = file.expect("file missing");"#.to_string(),
+            r#"let w = conn.expect("conn failed");"#.to_string(),
+        ]
+        .into_iter()
+        .chain((0..10).map(|i| format!("let x{i} = {i};")))
+        .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+                && s.description.contains("expect")),
+            "expected .expect() Claude signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn three_question_marks_is_claude() {
+        let lines: Vec<String> = vec![
+            "let a = foo()?;".to_string(),
+            "let b = bar()?;".to_string(),
+            "let c = baz()?;".to_string(),
+        ]
+        .into_iter()
+        .chain((0..10).map(|i| format!("let x{i} = {i};")))
+        .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+                && s.description.contains("?")),
+            "expected ? operator Claude signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn two_panics_is_human() {
+        let lines: Vec<String> = vec![
+            r#"panic!("something went wrong");"#.to_string(),
+            r#"panic!("unreachable state");"#.to_string(),
+        ]
+        .into_iter()
+        .chain((0..10).map(|i| format!("let x{i} = {i};")))
+        .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 1.5
+                && s.description.contains("panic")),
+            "expected panic!() Human signal (weight 1.5)"
+        );
+    }
+}
+
 impl Analyzer for ErrorHandlingAnalyzer {
     fn name(&self) -> &str {
         "errors"

@@ -3,6 +3,77 @@ use crate::report::{ModelFamily, Signal};
 
 pub struct AiSignalsAnalyzer;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        AiSignalsAnalyzer.analyze(source)
+    }
+
+    #[test]
+    fn short_source_no_signals() {
+        let source = (0..5).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
+        assert!(run(&source).is_empty());
+    }
+
+    #[test]
+    fn no_todo_in_large_file_is_claude() {
+        // 35 lines, no TODO/FIXME → Claude signal weight 1.5
+        let source = (0..35).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected no-TODO Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn todo_present_suppresses_no_todo_signal() {
+        let mut lines: Vec<String> = (0..35).map(|i| format!("let x{i} = {i};")).collect();
+        lines.push("// TODO: fix this later".to_string());
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            !signals.iter().any(|s| s.description.contains("TODO/FIXME") && s.weight == 1.5),
+            "should not emit no-TODO signal when TODO is present"
+        );
+    }
+
+    #[test]
+    fn commented_out_code_is_human() {
+        // 2+ commented-out code lines → Human signal weight 2.5
+        let mut lines: Vec<&str> = vec![
+            "// let old_value = compute();",
+            "// let result = old_value * 2;",
+        ];
+        // Pad to 10+ lines so the guard passes
+        for _ in 0..10 { lines.push("let x = 1;"); }
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 2.5),
+            "expected commented-out code Human signal (weight 2.5)"
+        );
+    }
+
+    #[test]
+    fn all_functions_documented_is_claude() {
+        let source = "\
+// padding\n// padding\n// padding\n// padding\n// padding\n\
+/// Does thing one.\npub fn thing_one() {}\n\
+/// Does thing two.\npub fn thing_two() {}\n\
+/// Does thing three.\npub fn thing_three() {}";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 2.0),
+            "expected all-documented-functions Claude signal (weight 2.0)"
+        );
+    }
+}
+
 impl Analyzer for AiSignalsAnalyzer {
     fn name(&self) -> &str {
         "ai_signals"

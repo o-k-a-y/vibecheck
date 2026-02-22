@@ -57,7 +57,7 @@ impl CstAnalyzer for RustCstAnalyzer {
         if !pub_fns.is_empty() {
             let documented = pub_fns
                 .iter()
-                .filter(|&&f| has_preceding_doc_comment(f))
+                .filter(|&&f| has_preceding_doc_comment(f, src_bytes))
                 .count();
             let ratio = documented as f64 / pub_fns.len() as f64;
             if ratio >= 0.9 {
@@ -177,11 +177,22 @@ fn is_pub_fn(node: Node<'_>, src_bytes: &[u8]) -> bool {
 
 /// Check whether the previous named sibling of a node is a doc comment.
 /// Also skips over attribute items that may appear between the comment and function.
-fn has_preceding_doc_comment(node: Node<'_>) -> bool {
+/// In tree-sitter-rust, doc comments (`///`) are `line_comment` nodes whose text
+/// starts with `///`, not a distinct `line_doc_comment` kind.
+fn has_preceding_doc_comment(node: Node<'_>, src_bytes: &[u8]) -> bool {
     let mut prev = node.prev_named_sibling();
     while let Some(n) = prev {
         match n.kind() {
-            "line_doc_comment" | "block_doc_comment" => return true,
+            "line_comment" => {
+                return n.utf8_text(src_bytes)
+                    .map(|t| t.starts_with("///"))
+                    .unwrap_or(false);
+            }
+            "block_comment" => {
+                return n.utf8_text(src_bytes)
+                    .map(|t| t.starts_with("/**"))
+                    .unwrap_or(false);
+            }
             "attribute_item" => {
                 prev = n.prev_named_sibling();
             }
@@ -277,4 +288,76 @@ fn imports_are_sorted(root: Node<'_>, src_bytes: &[u8]) -> bool {
         return false;
     }
     use_texts.windows(2).all(|w| w[0] <= w[1])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::CstAnalyzer;
+    use crate::report::ModelFamily;
+
+    fn parse_and_run(source: &str) -> Vec<Signal> {
+        let analyzer = RustCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer.analyze_tree(&tree, source)
+    }
+
+    #[test]
+    fn low_complexity_is_claude() {
+        // Simple linear functions → avg cyclomatic complexity ≤ 2.0
+        let source = r#"
+fn add(a: i32, b: i32) -> i32 { a + b }
+fn subtract(a: i32, b: i32) -> i32 { a - b }
+fn multiply(a: i32, b: i32) -> i32 { a * b }
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 2.5
+                && s.description.contains("complexity")),
+            "expected low complexity Claude signal; got: {:?}", signals
+        );
+    }
+
+    #[test]
+    fn doc_comment_coverage_is_claude() {
+        // All pub functions preceded by doc comments
+        let source = r#"
+/// Adds two numbers together.
+pub fn add(a: i32, b: i32) -> i32 { a + b }
+
+/// Subtracts b from a.
+pub fn subtract(a: i32, b: i32) -> i32 { a - b }
+
+/// Multiplies two numbers.
+pub fn multiply(a: i32, b: i32) -> i32 { a * b }
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 2.0
+                && s.description.contains("Doc comment")),
+            "expected doc comment coverage Claude signal; got: {:?}", signals
+        );
+    }
+
+    #[test]
+    fn sorted_imports_is_claude() {
+        let source = r#"
+use std::collections::HashMap;
+use std::fmt;
+use std::path::PathBuf;
+
+fn main() {}
+"#;
+        let signals = parse_and_run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude
+                && s.weight == 1.0
+                && s.description.contains("sorted")),
+            "expected sorted imports Claude signal; got: {:?}", signals
+        );
+    }
 }

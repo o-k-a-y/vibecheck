@@ -152,3 +152,92 @@ impl Analyzer for IdiomUsageAnalyzer {
         signals
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        IdiomUsageAnalyzer.analyze(source)
+    }
+
+    fn pad(base: &str, total: usize) -> String {
+        let mut lines: Vec<String> = base.lines().map(|l| l.to_string()).collect();
+        while lines.len() < total {
+            lines.push("let padding = 0;".to_string());
+        }
+        lines.join("\n")
+    }
+
+    #[test]
+    fn five_iterator_methods_is_claude() {
+        let source = pad(
+            "let a = v.map(|x| x);\nlet b = v.filter(|x| true);\nlet c = v.flat_map(|x| x);\n\
+             let d = v.collect();\nlet e = v.filter_map(|x| Some(x));",
+            12,
+        );
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected iterator methods Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn impl_display_for_is_claude() {
+        let source = pad(
+            "impl Display for MyType {\nfn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { Ok(()) }\n}",
+            12,
+        );
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+                && s.description.contains("Display")),
+            "expected impl Display Claude signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn two_impl_from_is_claude() {
+        let source = pad(
+            "impl From<String> for MyType {}\nimpl From<i32> for MyType {}",
+            12,
+        );
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+                && s.description.contains("From")),
+            "expected From/Into impls Claude signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn three_if_let_is_claude() {
+        let source = pad(
+            "if let Some(x) = opt1 {}\nif let Some(y) = opt2 {}\nif let Some(z) = opt3 {}",
+            12,
+        );
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8
+                && s.description.contains("if-let")),
+            "expected if-let pattern Claude signal (weight 0.8)"
+        );
+    }
+
+    #[test]
+    fn three_string_concatenations_is_human() {
+        let source = pad(
+            "let a = s1 + \" world\";\nlet b = s2 + \" foo\";\nlet c = s3 + \" bar\";",
+            12,
+        );
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 1.0
+                && s.description.contains("concat")),
+            "expected string concatenation Human signal (weight 1.0)"
+        );
+    }
+}

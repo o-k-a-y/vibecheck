@@ -3,6 +3,83 @@ use crate::report::{ModelFamily, Signal};
 
 pub struct NamingAnalyzer;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        NamingAnalyzer.analyze(source)
+    }
+
+    #[test]
+    fn short_source_no_signals() {
+        let source = (0..5).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
+        assert!(run(&source).is_empty());
+    }
+
+    #[test]
+    fn long_variable_names_is_claude() {
+        // avg name length > 12: all names are long descriptive identifiers
+        let source = "\
+let configuration_data = 1;\n\
+let processed_result_value = 2;\n\
+let transformation_output = 3;\n\
+let initialization_state = 4;\n\
+let connection_manager = 5;\n\
+let error_description = 6;\n\
+let request_handler = 7;\n\
+let response_buffer = 8;\n\
+let authentication_token = 9;\n\
+let serialization_context = 10;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected long variable names Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn short_variable_names_is_human() {
+        // avg name length < 4: use single/double char names
+        let source = "\
+let x = 1;\nlet y = 2;\nlet z = 3;\nlet a = 4;\nlet b = 5;\n\
+let c = 6;\nlet d = 7;\nlet e = 8;\nlet f = 9;\nlet g = 0;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 1.5),
+            "expected short variable names Human signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn three_single_char_names_is_human() {
+        let source = "\
+let x = 1;\nlet y = 2;\nlet z = 3;\n\
+let value_one = 10;\nlet value_two = 20;\n\
+let result = 30;\nlet output = 40;\nlet data = 50;\nlet item = 60;\nlet entry = 70;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 2.0),
+            "expected 3+ single-char names Human signal (weight 2.0)"
+        );
+    }
+
+    #[test]
+    fn five_vars_no_single_char_is_claude() {
+        let source = "\
+let value_one = 1;\nlet value_two = 2;\nlet value_three = 3;\n\
+let value_four = 4;\nlet value_five = 5;\n\
+let extra_one = 6;\nlet extra_two = 7;\nlet extra_three = 8;\nlet extra_four = 9;\nlet extra_five = 0;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0),
+            "expected no single-char names Claude signal (weight 1.0)"
+        );
+    }
+}
+
 impl Analyzer for NamingAnalyzer {
     fn name(&self) -> &str {
         "naming"

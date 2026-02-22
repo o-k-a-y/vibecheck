@@ -3,6 +3,88 @@ use crate::report::Signal;
 
 pub struct CommentStyleAnalyzer;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::Analyzer;
+    use crate::report::ModelFamily;
+
+    fn run(source: &str) -> Vec<Signal> {
+        CommentStyleAnalyzer.analyze(source)
+    }
+
+    #[test]
+    fn empty_source_no_signals() {
+        assert!(run("").is_empty());
+    }
+
+    #[test]
+    fn high_comment_density_is_claude() {
+        // 5 comment lines out of 25 total = 20% > 15%
+        let lines: Vec<&str> = std::iter::repeat("// a comment")
+            .take(5)
+            .chain(std::iter::repeat("let x = 1;").take(20))
+            .collect();
+        let source = lines.join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected high density Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn low_comment_density_is_human() {
+        // 25 lines, 0 comments → 0% < 3% and > 20 lines
+        let source = std::iter::repeat("let x = 1;").take(25).collect::<Vec<_>>().join("\n");
+        let signals = run(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 1.0),
+            "expected low density Human signal (weight 1.0)"
+        );
+    }
+
+    #[test]
+    fn teaching_voice_3_plus_is_claude() {
+        let source = "// note that this is correct\n// this ensures safety\n// this allows reuse\nlet x = 1;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 2.0),
+            "expected teaching voice Claude signal (weight 2.0)"
+        );
+    }
+
+    #[test]
+    fn teaching_voice_1_is_gpt() {
+        let source = "// note that this works\nlet x = 1;\nlet y = 2;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Gpt && s.weight == 0.8),
+            "expected single teaching phrase Gpt signal (weight 0.8)"
+        );
+    }
+
+    #[test]
+    fn five_doc_comments_is_claude() {
+        let source = "/// doc one\n/// doc two\n/// doc three\n/// doc four\n/// doc five\nlet x = 1;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected doc comments Claude signal (weight 1.5)"
+        );
+    }
+
+    #[test]
+    fn terse_markers_is_human() {
+        let source = "// TODO: fix this\n// HACK: workaround needed\nlet x = 1;";
+        let signals = run(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 2.0),
+            "expected terse markers Human signal (weight 2.0)"
+        );
+    }
+}
+
 impl Analyzer for CommentStyleAnalyzer {
     fn name(&self) -> &str {
         "comments"

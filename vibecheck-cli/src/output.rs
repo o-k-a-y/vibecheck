@@ -41,10 +41,17 @@ pub fn format_pretty(report: &Report) -> String {
         let bar_len = (*score * 30.0) as usize;
         let bar = "█".repeat(bar_len);
         let family_str = format!("{:<10}", family.to_string());
+        let bar_color = match family {
+            ModelFamily::Claude => "magenta",
+            ModelFamily::Gpt => "green",
+            ModelFamily::Gemini => "blue",
+            ModelFamily::Copilot => "cyan",
+            ModelFamily::Human => "yellow",
+        };
         out.push_str(&format!(
             "  {} {} {:.1}%\n",
             family_str,
-            bar.color(verdict_color),
+            bar.color(bar_color),
             *score * 100.0
         ));
     }

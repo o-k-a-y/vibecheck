@@ -22,9 +22,6 @@ fn detects_own_source_as_ai_generated() {
 
     for file in source_files {
         let path = Path::new(file);
-        if !path.exists() {
-            continue;
-        }
         let report =
             vibecheck::analyze_file(path).expect("should be able to read own source");
         total += 1;
@@ -138,7 +135,7 @@ fn main() {
 fn single_file_analysis_under_100ms() {
     let path = Path::new("src/pipeline.rs");
     if !path.exists() {
-        return;
+        panic!("src/pipeline.rs not found — required for timing test");
     }
     let start = std::time::Instant::now();
     let _report = vibecheck::analyze_file(path).unwrap();
@@ -148,4 +145,97 @@ fn single_file_analysis_under_100ms() {
         "analysis took {}ms, expected < 100ms",
         elapsed.as_millis()
     );
+}
+
+#[test]
+fn analyze_file_no_cache_matches_analyze() {
+    let path = Path::new("src/pipeline.rs");
+    if !path.exists() {
+        panic!("src/pipeline.rs not found — required for test");
+    }
+    let report = vibecheck::analyze_file_no_cache(path)
+        .expect("should analyze file without cache");
+    assert_ne!(
+        report.attribution.primary,
+        ModelFamily::Human,
+        "pipeline.rs should be classified as AI-generated"
+    );
+    assert!(!report.signals.is_empty(), "should produce signals for pipeline.rs");
+}
+
+#[test]
+fn cache_round_trip() {
+    let tmp = std::env::temp_dir().join(format!("vibecheck_test_{}", std::process::id()));
+    let cache = vibecheck::cache::Cache::open(&tmp).expect("open cache");
+
+    let report = vibecheck::analyze("fn main() { println!(\"hello\"); }");
+    let hash = vibecheck::cache::Cache::hash_content(b"cache_round_trip_test_content");
+
+    cache.put(&hash, &report).expect("put report into cache");
+    let retrieved = cache.get(&hash).expect("get report from cache");
+
+    assert_eq!(retrieved.attribution.primary, report.attribution.primary);
+    assert_eq!(retrieved.signals.len(), report.signals.len());
+    assert_eq!(retrieved.metadata.lines_of_code, report.metadata.lines_of_code);
+
+    let _ = std::fs::remove_dir_all(&tmp);
+}
+
+#[test]
+fn report_scores_sum_to_one() {
+    let source = r#"
+use std::collections::HashMap;
+
+/// A simple struct.
+pub struct Processor {
+    data: HashMap<String, String>,
+}
+
+impl Processor {
+    /// Create a new Processor.
+    pub fn new() -> Self {
+        Self { data: HashMap::new() }
+    }
+
+    /// Process a key.
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.data.get(key)
+    }
+}
+"#;
+    let report = vibecheck::analyze(source);
+    let sum: f64 = report.attribution.scores.values().sum();
+    assert!(
+        (sum - 1.0).abs() < 0.001,
+        "scores should sum to 1.0, got {sum}"
+    );
+}
+
+#[test]
+fn signals_have_valid_weights() {
+    let source = r#"
+use std::collections::HashMap;
+
+/// A simple struct.
+pub struct Processor {
+    data: HashMap<String, String>,
+}
+
+impl Processor {
+    pub fn new() -> Self {
+        Self { data: HashMap::new() }
+    }
+}
+"#;
+    let report = vibecheck::analyze(source);
+    for signal in &report.signals {
+        assert!(
+            !signal.weight.is_nan(),
+            "signal weight is NaN: {:?}", signal
+        );
+        assert!(
+            !signal.weight.is_infinite(),
+            "signal weight is infinite: {:?}", signal
+        );
+    }
 }
