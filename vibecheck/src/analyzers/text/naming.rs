@@ -26,7 +26,6 @@ impl Analyzer for NamingAnalyzer {
                     } else {
                         &trimmed[4..]
                     };
-                    // Extract name before : or = or whitespace
                     let name = after_let
                         .split(|c: char| c == ':' || c == '=' || c == ' ')
                         .next()

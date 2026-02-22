@@ -27,7 +27,6 @@ impl Analyzer for CodeStructureAnalyzer {
         let annotated = let_lines
             .iter()
             .filter(|l| {
-                // Has a : before the = (type annotation)
                 if let Some(eq_pos) = l.find('=') {
                     l[..eq_pos].contains(':')
                 } else {

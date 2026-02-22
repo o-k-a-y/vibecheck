@@ -4,8 +4,10 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use walkdir::WalkDir;
 
-use vibecheck::output::{self, OutputFormat};
+use vibecheck::output::OutputFormat;
 use vibecheck::report::{ModelFamily, Report};
+
+mod output;
 
 #[derive(Parser)]
 #[command(name = "vibecheck", about = "Detect AI-generated code")]
@@ -21,6 +23,10 @@ struct Cli {
     /// Comma-separated, e.g. --assert-family claude,gpt
     #[arg(long, value_delimiter = ',')]
     assert_family: Option<Vec<String>>,
+
+    /// Skip the content-addressed cache (always re-analyze).
+    #[arg(long)]
+    no_cache: bool,
 }
 
 fn parse_format(s: &str) -> Result<OutputFormat> {
@@ -37,6 +43,7 @@ fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
         return Ok(vec![path.clone()]);
     }
 
+    let supported_exts = ["rs", "py", "js", "ts", "jsx", "tsx", "go"];
     let mut files = Vec::new();
     for entry in WalkDir::new(path)
         .into_iter()
@@ -44,7 +51,11 @@ fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
         .filter(|e| e.file_type().is_file())
     {
         let p = entry.path();
-        if p.extension().map_or(false, |ext| ext == "rs") {
+        if p.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| supported_exts.contains(&e))
+            .unwrap_or(false)
+        {
             files.push(p.to_path_buf());
         }
     }
@@ -86,12 +97,18 @@ fn main() -> Result<()> {
     let files = collect_files(&cli.path).context("failed to collect files")?;
 
     if files.is_empty() {
-        anyhow::bail!("no .rs files found in {}", cli.path.display());
+        anyhow::bail!("no supported source files found in {}", cli.path.display());
     }
+
+    let analyze_fn: fn(&std::path::Path) -> std::io::Result<Report> = if cli.no_cache {
+        vibecheck::analyze_file_no_cache
+    } else {
+        vibecheck::analyze_file
+    };
 
     let reports: Vec<Report> = files
         .iter()
-        .map(|f| vibecheck::analyze_file(f))
+        .map(|f| analyze_fn(f))
         .collect::<std::io::Result<Vec<_>>>()
         .context("failed to analyze files")?;
 
@@ -107,6 +124,10 @@ fn main() -> Result<()> {
     if let Some(ref allowed) = allowed_families {
         let mut failures = Vec::new();
         for report in &reports {
+            // Skip files too small to produce signals — attribution is arbitrary for them.
+            if report.metadata.signal_count == 0 {
+                continue;
+            }
             if !allowed.contains(&report.attribution.primary) {
                 failures.push(report);
             }

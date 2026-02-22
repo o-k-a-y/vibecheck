@@ -70,7 +70,9 @@
 
 ## How It Works
 
-vibecheck runs your source code through **6 heuristic analyzers**, each looking for different "tells":
+vibecheck runs your source code through two layers of analysis:
+
+**Layer 1 — Text-pattern analyzers** (all languages):
 
 | Analyzer | What It Sniffs | Example Signal |
 |----------|---------------|----------------|
@@ -81,7 +83,17 @@ vibecheck runs your source code through **6 heuristic analyzers**, each looking 
 | **Code Structure** | Type annotations, import ordering, formatting | *"Import statements are alphabetically sorted"* |
 | **Idiom Usage** | Iterator chains, builder patterns, Display impls | *"8 iterator chain usages — textbook-idiomatic Rust"* |
 
+**Layer 2 — tree-sitter CST analyzers** (language-aware):
+
+| Language | Signals |
+|----------|---------|
+| **Rust** | Cyclomatic complexity, doc comment coverage on pub fns, identifier entropy, nesting depth, import ordering |
+| **Python** | Docstring coverage, type annotation coverage, f-string vs %-format ratio |
+| **JavaScript / Go** | Stubs (signals coming in Phase 2) |
+
 Each signal has a **weight** (positive = evidence for, negative = evidence against) and points to a **model family**. The pipeline aggregates all signals into a probability distribution.
+
+Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of file contents) so unchanged files are never re-analyzed.
 
 ```
  ┌────────────────────────┬────────────────────────┬────────────────────────┐
@@ -116,14 +128,16 @@ Each signal has a **weight** (positive = evidence for, negative = evidence again
 ## Installation
 
 ```bash
-# Clone and build
-git clone https://github.com/youruser/vibecheck.git
+# Clone and build the CLI binary
+git clone https://github.com/o-k-a-y/vibecheck.git
 cd vibecheck
-cargo build --release
+cargo build --release -p vibecheck-cli
 
-# Or add as a library dependency (without CLI deps)
+# The binary is at target/release/vibecheck
+
+# Or add the core library as a dependency in your own tool:
 # Cargo.toml:
-# vibecheck = { path = ".", default-features = false }
+# vibecheck = { path = "path/to/vibecheck/vibecheck" }
 ```
 
 ## Usage
@@ -134,7 +148,7 @@ cargo build --release
 # Analyze a single file (pretty output with colors)
 vibecheck src/main.rs
 
-# Analyze a directory
+# Analyze a directory (supports .rs, .py, .js, .ts, .go)
 vibecheck src/
 
 # Plain text output
@@ -148,6 +162,9 @@ vibecheck src/ --assert-family claude,gpt,copilot,gemini
 
 # Assert human authorship specifically
 vibecheck src/ --assert-family human
+
+# Skip the cache (always re-analyze, useful for CI reproducibility)
+vibecheck src/ --no-cache
 ```
 
 `--assert-family` accepts a comma-separated list of `claude`, `gpt`, `copilot`, `gemini`, or `human`. If any analyzed file's primary attribution is **not** in the list, vibecheck prints a failure summary to stderr and exits with code `1`. This is the flag that makes vibecheck useful in CI.
@@ -215,20 +232,19 @@ Signals:
 vibecheck was written by an AI. Does it know?
 
 ```
-$ vibecheck src/ --format text
+$ vibecheck vibecheck/src/ --format text
 
-src/report.rs          → Claude (96%)   # 👀
-src/analyzers/mod.rs   → Claude (88%)
-src/main.rs            → Claude (81%)
-src/analyzers/comment_style.rs → Claude (81%)
-src/analyzers/ai_signals.rs    → Claude (81%)
-src/pipeline.rs        → Claude (72%)   # two .unwrap()s cost it
+vibecheck/src/report.rs          → Claude (96%)   # 👀
+vibecheck/src/cache.rs           → Claude (96%)
+vibecheck/src/language.rs        → Claude (93%)
+vibecheck/src/analyzers/cst/python.rs → Claude (85%)
+vibecheck/src/pipeline.rs        → Claude (74%)   # two .unwrap()s cost it
 ```
 
-Every single file in the codebase is correctly attributed to Claude. The confidence ranges from 72% to 96% depending on how "perfect" the individual file is — the more `.unwrap()` calls, the lower the score.
+Every file in the codebase is correctly attributed to Claude. The confidence ranges from 74% to 96% depending on how "perfect" the individual file is.
 
 ```
-$ vibecheck src/ --assert-family claude
+$ vibecheck vibecheck/src/ --assert-family claude --no-cache
 
 All files passed the vibe check.      # exits 0
 ```
@@ -264,12 +280,15 @@ println!("Verdict: {} ({:.0}%)",
     report.attribution.primary,
     report.attribution.confidence * 100.0);
 
-// Analyze a file
+// Analyze a file (uses content-addressed cache automatically)
 let report = vibecheck::analyze_file(Path::new("suspect.rs"))?;
 if report.attribution.primary != ModelFamily::Human {
     println!("Caught one! This code was probably written by {}",
         report.attribution.primary);
 }
+
+// Bypass the cache
+let report = vibecheck::analyze_file_no_cache(Path::new("suspect.rs"))?;
 ```
 
 ### GitHub Action / CI Integration
@@ -280,7 +299,7 @@ A ready-to-use workflow lives at `.github/workflows/vibecheck.yml`. It triggers 
 
 ```yaml
 - name: Vibecheck source code
-  run: cargo run --release -- src/ --format text --assert-family claude,gpt,copilot,gemini
+  run: cargo run --release -p vibecheck-cli -- vibecheck/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
 ```
 
 **Use case 2: enforce that all code is human-written** (block AI slop from landing)
@@ -301,34 +320,70 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 ## Architecture
 
+### Current (Phase 1) — Workspace + CST Engine
+
 ```
-                    ┌──────────┐
-   source code ───> │ Pipeline │
-                    └────┬─────┘
-                         │
-          ┌──────────────┼──────────────┐
-          │              │              │
-    ┌─────┴─────┐   ┌────┴────┐   ┌─────┴─────┐
-    │ Comment   │   │ AI      │   │ Error     │  ... (6 total)
-    │ Style     │   │ Signals │   │ Handling  │
-    └─────┬─────┘   └────┬────┘   └─────┬─────┘
-          │              │              │
-          └──────── Signals ────────────┘
-                         │
-                  ┌──────┴──────┐
-                  │  Aggregate  │
-                  │  Normalize  │
-                  │  Attribute  │
-                  └──────┬──────┘
-                         │
-                    ┌────┴────┐
-                    │ Report  │
-                    │         │
-                    │ family  │
-                    │ + score │
-                    │ + vibes │
-                    └─────────┘
+                    ┌────────────────────────────────────┐
+                    │            vibecheck                │
+                    │                                    │
+  source code ───►  │  SHA-256 → redb cache lookup       │
+  (.rs/.py/etc.)    │         │ (hit: return cached)     │
+                    │         ▼ (miss: analyze)           │
+                    │  TextAnalyzers[]  CstAnalyzers[]    │
+                    │   (6 pattern)    (tree-sitter)      │
+                    │         └──────────┬──────────┘     │
+                    │                Signals              │
+                    │                   │                 │
+                    │          Aggregate + Normalize      │
+                    │                   │                 │
+                    │               Report ──► cache.put  │
+                    └───────────────────┼────────────────┘
+                                        │
+                               vibecheck-cli
+                           (--format, --assert-family,
+                            --no-cache, walkdir)
 ```
+
+### Target (v2) — Trend Tracking + ML
+
+```
+                    ┌────────────────────────────────────┐
+                    │            vibecheck                │
+                    │                                    │
+  source code ───►  │  tree-sitter CST (multi-language)  │
+  (Rust/Py/TS/Go)   │         │                          │
+                    │  CstAnalyzers[]  TextAnalyzers[]    │
+                    │         └──────────┬─────────────┘  │
+                    │                Signals              │
+                    │                   │                 │
+                    │   ┌───────────────┴──────────────┐  │
+                    │   │  Aggregate · Normalize · ML  │  │
+                    │   └───────────────┬──────────────┘  │
+                    │                   │                 │
+                    │   ┌───────────────┴──────────┐      │
+                    │   │  Report + SymbolReport   │      │
+                    │   └───────┬──────────────────┘      │
+                    └──────────┼────────────────────────┘
+                               │
+               ┌───────────────┼───────────────┐
+               │               │               │
+        ┌──────┴──────┐  ┌─────┴──────┐  ┌────┴──────────┐
+        │vibecheck-cli│  │  external  │  │ Trend Store   │
+        │             │  │  tools /   │  │ (SQLite/redb) │
+        │ TUI browser │  │  importers │  │               │
+        │ watch mode  │  │  (library) │  │ git history   │
+        │ git history │  │            │  │ + live watch  │
+        └─────────────┘  └────────────┘  └───────────────┘
+```
+
+**Crate split:**
+
+| Crate | Contents | Who uses it |
+|-------|----------|-------------|
+| `vibecheck` | Analysis engine, CST analyzers, cache, corpus store | any tool that imports it |
+| `vibecheck-cli` | CLI binary, TUI (ratatui), watch mode, git history replay | end users |
+
+`vibecheck` has no CLI or TUI dependencies — it is a clean library crate that any tool can import to get AI authorship analysis, symbol-level reports, and trend data.
 
 ## Model Family Profiles
 
@@ -342,55 +397,99 @@ How vibecheck tells them apart:
 
 ## Feature Flags
 
-| Feature | Default | What it enables |
-|---------|---------|-----------------|
-| `cli` | Yes | `clap`, `walkdir`, `colored`, `anyhow` for the CLI binary |
+The codebase is split into two crates. `vibecheck` is a clean library with no CLI dependencies:
 
-To use vibecheck as a library without CLI dependencies:
+| Crate | Feature | Default | What it enables |
+|-------|---------|---------|-----------------|
+| `vibecheck` | `corpus` | No | SQLite corpus + trend store (`rusqlite`) |
+| `vibecheck-cli` | — | — | CLI binary; always has `clap`, `walkdir`, `colored`, `anyhow` |
+
+To enable the corpus store:
 
 ```toml
 [dependencies]
-vibecheck = { version = "0.1", default-features = false }
+vibecheck = { path = "...", features = ["corpus"] }
 ```
+
+## What's Coming
+
+```
+  THE GRAND PLAN (revised)
+  ──────────────────────────────────────────────────────
+  v0.1 - "It Works On My Machine"          ✓ shipped
+  v0.2 - "Infrastructure That Doesn't Lie"   <- next
+  v0.3 - "We Can Smell Python Too Now"
+  v0.4 - "Your Codebase Has a Trend Problem"
+  v1.0 - "Skynet But For Code Review"
+  ──────────────────────────────────────────────────────
+```
+
+### Planned: TUI Codebase Navigator
+
+An interactive terminal UI (`vibecheck tui <path>`) that lets you browse AI likelihood across an entire codebase — navigating like a file tree but seeing confidence scores and trend sparklines at every level:
+
+```
+vibecheck/                    [Claude 78%]  ▁▂▃▄▅▇  (30-day trend)
+  src/                        [Claude 82%]  ▁▃▅▇█
+    analyzers/                [Claude 75%]  ▁▂▃▄▅
+      ai_signals.rs           [Claude 91%]  ▄▅▆▇█
+        AiSignalsAnalyzer     [Claude 91%]
+          Analyzer::analyze   [Claude 88%]  ▃▅▇
+      code_structure.rs       [Claude 71%]  ▁▂▃▃▄
+    pipeline.rs               [Claude 85%]  ▁▄▇▇█
+      Pipeline::run           [Claude 88%]  ▂▄▆█
+      Pipeline::aggregate     [Claude 95%]  ▅▇██
+```
+
+Confidence rolls up: symbol → file → directory (weighted by lines of code).
+
+### Planned: Historical & Live Trend Tracking
+
+```bash
+# Watch a file live — re-analyze on save, stream deltas
+vibecheck watch src/
+
+# Walk git history and build a trend
+vibecheck history src/pipeline.rs --since 2025-01-01
+
+# Both at once in the TUI
+vibecheck tui src/ --watch
+```
+
+Historical mode replays git log. Watch mode appends as you code. Both write to the same trend store so you get a continuous picture from "when the repo started" to "right now".
 
 ## Roadmap
 
-```
-  THE GRAND PLAN
-  ──────────────────────────────────────────────
-  v0.1 - "It Works On My Machine"    <- you are here
-  v0.2 - "Trust Me Bro It's Accurate"
-  v0.3 - "We Can Smell Python Too Now"
-  v0.4 - "Your CI Pipeline Has Opinions"  (GitHub Action: shipped early)
-  v1.0 - "Skynet But For Code Review"
-  ──────────────────────────────────────────────
-```
+### Phase 1 — Infrastructure ✅
+- [x] **Crate split** — `vibecheck` (library) + `vibecheck-cli` (binary)
+- [x] **Content-addressed cache** — SHA-256 per file; skip re-analysis of unchanged files (redb)
+- [x] **tree-sitter CST analysis** — Rust (5 signals) + Python (3 signals) fully implemented; JS/Go stubs
+- [x] **Corpus store** — SQLite corpus + trend tables, feature-gated (`--features corpus`)
 
-### v0.2 — Getting Smarter
-- [ ] **Weighted signal tuning** — calibrate weights against a labeled corpus of human/AI code
-- [ ] **Gemini-specific signals** — better differentiation for Gemini-generated code
-- [ ] **Confidence calibration** — ensure reported confidence matches actual accuracy
-- [ ] **Combined file analysis** — aggregate signals across an entire crate for a project-level verdict
-- [ ] **Configurable thresholds** — let users tune sensitivity
+### Phase 2 — Visible Product
+- [ ] **Historical trend tracking** — `vibecheck history <path>` replays git log
+- [ ] **Live watch mode** — `vibecheck watch <path>` re-analyzes on file saves
+- [ ] **TUI navigator** — ratatui-based codebase browser with confidence bars + sparklines
+- [ ] **Importable library API** — clean `vibecheck` surface for external tools to consume reports and trend data
 
-### v0.3 — Polyglot
-- [ ] **Python support** — detect AI patterns in Python (docstring style, type hints, f-strings)
-- [ ] **TypeScript/JavaScript support** — JSDoc patterns, import styles, async patterns
-- [ ] **Go support** — error handling patterns, naming conventions, comment style
-- [ ] **Language auto-detection** — pick the right analyzer set automatically
+### Phase 3 — Corpus Growth
+- [ ] **Merkle hash tree** — incremental directory analysis; only re-analyze changed subtrees
+- [ ] **Git repo scraper** — acquire labeled corpus from public repos via commit co-author metadata
 
-### v0.4 — The Integrations
-- [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
-- [ ] **Pre-commit hook** — flag AI-generated code before it lands
-- [ ] **Editor plugins** — VS Code extension showing inline AI probability
-- [ ] **Git blame integration** — attribute commits, not just files
-
-### v1.0 — Production Vibes
-- [ ] **ML-backed scoring** — train a classifier on the heuristic signals for better accuracy
-- [ ] **AST-aware analysis** — parse actual syntax trees instead of string matching
-- [ ] **Regex patterns** — more sophisticated pattern matching for v1 heuristics
+### Phase 4 — Intelligence
+- [ ] **ML classification** — `linfa`-based model trained on scraped corpus; replaces hand-tuned weights
+- [ ] **Version detection** — distinguish Claude 3.5 vs Claude 4, GPT-3.5 vs GPT-4o (corpus permitting)
+- [ ] **Plugin system** — WASM-based external analyzers; static feature-flag plugins first
 - [ ] **Benchmark suite** — accuracy metrics against known human/AI code datasets
-- [ ] **Watermark detection** — detect known AI watermarking patterns
+
+### Already Shipped
+- [x] **6 text-pattern analyzers** — comment style, AI signals, error handling, naming, code structure, idiom usage
+- [x] **tree-sitter CST analyzers** — Rust (5 signals) + Python (3 signals)
+- [x] **Content-addressed cache** — redb backend, SHA-256 keyed, instant on cache hit
+- [x] **Corpus store** — SQLite trend + labeled corpus tables (`--features corpus`)
+- [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
+- [x] **JSON output** — pipe results to other tools
+- [x] **Library API** — `vibecheck` is a clean library crate with no CLI dependencies
 
 ## Limitations
 
@@ -421,11 +520,13 @@ vibecheck = { version = "0.1", default-features = false }
   └─────────────────────────────────────────────────┘
 ```
 
-- **Rust-only** (for now) — other languages coming in v0.3
-- **Heuristic-based** — no ML, no AST parsing, just string vibes
+**Current limitations (Phase 1):**
+- **JS/Go CST stubs** — tree-sitter parsers are wired in but signal implementations are placeholders (Phase 2)
+- **Heuristic-based** — no ML model; weights are hand-tuned, not learned from a corpus
 - **Not adversarial-resistant** — deliberately obfuscated AI code will fool it
 - **Model family overlap** — GPT and Claude share many patterns; attribution between them is fuzzy
-- **File-level only** — can't detect mixed human/AI authorship within a single file
+- **File-level only** — can't detect mixed human/AI authorship within a single file; symbol-level coming in Phase 2
+- **No trend tracking** — point-in-time only; historical and live trend tracking coming in Phase 2
 
 ## Contributing
 
@@ -433,8 +534,9 @@ Contributions welcome! Some high-impact areas:
 
 1. **More signals** — if you notice a pattern that screams "AI wrote this", open a PR
 2. **Weight tuning** — help calibrate signal weights against real-world code
-3. **Language support** — add analyzers for Python, TypeScript, Go, etc.
-4. **Test corpus** — curate labeled examples of human vs AI code
+3. **JS and Go CST analyzers** — tree-sitter parsers are wired in but `analyze_tree` returns empty; implement `CstAnalyzer` to add real signals (see `src/analyzers/cst/javascript.rs` and `go.rs` for the planned signal list)
+4. **Test corpus** — curate labeled examples of human vs AI code for training and benchmarking
+5. **New text analyzers** — implement the `Analyzer` trait (`analyze(&str) -> Vec<Signal>`) and register in `default_analyzers()`; new CST analyzers implement `CstAnalyzer` and register in `default_cst_analyzers()`
 
 ## License
 

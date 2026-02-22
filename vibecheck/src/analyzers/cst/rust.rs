@@ -1,0 +1,280 @@
+use std::collections::HashMap;
+
+use tree_sitter::{Node, Tree};
+
+use crate::analyzers::CstAnalyzer;
+use crate::language::Language;
+use crate::report::{ModelFamily, Signal};
+
+pub struct RustCstAnalyzer;
+
+impl CstAnalyzer for RustCstAnalyzer {
+    fn name(&self) -> &str {
+        "rust_cst"
+    }
+
+    fn target_language(&self) -> Language {
+        Language::Rust
+    }
+
+    fn ts_language(&self) -> tree_sitter::Language {
+        tree_sitter_rust::LANGUAGE.into()
+    }
+
+    fn analyze_tree(&self, tree: &Tree, source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let src_bytes = source.as_bytes();
+        let root = tree.root_node();
+
+        // --- Signal 1: Cyclomatic complexity ---
+        let functions = collect_all_functions(root);
+        if !functions.is_empty() {
+            let complexities: Vec<usize> = functions.iter().map(|&f| complexity_of_fn(f)).collect();
+            let avg = complexities.iter().sum::<usize>() as f64 / complexities.len() as f64;
+            if avg <= 2.0 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!("Low average cyclomatic complexity ({avg:.1}) — simple, linear functions"),
+                    family: ModelFamily::Claude,
+                    weight: 2.5,
+                });
+            } else if avg >= 5.0 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!("High average cyclomatic complexity ({avg:.1}) — complex branching"),
+                    family: ModelFamily::Human,
+                    weight: 1.5,
+                });
+            }
+        }
+
+        // --- Signal 2: Doc comment coverage on pub functions ---
+        let pub_fns: Vec<Node> = functions
+            .iter()
+            .copied()
+            .filter(|&f| is_pub_fn(f, src_bytes))
+            .collect();
+        if !pub_fns.is_empty() {
+            let documented = pub_fns
+                .iter()
+                .filter(|&&f| has_preceding_doc_comment(f))
+                .count();
+            let ratio = documented as f64 / pub_fns.len() as f64;
+            if ratio >= 0.9 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!(
+                        "Doc comment coverage {:.0}% on pub functions — thorough documentation",
+                        ratio * 100.0
+                    ),
+                    family: ModelFamily::Claude,
+                    weight: 2.0,
+                });
+            }
+        }
+
+        // --- Signal 3: Identifier entropy ---
+        let identifiers = collect_identifiers(root, src_bytes);
+        if identifiers.len() >= 10 {
+            let entropy = shannon_entropy(&identifiers);
+            if entropy >= 4.0 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!("High identifier entropy ({entropy:.2}) — diverse, descriptive names"),
+                    family: ModelFamily::Claude,
+                    weight: 1.5,
+                });
+            } else if entropy < 3.0 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!("Low identifier entropy ({entropy:.2}) — repetitive or terse names"),
+                    family: ModelFamily::Human,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        // --- Signal 4: Max nesting depth ---
+        if !functions.is_empty() {
+            let depths: Vec<usize> = functions.iter().map(|&f| max_nesting_depth(f)).collect();
+            let avg_depth = depths.iter().sum::<usize>() as f64 / depths.len() as f64;
+            if avg_depth <= 3.0 {
+                signals.push(Signal {
+                    source: "rust_cst".into(),
+                    description: format!("Low average nesting depth ({avg_depth:.1}) — flat, readable structure"),
+                    family: ModelFamily::Claude,
+                    weight: 1.5,
+                });
+            }
+        }
+
+        // --- Signal 5: Import ordering ---
+        if imports_are_sorted(root, src_bytes) {
+            signals.push(Signal {
+                source: "rust_cst".into(),
+                description: "use declarations are alphabetically sorted".into(),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        signals
+    }
+}
+
+/// Collect all `function_item` nodes anywhere in the tree (includes methods).
+fn collect_all_functions<'t>(root: Node<'t>) -> Vec<Node<'t>> {
+    let mut result = Vec::new();
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "function_item" {
+            result.push(node);
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
+        }
+    }
+    result
+}
+
+/// Count decision-point nodes within a function, not recursing into nested functions.
+fn complexity_of_fn(root: Node<'_>) -> usize {
+    let decision_kinds = [
+        "if_expression",
+        "match_expression",
+        "for_expression",
+        "while_expression",
+        "loop_expression",
+    ];
+    let mut count = 0usize;
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if decision_kinds.contains(&node.kind()) {
+            count += 1;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            // Stop at nested function boundaries
+            if child.kind() != "function_item" {
+                stack.push(child);
+            }
+        }
+    }
+    count
+}
+
+/// Check whether a `function_item` has `pub` visibility.
+fn is_pub_fn(node: Node<'_>, src_bytes: &[u8]) -> bool {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "visibility_modifier" {
+            return child.utf8_text(src_bytes).map(|t| t == "pub").unwrap_or(false);
+        }
+    }
+    false
+}
+
+/// Check whether the previous named sibling of a node is a doc comment.
+/// Also skips over attribute items that may appear between the comment and function.
+fn has_preceding_doc_comment(node: Node<'_>) -> bool {
+    let mut prev = node.prev_named_sibling();
+    while let Some(n) = prev {
+        match n.kind() {
+            "line_doc_comment" | "block_doc_comment" => return true,
+            "attribute_item" => {
+                prev = n.prev_named_sibling();
+            }
+            _ => break,
+        }
+    }
+    false
+}
+
+/// Collect text of all `identifier` and `field_identifier` nodes.
+fn collect_identifiers<'s>(root: Node<'_>, src_bytes: &'s [u8]) -> Vec<&'s str> {
+    let mut result = Vec::new();
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "identifier" || node.kind() == "field_identifier" {
+            if let Ok(text) = node.utf8_text(src_bytes) {
+                result.push(text);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
+        }
+    }
+    result
+}
+
+/// Shannon entropy of the character distribution in the concatenated identifier text.
+fn shannon_entropy(identifiers: &[&str]) -> f64 {
+    let combined: String = identifiers.join("");
+    if combined.is_empty() {
+        return 0.0;
+    }
+    let mut freq: HashMap<char, usize> = HashMap::new();
+    for c in combined.chars() {
+        *freq.entry(c).or_insert(0) += 1;
+    }
+    let total = combined.chars().count() as f64;
+    -freq
+        .values()
+        .map(|&count| {
+            let p = count as f64 / total;
+            p * p.log2()
+        })
+        .sum::<f64>()
+}
+
+/// Maximum nesting depth of block/if/match/loop nodes within a function,
+/// not recursing into nested `function_item` nodes.
+fn max_nesting_depth(root: Node<'_>) -> usize {
+    let nesting_kinds = [
+        "block",
+        "if_expression",
+        "match_expression",
+        "for_expression",
+        "while_expression",
+        "loop_expression",
+    ];
+    // Stack of (node, current_depth)
+    let mut stack = vec![(root, 0usize)];
+    let mut max_depth = 0usize;
+    while let Some((node, depth)) = stack.pop() {
+        let new_depth = if nesting_kinds.contains(&node.kind()) {
+            depth + 1
+        } else {
+            depth
+        };
+        if new_depth > max_depth {
+            max_depth = new_depth;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() != "function_item" {
+                stack.push((child, new_depth));
+            }
+        }
+    }
+    max_depth
+}
+
+/// Check whether top-level `use_declaration` nodes are alphabetically sorted.
+fn imports_are_sorted(root: Node<'_>, src_bytes: &[u8]) -> bool {
+    let mut use_texts: Vec<String> = Vec::new();
+    let mut cursor = root.walk();
+    for child in root.children(&mut cursor) {
+        if child.kind() == "use_declaration" {
+            if let Ok(text) = child.utf8_text(src_bytes) {
+                use_texts.push(text.to_owned());
+            }
+        }
+    }
+    if use_texts.len() < 3 {
+        return false;
+    }
+    use_texts.windows(2).all(|w| w[0] <= w[1])
+}

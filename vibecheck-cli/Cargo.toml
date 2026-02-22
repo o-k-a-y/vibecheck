@@ -1,0 +1,17 @@
+[package]
+name    = "vibecheck-cli"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vibecheck"
+path = "src/main.rs"
+
+[dependencies]
+vibecheck = { path = "../vibecheck" }
+serde_json.workspace = true
+clap    = { version = "4", features = ["derive"] }
+walkdir = "2"
+colored = "2"
+anyhow  = "1"

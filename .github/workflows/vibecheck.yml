@@ -36,6 +36,8 @@ jobs:
         run: |
           echo "Running vibecheck against its own source..."
           echo ""
-          cargo run --release -- src/ --format text --assert-family claude,gpt,copilot,gemini
+          cargo run --release -p vibecheck-cli -- vibecheck/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
+          echo ""
+          cargo run --release -p vibecheck-cli -- vibecheck-cli/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
           echo ""
           echo "All files passed the vibe check."
