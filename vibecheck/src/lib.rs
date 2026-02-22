@@ -1,5 +1,6 @@
 pub mod analyzers;
 pub mod cache;
+pub mod colors;
 pub mod language;
 pub mod output;
 pub mod pipeline;
