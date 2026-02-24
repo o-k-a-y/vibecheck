@@ -1,12 +1,13 @@
 [package]
 name        = "vibecheck-cli"
-version     = "0.1.0"
+version     = "0.1.1"
 edition.workspace = true
 license.workspace = true
 description = "CLI tool to detect AI-generated code and attribute it to a model family"
 repository  = "https://github.com/o-k-a-y/vibecheck"
 keywords    = ["ai", "code-analysis", "cli", "llm", "detection"]
 categories  = ["command-line-utilities", "development-tools"]
+readme      = "../README.md"
 
 [[bin]]
 name = "vibecheck"
