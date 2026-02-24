@@ -1,6 +1,7 @@
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
+use crate::heuristics::signal_ids;
 use crate::language::Language;
 use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
@@ -32,15 +33,16 @@ impl CstAnalyzer for JavaScriptCstAnalyzer {
         if total_fns >= 3 {
             let ratio = arrow_count as f64 / total_fns as f64;
             if ratio >= 0.7 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::JS_CST_ARROW_FNS_HIGH_RATIO,
+                    self.name(),
+                    format!(
                         "{:.0}% arrow functions — modern JavaScript style",
                         ratio * 100.0
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 1.5,
-                });
+                    ModelFamily::Claude,
+                    1.5,
+                ));
             }
         }
 
@@ -48,21 +50,23 @@ impl CstAnalyzer for JavaScriptCstAnalyzer {
         let await_count = count_nodes_of_kind(root, "await_expression");
         let then_count = count_then_calls(root, src_bytes);
         if await_count >= 2 && then_count == 0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!(
+            signals.push(Signal::new(
+                signal_ids::JS_CST_ASYNC_AWAIT_ONLY,
+                self.name(),
+                format!(
                     "{await_count} await expressions, no .then() — modern async style"
                 ),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if then_count >= 2 && await_count == 0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{then_count} .then() chains — promise chain style"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_CST_ASYNC_THEN_ONLY,
+                self.name(),
+                format!("{then_count} .then() chains — promise chain style"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // --- Signal 3: Optional chaining (?.) density ---
@@ -70,14 +74,15 @@ impl CstAnalyzer for JavaScriptCstAnalyzer {
         // varies across grammar versions; text matching is unambiguous.
         let optional_chain_count = source.matches("?.").count();
         if optional_chain_count >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!(
+            signals.push(Signal::new(
+                signal_ids::JS_CST_OPTIONAL_CHAINING_HIGH,
+                self.name(),
+                format!(
                     "{optional_chain_count} optional chaining usages (?.) — defensive modern style"
                 ),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals

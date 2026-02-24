@@ -1,6 +1,7 @@
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
+use crate::heuristics::signal_ids;
 use crate::language::Language;
 use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
@@ -33,27 +34,29 @@ impl CstAnalyzer for GoCstAnalyzer {
                 .count();
             let ratio = documented as f64 / exported_fns.len() as f64;
             if ratio >= 0.8 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::GO_CST_DOC_COVERAGE_HIGH,
+                    self.name(),
+                    format!(
                         "Godoc coverage {:.0}% on exported functions — thorough documentation",
                         ratio * 100.0
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 2.0,
-                });
+                    ModelFamily::Claude,
+                    2.0,
+                ));
             }
         }
 
         // --- Signal 2: Goroutine usage ---
         let goroutine_count = count_nodes_of_kind(root, "go_statement");
         if goroutine_count >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{goroutine_count} goroutines — concurrent design"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_CST_GOROUTINES_PRESENT,
+                self.name(),
+                format!("{goroutine_count} goroutines — concurrent design"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // --- Signal 3: err != nil check density ---
@@ -62,14 +65,15 @@ impl CstAnalyzer for GoCstAnalyzer {
             + count_nodes_of_kind(root, "method_declaration");
         let err_checks = count_err_nil_checks(root, src_bytes);
         if fn_count >= 2 && err_checks >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!(
+            signals.push(Signal::new(
+                signal_ids::GO_CST_ERRORS_NIL_CHECKS,
+                self.name(),
+                format!(
                     "{err_checks} err != nil checks — thorough error handling"
                 ),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         signals

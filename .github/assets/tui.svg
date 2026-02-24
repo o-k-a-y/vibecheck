@@ -15,7 +15,7 @@
   <text x="7" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">    ▾ analyzers/</text>
   <text x="293" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   85%</text>
   <text x="7" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        ai_signals.rs</text>
-  <text x="293" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   70%</text>
+  <text x="293" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   58%</text>
   <text x="7" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        code_structure.rs</text>
   <text x="293" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   72%</text>
   <text x="7" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      cache.rs</text>
@@ -24,17 +24,17 @@
   <text x="7" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">▶     pipeline.rs</text>
   <text x="293" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   79%</text>
   <text x="7" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      report.rs</text>
-  <text x="293" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   95%</text>
+  <text x="293" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   86%</text>
   <text x="367" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">vibecheck-core/src/pipeline.rs</text>
   <text x="598" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude (80%)</text>
   <text x="367" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Claude     </text>
   <rect x="460.7" y="79.3" width="126.2" height="10" fill="#d2a8ff" rx="1"/>
   <text x="627" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 79.6%</text>
-  <text x="367" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  GPT        </text>
-  <rect x="460.7" y="97.8" width="16.2" height="10" fill="#7ee787" rx="1"/>
+  <text x="367" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Human      </text>
+  <rect x="460.7" y="97.8" width="16.2" height="10" fill="#e3b341" rx="1"/>
   <text x="627" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
-  <text x="367" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Human      </text>
-  <rect x="460.7" y="116.3" width="16.2" height="10" fill="#e3b341" rx="1"/>
+  <text x="367" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  GPT        </text>
+  <rect x="460.7" y="116.3" width="16.2" height="10" fill="#7ee787" rx="1"/>
   <text x="627" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
   <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
   <text x="627" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
@@ -45,7 +45,7 @@
   <text x="381" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[comments] </text>
   <text x="461" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
   <text x="497" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
-  <text x="547" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 6 doc comments — thorough documentation</text>
+  <text x="547" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 12 doc comments — thorough documentation</text>
   <text x="367" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
   <text x="381" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
   <text x="475" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>

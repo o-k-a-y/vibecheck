@@ -1,6 +1,7 @@
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
+use crate::heuristics::signal_ids;
 use crate::language::Language;
 use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
@@ -34,15 +35,16 @@ impl CstAnalyzer for PythonCstAnalyzer {
                 .count();
             let ratio = documented as f64 / functions.len() as f64;
             if ratio >= 0.85 {
-                signals.push(Signal {
-                    source: "python_cst".into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::PYTHON_CST_DOC_COVERAGE_HIGH,
+                    "python_cst",
+                    format!(
                         "Docstring coverage {:.0}% — thorough documentation",
                         ratio * 100.0
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 2.0,
-                });
+                    ModelFamily::Claude,
+                    2.0,
+                ));
             }
         }
 
@@ -51,27 +53,29 @@ impl CstAnalyzer for PythonCstAnalyzer {
         if total_params >= 5 {
             let ratio = typed as f64 / total_params as f64;
             if ratio >= 0.8 {
-                signals.push(Signal {
-                    source: "python_cst".into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::PYTHON_CST_TYPE_ANNOTATIONS_HIGH,
+                    "python_cst",
+                    format!(
                         "Type annotation coverage {:.0}% on parameters — modern Python style",
                         ratio * 100.0
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 1.5,
-                });
+                    ModelFamily::Claude,
+                    1.5,
+                ));
             }
         }
 
         // --- Signal 3: f-string usage ---
         let (fstring_count, old_style_count) = count_string_styles(root, src_bytes);
         if fstring_count > 0 && old_style_count == 0 {
-            signals.push(Signal {
-                source: "python_cst".into(),
-                description: format!("{fstring_count} f-strings, no %-formatting — modern Python idiom"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_CST_FSTRINGS_ONLY,
+                "python_cst",
+                format!("{fstring_count} f-strings, no %-formatting — modern Python idiom"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals

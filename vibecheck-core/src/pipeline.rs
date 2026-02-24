@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::analyzers::{default_analyzers, default_cst_analyzers, Analyzer, CstAnalyzer};
+use crate::heuristics::{DefaultHeuristics, HeuristicsProvider};
 use crate::language::{detect_language, get_ts_language};
 use crate::report::{Attribution, ModelFamily, Report, ReportMetadata, Signal, SymbolReport};
 
@@ -9,21 +10,34 @@ use crate::report::{Attribution, ModelFamily, Report, ReportMetadata, Signal, Sy
 pub struct Pipeline {
     analyzers: Vec<Box<dyn Analyzer>>,
     cst_analyzers: Vec<Box<dyn CstAnalyzer>>,
+    heuristics: Box<dyn HeuristicsProvider>,
 }
 
 impl Pipeline {
-    pub fn new(
+    /// Construct with explicit heuristics control.
+    ///
+    /// This is the preferred constructor for production code that loads a
+    /// `.vibecheck` config (via [`crate::heuristics::ConfiguredHeuristics`])
+    /// and for integration tests that need a specific weight table.
+    pub fn with_heuristics(
         analyzers: Vec<Box<dyn Analyzer>>,
         cst_analyzers: Vec<Box<dyn CstAnalyzer>>,
+        heuristics: Box<dyn HeuristicsProvider>,
     ) -> Self {
         Self {
             analyzers,
             cst_analyzers,
+            heuristics,
         }
     }
 
+    /// Construct with default heuristics and the standard analyzer set.
     pub fn with_defaults() -> Self {
-        Self::new(default_analyzers(), default_cst_analyzers())
+        Self::with_heuristics(
+            default_analyzers(),
+            default_cst_analyzers(),
+            Box::new(DefaultHeuristics),
+        )
     }
 
     pub fn run(&self, source: &str, file_path: Option<PathBuf>) -> Report {
@@ -53,6 +67,14 @@ impl Pipeline {
                 }
             }
         }
+
+        // Apply heuristic weight overrides and filter disabled signals.
+        for s in &mut signals {
+            if !s.id.is_empty() {
+                s.weight = self.heuristics.weight(&s.id);
+            }
+        }
+        signals.retain(|s| s.id.is_empty() || self.heuristics.is_enabled(&s.id));
 
         let attribution = self.aggregate(&signals);
         let lines_of_code = source.lines().count();

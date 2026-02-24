@@ -111,6 +111,12 @@ vibecheck src/ --assert-family human
 
 # Skip the cache (always re-analyze, useful for CI reproducibility)
 vibecheck src/ --no-cache
+
+# List all detection signals with their default weights (pretty table)
+vibecheck heuristics
+
+# Same list as a TOML block ready to paste into .vibecheck
+vibecheck heuristics --format toml
 ```
 
 All commands are also available as explicit subcommands: `vibecheck analyze`, `vibecheck tui`, `vibecheck watch`, `vibecheck history`.
@@ -136,9 +142,13 @@ Two-pane browser: file tree with family badges on the left, signal/score/symbol 
 | `j` / `↓` | Move down |
 | `k` / `↑` | Move up |
 | `Enter` / `→` / `l` | Expand directory |
-| `←` / `h` | Collapse directory or go to parent |
+| `←` | Collapse directory or go to parent |
 | `d` / `PageDown` | Scroll detail pane down |
 | `u` / `PageUp` | Scroll detail pane up |
+| `⇧→` / `⇧←` | Scroll detail pane right / left |
+| `h` | Toggle git history panel (files only) |
+| `↑` / `↓` in history | Navigate commits |
+| `Esc` | Close history panel |
 | `q` / `Ctrl+C` | Quit |
 
 ### Live Watch Mode
@@ -183,6 +193,96 @@ vibecheck watch src/ --ignore-file path/to/.vibecheck
 ```
 
 Ignored paths are excluded from all traversal layers — they do not enter the file list, the Merkle hash tree, or the watch event queue.
+
+### Heuristics
+
+Every detection rule in vibecheck is a **signal** with three properties:
+
+- **Stable ID** (`rust.errors.zero_unwrap`) — used as the config key and for cache invalidation
+- **Weight** — how strongly the signal shifts the score (positive = evidence for the family; `0.0` = disabled)
+- **Family** — which model family the signal points toward (Claude, Gpt, Copilot, Human, …)
+
+There are currently 151 signals across Rust, Python, JavaScript, and Go.
+
+#### Viewing signals
+
+```bash
+# Pretty table grouped by language then analyzer (default)
+vibecheck heuristics
+
+# Output:
+# Language  Analyzer    Signal ID                     Family  Weight  Description
+# ─────────────────────────────────────────────────────────────────────────────
+# rust      errors      rust.errors.zero_unwrap       Claude  1.50    Zero .unwrap() calls in a large file
+# rust      errors      rust.errors.many_unwraps      Human   1.50    5+ .unwrap() calls — pragmatic style
+# …
+
+# TOML block ready to paste into .vibecheck
+vibecheck heuristics --format toml
+
+# Output:
+# [heuristics]
+# # "rust.errors.zero_unwrap" = 1.5   # Claude: Zero .unwrap() calls in a large file
+# # "rust.errors.many_unwraps" = 1.5  # Human:  5+ .unwrap() calls — pragmatic style
+# …
+```
+
+#### Overriding weights
+
+Add a `[heuristics]` section to your `.vibecheck` config. Any signal not listed falls back to its default weight.
+
+```toml
+# .vibecheck
+[ignore]
+patterns = ["vendor/", "dist/"]
+
+[heuristics]
+# Double the zero-unwrap signal — you care a lot about this one
+"rust.errors.zero_unwrap" = 3.0
+
+# Disable the trailing-whitespace signal — your auto-formatter isn't deterministic
+"rust.ai_signals.no_trailing_ws" = 0.0
+
+# Your codebase uses panic! legitimately; reduce human penalty
+"rust.errors.panic_calls" = 0.5
+```
+
+Setting a weight to `0.0` **disables** the signal entirely — it won't appear in reports or affect scores. Weights above the default amplify a signal you find particularly reliable.
+
+Run `vibecheck heuristics --format toml` to get a pre-commented block of every signal with its default — copy, uncomment, and edit.
+
+#### Signal catalogue
+
+A representative sample (run `vibecheck heuristics` for the full 151-signal table):
+
+| Language | Analyzer | Signal ID | Family | Weight | Description |
+|----------|----------|-----------|--------|--------|-------------|
+| rust | errors | `rust.errors.zero_unwrap` | Claude | 1.5 | Zero `.unwrap()` calls in a large file |
+| rust | errors | `rust.errors.many_unwraps` | Human | 1.5 | 5+ `.unwrap()` calls — pragmatic style |
+| rust | errors | `rust.errors.panic_calls` | Human | 1.5 | 2+ `panic!()` calls |
+| rust | ai_signals | `rust.ai_signals.all_fns_documented` | Claude | 2.0 | Every function has a doc comment — suspiciously thorough |
+| rust | ai_signals | `rust.ai_signals.commented_out_code` | Human | 2.5 | 2+ lines of commented-out code |
+| rust | naming | `rust.naming.very_descriptive_vars` | Claude | 1.5 | Very descriptive variable names (avg >12 chars) |
+| rust | naming | `rust.naming.many_single_char_vars` | Human | 2.0 | 3+ single-character variable names |
+| rust | idioms | `rust.idioms.iterator_chains` | Claude | 1.5 | 5+ iterator chain usages — textbook-idiomatic Rust |
+| rust | idioms | `rust.idioms.string_concat` | Human | 1.0 | 3+ string concatenations — less idiomatic |
+| rust_cst | rust_cst | `rust_cst.complexity.low` | Claude | 2.5 | Low avg cyclomatic complexity (≤2.0) — simple, linear functions |
+| rust_cst | rust_cst | `rust_cst.doc_coverage.high` | Claude | 2.0 | ≥90% doc comment coverage on pub functions |
+| rust_cst | rust_cst | `rust_cst.nesting.low` | Claude | 1.5 | Low avg nesting depth (≤3.0) — flat, readable structure |
+| python | errors | `python.errors.broad_except` | Human | 1.5 | 2+ broad `except` clauses — swallows all exceptions |
+| python | ai_signals | `python.ai_signals.all_fns_documented` | Claude | 2.0 | Every function has a docstring — suspiciously thorough |
+| python | idioms | `python.idioms.comprehensions` | Claude | 1.5 | 3+ list/dict/set comprehensions — pythonic style |
+| python | idioms | `python.idioms.old_format` | Human | 1.0 | 3+ old-style `%`-format calls — legacy string formatting |
+| python_cst | python_cst | `python_cst.doc_coverage.high` | Claude | 2.0 | ≥85% docstring coverage — thorough documentation |
+| python_cst | python_cst | `python_cst.type_annotations.high` | Claude | 1.5 | ≥80% type annotation coverage on parameters |
+| js | idioms | `js.idioms.arrow_fns_only` | Claude | 1.5 | 5+ arrow functions, no regular functions — modern ES6+ |
+| js | idioms | `js.idioms.var_declarations` | Human | 1.5 | 3+ `var` declarations — legacy hoisting style |
+| js | ai_signals | `js.ai_signals.commented_out_code` | Human | 2.5 | 2+ lines of commented-out code |
+| js_cst | js_cst | `js_cst.arrow_fns.high_ratio` | Claude | 1.5 | ≥70% arrow functions — modern JavaScript style |
+| go | idioms | `go.idioms.table_driven_tests` | Claude | 1.5 | Table-driven test pattern detected — idiomatic Go testing |
+| go | errors | `go.errors.errorf_wrap` | Claude | 1.0 | 2+ `fmt.Errorf(%w)` wrappings — idiomatic error context |
+| go | ai_signals | `go.ai_signals.commented_out_code` | Human | 2.5 | 2+ lines of commented-out code |
+| go_cst | go_cst | `go_cst.doc_coverage.high` | Claude | 2.0 | ≥80% Godoc coverage on exported functions |
 
 ### Git History
 
@@ -472,9 +572,12 @@ vibecheck history src/pipeline.rs --limit 20
           watch mode, git history)
   v0.3 - "Please Don't Scan My node_modules" ✓ shipped
          (ignore rules, .vibecheck config, IgnoreRules DI)
-  v0.4 - "Your Codebase Has a Trend Problem" <- next
+  v0.4 - "Trust No Signal You Can't Override"  ✓ shipped
+         (heuristics config system, signal IDs, weight overrides,
+          vibecheck heuristics command, TUI history panel)
+  v0.5 - "Your Codebase Has a Trend Problem" <- next
          (persistent trend store, sparklines)
-  v0.5 - "We Trained a Model On This"
+  v0.6 - "We Trained a Model On This"
   v1.0 - "Skynet But For Code Review"
   ──────────────────────────────────────────────────────
 ```
@@ -521,6 +624,7 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **JSON output** — pipe results to other tools
 - [x] **Library API** — `vibecheck-core` is a clean library crate with no CLI dependencies
 - [x] **Ignore rules** — `.vibecheck` TOML config; gitignore-style patterns; `IgnoreRules` trait for DI; `--ignore-file` flag
+- [x] **Heuristics system** — 151 signals with stable IDs; per-signal weight overrides in `.vibecheck`; `vibecheck heuristics` command; `HeuristicsProvider` DI trait; TUI git history panel (`h` to toggle)
 
 ## Limitations
 

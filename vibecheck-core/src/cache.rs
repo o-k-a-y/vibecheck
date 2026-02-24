@@ -210,12 +210,7 @@ mod tests {
                 confidence: 0.85,
                 scores: HashMap::from([(ModelFamily::Claude, 0.85)]),
             },
-            signals: vec![Signal {
-                source: "test".to_string(),
-                description: "test signal".to_string(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            }],
+            signals: vec![Signal::new("", "test", "test signal", ModelFamily::Claude, 1.0)],
         }];
 
         cache.put_symbols(&hash, &syms).unwrap();

@@ -88,6 +88,9 @@ impl IgnoreRules for PatternIgnore {
 struct ConfigFile {
     #[serde(default)]
     ignore: IgnoreSection,
+    /// Optional `[heuristics]` table: signal-ID → weight override.
+    #[serde(default)]
+    heuristics: std::collections::HashMap<String, f64>,
 }
 
 #[derive(serde::Deserialize)]
@@ -149,6 +152,8 @@ pub struct IgnoreConfig {
     combined: Gitignore,
     /// Extra patterns only (used by `is_extra_ignored` for walker secondary filter).
     extra: Gitignore,
+    /// Signal-ID → weight overrides from the `[heuristics]` TOML table.
+    heuristics: std::collections::HashMap<String, f64>,
 }
 
 impl IgnoreConfig {
@@ -168,7 +173,7 @@ impl IgnoreConfig {
         let f: ConfigFile = toml::from_str(&s)
             .map_err(|e| anyhow::anyhow!("failed to parse {}: {e}", path.display()))?;
         let root = path.parent().unwrap_or(path).to_path_buf();
-        Ok(Self::from_section(root, f.ignore))
+        Ok(Self::from_section(root, f.ignore, f.heuristics))
     }
 
     /// Build an [`ignore::WalkBuilder`] pre-configured with gitignore settings.
@@ -198,24 +203,31 @@ impl IgnoreConfig {
 
     // -- internals -----------------------------------------------------------
 
+    /// Return the signal-ID → weight override map from the `[heuristics]` table.
+    ///
+    /// An empty map means "use all defaults".
+    pub fn heuristics_map(&self) -> std::collections::HashMap<String, f64> {
+        self.heuristics.clone()
+    }
+
     fn load_from_root(root: PathBuf) -> Self {
         let cfg_path = root.join(".vibecheck");
-        let section = if cfg_path.is_file() {
+        let (section, heuristics) = if cfg_path.is_file() {
             std::fs::read_to_string(&cfg_path)
                 .ok()
                 .and_then(|s| toml::from_str::<ConfigFile>(&s).ok())
-                .map(|f| f.ignore)
+                .map(|f| (f.ignore, f.heuristics))
                 .unwrap_or_else(|| {
                     eprintln!("vibecheck: warning: failed to parse .vibecheck; using defaults");
-                    IgnoreSection::default()
+                    (IgnoreSection::default(), std::collections::HashMap::new())
                 })
         } else {
-            IgnoreSection::default()
+            (IgnoreSection::default(), std::collections::HashMap::new())
         };
-        Self::from_section(root, section)
+        Self::from_section(root, section, heuristics)
     }
 
-    fn from_section(root: PathBuf, section: IgnoreSection) -> Self {
+    fn from_section(root: PathBuf, section: IgnoreSection, heuristics: std::collections::HashMap<String, f64>) -> Self {
         let combined = build_combined(&root, &section.patterns, section.use_gitignore);
         let extra = build_extra(&root, &section.patterns);
         Self {
@@ -224,6 +236,7 @@ impl IgnoreConfig {
             use_global_gitignore: section.use_global_gitignore,
             combined,
             extra,
+            heuristics,
         }
     }
 }

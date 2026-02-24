@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
+use crate::heuristics::signal_ids;
 use crate::language::Language;
 use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
@@ -32,19 +33,21 @@ impl CstAnalyzer for RustCstAnalyzer {
             let complexities: Vec<usize> = functions.iter().map(|&f| complexity_of_fn(f)).collect();
             let avg = complexities.iter().sum::<usize>() as f64 / complexities.len() as f64;
             if avg <= 2.0 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!("Low average cyclomatic complexity ({avg:.1}) — simple, linear functions"),
-                    family: ModelFamily::Claude,
-                    weight: 2.5,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_COMPLEXITY_LOW,
+                    "rust_cst",
+                    format!("Low average cyclomatic complexity ({avg:.1}) — simple, linear functions"),
+                    ModelFamily::Claude,
+                    2.5,
+                ));
             } else if avg >= 5.0 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!("High average cyclomatic complexity ({avg:.1}) — complex branching"),
-                    family: ModelFamily::Human,
-                    weight: 1.5,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_COMPLEXITY_HIGH,
+                    "rust_cst",
+                    format!("High average cyclomatic complexity ({avg:.1}) — complex branching"),
+                    ModelFamily::Human,
+                    1.5,
+                ));
             }
         }
 
@@ -61,15 +64,16 @@ impl CstAnalyzer for RustCstAnalyzer {
                 .count();
             let ratio = documented as f64 / pub_fns.len() as f64;
             if ratio >= 0.9 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_DOC_COVERAGE_HIGH,
+                    "rust_cst",
+                    format!(
                         "Doc comment coverage {:.0}% on pub functions — thorough documentation",
                         ratio * 100.0
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 2.0,
-                });
+                    ModelFamily::Claude,
+                    2.0,
+                ));
             }
         }
 
@@ -78,19 +82,21 @@ impl CstAnalyzer for RustCstAnalyzer {
         if identifiers.len() >= 10 {
             let entropy = shannon_entropy(&identifiers);
             if entropy >= 4.0 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!("High identifier entropy ({entropy:.2}) — diverse, descriptive names"),
-                    family: ModelFamily::Claude,
-                    weight: 1.5,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_ENTROPY_HIGH,
+                    "rust_cst",
+                    format!("High identifier entropy ({entropy:.2}) — diverse, descriptive names"),
+                    ModelFamily::Claude,
+                    1.5,
+                ));
             } else if entropy < 3.0 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!("Low identifier entropy ({entropy:.2}) — repetitive or terse names"),
-                    family: ModelFamily::Human,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_ENTROPY_LOW,
+                    "rust_cst",
+                    format!("Low identifier entropy ({entropy:.2}) — repetitive or terse names"),
+                    ModelFamily::Human,
+                    1.0,
+                ));
             }
         }
 
@@ -99,23 +105,25 @@ impl CstAnalyzer for RustCstAnalyzer {
             let depths: Vec<usize> = functions.iter().map(|&f| max_nesting_depth(f)).collect();
             let avg_depth = depths.iter().sum::<usize>() as f64 / depths.len() as f64;
             if avg_depth <= 3.0 {
-                signals.push(Signal {
-                    source: "rust_cst".into(),
-                    description: format!("Low average nesting depth ({avg_depth:.1}) — flat, readable structure"),
-                    family: ModelFamily::Claude,
-                    weight: 1.5,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_CST_NESTING_LOW,
+                    "rust_cst",
+                    format!("Low average nesting depth ({avg_depth:.1}) — flat, readable structure"),
+                    ModelFamily::Claude,
+                    1.5,
+                ));
             }
         }
 
         // --- Signal 5: Import ordering ---
         if imports_are_sorted(root, src_bytes) {
-            signals.push(Signal {
-                source: "rust_cst".into(),
-                description: "use declarations are alphabetically sorted".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_CST_IMPORTS_SORTED,
+                "rust_cst",
+                "use declarations are alphabetically sorted",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals
