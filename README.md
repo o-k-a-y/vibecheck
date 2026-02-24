@@ -150,6 +150,40 @@ vibecheck watch src/
 
 Uses OS file-system events (inotify/kqueue/FSEvents) with a 300 ms debounce and a 2 s per-file cooldown to suppress duplicate events from a single save.
 
+### Ignore Rules
+
+vibecheck respects `.gitignore` automatically. For additional exclusions, drop a `.vibecheck` file in your project root:
+
+```toml
+# .vibecheck
+[ignore]
+# Extra patterns (gitignore glob syntax), additive on top of .gitignore.
+patterns = [
+  "vendor/",
+  "dist/",
+  "*.min.js",
+  "*.generated.ts",
+]
+
+# Set to false to stop reading .gitignore (default: true).
+use_gitignore = true
+
+# Set to false to stop reading the global gitignore (default: true).
+use_global_gitignore = true
+```
+
+Discovery walks upward from the analyzed path to the nearest `.vibecheck` file or `.git` directory. Falls back to gitignore-only if no config file is found.
+
+To point at a config file explicitly on any subcommand:
+
+```bash
+vibecheck src/ --ignore-file path/to/.vibecheck
+vibecheck tui src/ --ignore-file path/to/.vibecheck
+vibecheck watch src/ --ignore-file path/to/.vibecheck
+```
+
+Ignored paths are excluded from all traversal layers — they do not enter the file list, the Merkle hash tree, or the watch event queue.
+
 ### Git History
 
 ```bash
@@ -283,6 +317,30 @@ for (path, report) in results {
         report.attribution.primary,
         report.attribution.confidence * 100.0);
 }
+
+// Directory analysis with custom ignore rules (dependency injection)
+use vibecheck_core::ignore_rules::{IgnoreConfig, IgnoreRules, PatternIgnore};
+
+// Production: auto-discover .vibecheck + .gitignore
+let ignore = IgnoreConfig::load(Path::new("src/"));
+let results = vibecheck_core::analyze_directory_with(Path::new("src/"), true, &ignore)?;
+
+// Load from an explicit config file
+let ignore = IgnoreConfig::from_file(Path::new("/project/.vibecheck"))?;
+let results = vibecheck_core::analyze_directory_with(Path::new("src/"), true, &ignore)?;
+
+// Tests: inject a lightweight in-memory impl — no filesystem access needed
+let ignore = PatternIgnore(vec!["vendor".into(), "dist".into()]);
+let results = vibecheck_core::analyze_directory_with(Path::new("src/"), false, &ignore)?;
+
+// Or implement the trait directly for full control
+struct MyIgnore;
+impl IgnoreRules for MyIgnore {
+    fn is_ignored(&self, path: &std::path::Path) -> bool {
+        path.to_string_lossy().contains("generated")
+    }
+}
+let results = vibecheck_core::analyze_directory_with(Path::new("src/"), true, &MyIgnore)?;
 ```
 
 ### GitHub Action / CI Integration
@@ -436,6 +494,7 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **TUI navigator** — ratatui-based codebase browser with confidence bars
 - [x] **Symbol-level attribution** — `vibecheck --symbols <file>` breaks down each function/method
 - [x] **Merkle hash tree** — incremental directory analysis; unchanged subtrees are skipped entirely
+- [x] **Ignore rules** — `.vibecheck` config file; auto-respects `.gitignore`; `--ignore-file` flag; `IgnoreRules` trait for DI in library consumers
 
 ### Phase 3 — Corpus Growth
 - [ ] **Git repo scraper** — acquire labeled corpus from public repos via commit co-author metadata
@@ -459,6 +518,7 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 - [x] **JSON output** — pipe results to other tools
 - [x] **Library API** — `vibecheck-core` is a clean library crate with no CLI dependencies
+- [x] **Ignore rules** — `.vibecheck` TOML config; gitignore-style patterns; `IgnoreRules` trait for DI; `--ignore-file` flag
 
 ## Limitations
 

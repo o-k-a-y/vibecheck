@@ -17,6 +17,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
+use vibecheck_core::ignore_rules::{IgnoreConfig, IgnoreRules};
 use vibecheck_core::report::{ModelFamily, Report, SymbolReport};
 
 // ---------------------------------------------------------------------------
@@ -549,10 +550,15 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
 // Entry point
 // ---------------------------------------------------------------------------
 
-pub fn run(path: &Path) -> Result<()> {
+pub fn run(path: &Path, ignore_file: Option<&PathBuf>) -> Result<()> {
+    let ignore: Box<dyn IgnoreRules> = match ignore_file {
+        Some(f) => Box::new(IgnoreConfig::from_file(f)?),
+        None => Box::new(IgnoreConfig::load(path)),
+    };
+
     // Analyze all files up front (cache-backed, so fast on repeat runs).
     eprintln!("Analyzing {}…", path.display());
-    let reports = vibecheck_core::analyze_directory(path, true)?;
+    let reports = vibecheck_core::analyze_directory_with(path, true, ignore.as_ref())?;
     if reports.is_empty() {
         anyhow::bail!("no supported source files found in {}", path.display());
     }

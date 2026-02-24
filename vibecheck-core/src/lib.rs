@@ -3,6 +3,7 @@
 pub mod analyzers;
 pub mod cache;
 pub mod colors;
+pub mod ignore_rules;
 pub mod language;
 pub mod merkle;
 pub mod output;
@@ -15,7 +16,8 @@ pub mod store;
 use std::path::{Path, PathBuf};
 
 use cache::Cache;
-use merkle::walk_and_hash;
+use ignore_rules::{IgnoreConfig, IgnoreRules};
+use merkle::walk_and_hash_with;
 use pipeline::Pipeline;
 use report::Report;
 
@@ -62,12 +64,32 @@ pub fn analyze_file_no_cache(path: &Path) -> std::io::Result<Report> {
 /// Analyze every supported source file under `dir`, using a Merkle hash tree
 /// to skip unchanged subtrees when `use_cache` is `true`.
 ///
+/// Ignore rules are loaded automatically from the nearest `.vibecheck` config
+/// file (walking upward to the git root) and from `.gitignore`.
+///
 /// Returns `(file_path, Report)` pairs for all files that were (re-)analyzed.
 /// Files whose content hash has not changed since the last run are returned
 /// from the flat file cache without re-running the pipeline.
+///
+/// To supply custom ignore rules (e.g. in tests), use [`analyze_directory_with`].
 pub fn analyze_directory(
     dir: &Path,
     use_cache: bool,
+) -> anyhow::Result<Vec<(PathBuf, Report)>> {
+    let ignore = IgnoreConfig::load(dir);
+    analyze_directory_with(dir, use_cache, &ignore)
+}
+
+/// Like [`analyze_directory`], but accepts any [`IgnoreRules`] implementation.
+///
+/// This is the primary extension point for dependency injection: pass
+/// [`ignore_rules::AllowAll`] to disable all filtering,
+/// [`ignore_rules::PatternIgnore`] for substring matching in tests, or any
+/// other [`IgnoreRules`] implementation.
+pub fn analyze_directory_with(
+    dir: &Path,
+    use_cache: bool,
+    ignore: &dyn IgnoreRules,
 ) -> anyhow::Result<Vec<(PathBuf, Report)>> {
     let supported_exts = ["rs", "py", "js", "ts", "jsx", "tsx", "go"];
     let cache = if use_cache {
@@ -76,8 +98,10 @@ pub fn analyze_directory(
         None
     };
 
-    // Build the Merkle tree for the directory.
-    let current_node = walk_and_hash(dir)?;
+    // Build the Merkle tree for the directory, honouring ignore rules so that
+    // ignored files do not contribute to the hash (and thus do not trigger
+    // unnecessary re-analysis when they change).
+    let current_node = walk_and_hash_with(dir, ignore)?;
 
     // If the directory hash matches the cached hash, every file is unchanged.
     let unchanged = if use_cache {
@@ -94,11 +118,11 @@ pub fn analyze_directory(
 
     if unchanged {
         // Collect reports from the file cache — no pipeline work needed.
-        collect_cached_reports(dir, &supported_exts, cache.as_ref(), &mut results);
+        collect_cached_reports(dir, &supported_exts, cache.as_ref(), &mut results, ignore);
     } else {
         // Walk and analyze, relying on the per-file cache to avoid re-parsing
         // individual unchanged files.
-        walk_and_analyze(dir, &supported_exts, cache.as_ref(), &mut results)?;
+        walk_and_analyze(dir, &supported_exts, cache.as_ref(), &mut results, ignore)?;
 
         // Persist the updated directory node.
         if let Some(ref c) = cache {
@@ -114,6 +138,7 @@ fn collect_cached_reports(
     supported_exts: &[&str],
     cache: Option<&Cache>,
     results: &mut Vec<(PathBuf, Report)>,
+    ignore: &dyn IgnoreRules,
 ) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
@@ -124,8 +149,14 @@ fn collect_cached_reports(
 
     for path in paths {
         if path.is_dir() {
-            collect_cached_reports(&path, supported_exts, cache, results);
+            if ignore.is_ignored_dir(&path) {
+                continue;
+            }
+            collect_cached_reports(&path, supported_exts, cache, results, ignore);
         } else if path.is_file() {
+            if ignore.is_ignored(&path) {
+                continue;
+            }
             let ext = path
                 .extension()
                 .and_then(|e| e.to_str())
@@ -151,6 +182,7 @@ fn walk_and_analyze(
     supported_exts: &[&str],
     cache: Option<&Cache>,
     results: &mut Vec<(PathBuf, Report)>,
+    ignore: &dyn IgnoreRules,
 ) -> anyhow::Result<()> {
     let mut entries: Vec<_> = std::fs::read_dir(dir)?
         .filter_map(|e| e.ok())
@@ -160,8 +192,14 @@ fn walk_and_analyze(
 
     for path in entries {
         if path.is_dir() {
-            walk_and_analyze(&path, supported_exts, cache, results)?;
+            if ignore.is_ignored_dir(&path) {
+                continue;
+            }
+            walk_and_analyze(&path, supported_exts, cache, results, ignore)?;
         } else if path.is_file() {
+            if ignore.is_ignored(&path) {
+                continue;
+            }
             let ext = path
                 .extension()
                 .and_then(|e| e.to_str())

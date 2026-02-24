@@ -41,6 +41,10 @@ struct Cli {
     /// Perform symbol-level analysis and show per-function attribution.
     #[arg(long, requires = "path")]
     symbols: bool,
+
+    /// Path to a `.vibecheck` config file (default: auto-discovered from project root).
+    #[arg(long, requires = "path")]
+    ignore_file: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -74,12 +78,20 @@ struct AnalyzeArgs {
 
     #[arg(long)]
     symbols: bool,
+
+    /// Path to a `.vibecheck` config file (default: auto-discovered from project root).
+    #[arg(long)]
+    ignore_file: Option<PathBuf>,
 }
 
 #[derive(Args)]
 struct TuiArgs {
     /// Directory to browse.
     path: PathBuf,
+
+    /// Path to a `.vibecheck` config file (default: auto-discovered from project root).
+    #[arg(long)]
+    ignore_file: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -90,6 +102,10 @@ struct WatchArgs {
     /// Skip the cache (always re-analyze on each change).
     #[arg(long)]
     no_cache: bool,
+
+    /// Path to a `.vibecheck` config file (default: auto-discovered from project root).
+    #[arg(long)]
+    ignore_file: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -116,11 +132,12 @@ fn main() -> Result<()> {
             a.no_cache,
             a.symbols,
             a.assert_family,
+            a.ignore_file.as_ref(),
         ),
 
-        Some(Command::Tui(a)) => commands::tui::run(&a.path),
+        Some(Command::Tui(a)) => commands::tui::run(&a.path, a.ignore_file.as_ref()),
 
-        Some(Command::Watch(a)) => commands::watch::run(&a.path, a.no_cache),
+        Some(Command::Watch(a)) => commands::watch::run(&a.path, a.no_cache, a.ignore_file.as_ref()),
 
         Some(Command::History(a)) => commands::history::run(&a.path, Some(a.limit)),
 
@@ -131,10 +148,11 @@ fn main() -> Result<()> {
                 cli.no_cache,
                 cli.symbols,
                 cli.assert_family,
+                cli.ignore_file.as_ref(),
             ),
             None => {
                 let cwd = std::env::current_dir()?;
-                commands::tui::run(&cwd)
+                commands::tui::run(&cwd, None)
             }
         },
     }

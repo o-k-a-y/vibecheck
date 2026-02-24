@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::Result;
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 
+use vibecheck_core::ignore_rules::{IgnoreConfig, IgnoreRules};
 use vibecheck_core::output::OutputFormat;
 
 use crate::commands::analyze::format_report;
@@ -16,7 +17,12 @@ const DEBOUNCE: Duration = Duration::from_millis(300);
 const COOLDOWN: Duration = Duration::from_secs(2);
 const SUPPORTED_EXTS: &[&str] = &["rs", "py", "js", "ts", "jsx", "tsx", "go"];
 
-pub fn run(path: &Path, no_cache: bool) -> Result<()> {
+pub fn run(path: &Path, no_cache: bool, ignore_file: Option<&PathBuf>) -> Result<()> {
+    let ignore: Box<dyn IgnoreRules> = match ignore_file {
+        Some(f) => Box::new(IgnoreConfig::from_file(f)?),
+        None => Box::new(IgnoreConfig::load(path)),
+    };
+
     let (tx, rx) = mpsc::channel();
     let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
     watcher.watch(path, RecursiveMode::Recursive)?;
@@ -39,7 +45,7 @@ pub fn run(path: &Path, no_cache: bool) -> Result<()> {
         match rx.recv_timeout(timeout) {
             Ok(Ok(event)) => {
                 for p in event.paths {
-                    if is_supported(&p) {
+                    if is_supported(&p) && !ignore.is_ignored(&p) {
                         pending.insert(p);
                         deadline.get_or_insert_with(|| Instant::now() + DEBOUNCE);
                     }
@@ -72,7 +78,7 @@ pub fn run(path: &Path, no_cache: bool) -> Result<()> {
             let just_ran: HashSet<&PathBuf> = paths.iter().collect();
             while let Ok(Ok(event)) = rx.try_recv() {
                 for p in event.paths {
-                    if is_supported(&p) && !just_ran.contains(&p) {
+                    if is_supported(&p) && !ignore.is_ignored(&p) && !just_ran.contains(&p) {
                         pending.insert(p);
                     }
                 }

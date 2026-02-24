@@ -3,12 +3,18 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use walkdir::WalkDir;
 
+use vibecheck_core::ignore_rules::{IgnoreConfig, IgnoreRules};
 use vibecheck_core::output::OutputFormat;
 use vibecheck_core::report::{ModelFamily, Report};
 
 use crate::output;
 
-pub fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
+/// Collect all supported source files under `path`, respecting `ignore`.
+///
+/// When `path` is a single file it is returned directly (no filtering
+/// applied).  When it is a directory the tree is walked, skipping any entry
+/// for which `ignore` returns `true`.
+pub fn collect_files(path: &PathBuf, ignore: &dyn IgnoreRules) -> Result<Vec<PathBuf>> {
     if path.is_file() {
         return Ok(vec![path.clone()]);
     }
@@ -17,8 +23,10 @@ pub fn collect_files(path: &PathBuf) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for entry in WalkDir::new(path)
         .into_iter()
+        .filter_entry(|e| !ignore.is_ignored_dir(e.path()))
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
+        .filter(|e| !ignore.is_ignored(e.path()))
     {
         let p = entry.path();
         if p.extension()
@@ -70,6 +78,7 @@ pub fn run(
     no_cache: bool,
     symbols: bool,
     assert_family: Option<Vec<String>>,
+    ignore_file: Option<&PathBuf>,
 ) -> Result<()> {
     let fmt = parse_format(format)?;
     let allowed_families = assert_family
@@ -77,7 +86,12 @@ pub fn run(
         .map(|f| parse_families(f))
         .transpose()?;
 
-    let files = collect_files(path).context("failed to collect files")?;
+    let ignore: Box<dyn IgnoreRules> = match ignore_file {
+        Some(f) => Box::new(IgnoreConfig::from_file(f)?),
+        None => Box::new(IgnoreConfig::load(path)),
+    };
+
+    let files = collect_files(path, ignore.as_ref()).context("failed to collect files")?;
 
     if files.is_empty() {
         anyhow::bail!("no supported source files found in {}", path.display());

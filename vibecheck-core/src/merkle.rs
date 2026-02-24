@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::cache::Cache;
+use crate::ignore_rules::{AllowAll, IgnoreRules};
 
 /// A node in the Merkle hash tree representing a directory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,14 +30,21 @@ pub fn compute_dir_hash(child_hashes: &[[u8; 32]]) -> [u8; 32] {
 
 /// Walk a directory, compute its Merkle hash, and return the `DirNode`.
 ///
-/// Files are hashed by their content (via `Cache::hash_content`).
-/// Subdirectories are recursed into. The returned node's hash covers the
-/// entire subtree.
-///
-/// If `cache` contains a `DirNode` whose hash matches the freshly-computed
-/// hash, the cached node is returned unchanged — callers can use this to
-/// skip re-analysis of unchanged subtrees.
+/// Equivalent to [`walk_and_hash_with`] with [`AllowAll`] — all paths are
+/// included in the hash.  Use [`walk_and_hash_with`] when ignored files should
+/// be excluded from the hash (so that changes to ignored files do not trigger
+/// re-analysis).
 pub fn walk_and_hash(dir: &Path) -> anyhow::Result<DirNode> {
+    walk_and_hash_with(dir, &AllowAll)
+}
+
+/// Walk a directory, compute its Merkle hash, and return the `DirNode`,
+/// skipping any paths that `ignore` marks as ignored.
+///
+/// Files are hashed by their content (via `Cache::hash_content`).
+/// Subdirectories are recursed into unless [`IgnoreRules::is_ignored_dir`]
+/// returns `true`.  The returned node's hash covers the entire visible subtree.
+pub fn walk_and_hash_with(dir: &Path, ignore: &dyn IgnoreRules) -> anyhow::Result<DirNode> {
     let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
@@ -54,10 +62,16 @@ pub fn walk_and_hash(dir: &Path) -> anyhow::Result<DirNode> {
             .to_string();
 
         if entry.is_dir() {
-            let sub = walk_and_hash(entry)?;
+            if ignore.is_ignored_dir(entry) {
+                continue;
+            }
+            let sub = walk_and_hash_with(entry, ignore)?;
             child_hashes.push(sub.hash);
             children.push(name);
         } else if entry.is_file() {
+            if ignore.is_ignored(entry) {
+                continue;
+            }
             let bytes = std::fs::read(entry)?;
             let h = Cache::hash_content(&bytes);
             child_hashes.push(h);
@@ -72,6 +86,7 @@ pub fn walk_and_hash(dir: &Path) -> anyhow::Result<DirNode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ignore_rules::PatternIgnore;
 
     #[test]
     fn empty_dir_hash_is_deterministic() {
@@ -142,5 +157,37 @@ mod tests {
 
         assert_ne!(h_before, h_after,
             "parent hash must change when a file deep in the tree changes");
+    }
+
+    #[test]
+    fn walk_and_hash_with_ignores_matched_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.rs"), b"fn foo() {}").unwrap();
+        std::fs::write(dir.path().join("vendor.rs"), b"fn bar() {}").unwrap();
+
+        let ignore = PatternIgnore(vec!["vendor".into()]);
+        let node_with = walk_and_hash_with(dir.path(), &ignore).unwrap();
+        let node_without = walk_and_hash(dir.path()).unwrap();
+
+        // Hashes differ because vendor.rs is excluded.
+        assert_ne!(node_with.hash, node_without.hash);
+        assert!(!node_with.children.iter().any(|c| c.contains("vendor")));
+    }
+
+    #[test]
+    fn walk_and_hash_with_ignored_dir_does_not_affect_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let vendor = dir.path().join("vendor");
+        std::fs::create_dir(&vendor).unwrap();
+        std::fs::write(vendor.join("lib.rs"), b"// vendored").unwrap();
+
+        let ignore = PatternIgnore(vec!["vendor".into()]);
+        let h_ignored = walk_and_hash_with(dir.path(), &ignore).unwrap().hash;
+
+        // Changing content inside the ignored dir must NOT change the hash.
+        std::fs::write(vendor.join("lib.rs"), b"// changed").unwrap();
+        let h_after = walk_and_hash_with(dir.path(), &ignore).unwrap().hash;
+
+        assert_eq!(h_ignored, h_after);
     }
 }
