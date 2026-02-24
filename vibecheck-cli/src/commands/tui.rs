@@ -396,10 +396,10 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
         let bar_len = (sym.attribution.confidence * 16.0) as usize;
         let bar = "█".repeat(bar_len);
         let color = family_color(sym.attribution.primary);
-        let kind_tag = match sym.metadata.kind.as_str() {
-            "method" => "M",
-            "class"  => "C",
-            _        => "f",
+        let kind_label = match sym.metadata.kind.as_str() {
+            "method" => "method",
+            "class"  => "class",
+            _        => "fn",
         };
         let name = if sym.metadata.name.len() > 22 {
             format!("{}…", &sym.metadata.name[..21])
@@ -407,7 +407,11 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
             sym.metadata.name.clone()
         };
         lines.push(Line::from(vec![
-            Span::raw(format!("  {kind_tag} {:<23}", name)),
+            Span::styled(
+                format!("  {:<8}", kind_label),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::raw(format!("{:<22}", name)),
             Span::styled(bar, Style::default().fg(color)),
             Span::raw("  "),
             Span::styled(
@@ -700,25 +704,32 @@ mod tests {
     #[test]
     fn symbol_lines_function_kind_tag() {
         let lines = render_symbol_lines(&[make_sym("run", "function", ModelFamily::Claude, 0.5)]);
-        assert!(format!("{:?}", lines[2]).contains("f run"));
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("\"fn\"") || row.contains("fn"), "row: {row}");
+        assert!(row.contains("run"));
     }
 
     #[test]
     fn symbol_lines_method_kind_tag() {
         let lines = render_symbol_lines(&[make_sym("do_it", "method", ModelFamily::Gpt, 0.5)]);
-        assert!(format!("{:?}", lines[2]).contains("M do_it"));
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("method"), "row: {row}");
+        assert!(row.contains("do_it"));
     }
 
     #[test]
     fn symbol_lines_class_kind_tag() {
         let lines = render_symbol_lines(&[make_sym("Foo", "class", ModelFamily::Gpt, 0.5)]);
-        assert!(format!("{:?}", lines[2]).contains("C Foo"));
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("class"), "row: {row}");
+        assert!(row.contains("Foo"));
     }
 
     #[test]
-    fn symbol_lines_unknown_kind_defaults_to_f() {
+    fn symbol_lines_unknown_kind_defaults_to_fn() {
         let lines = render_symbol_lines(&[make_sym("x", "trait", ModelFamily::Claude, 0.5)]);
-        assert!(format!("{:?}", lines[2]).contains("f x"));
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("fn"), "unknown kind should fall back to fn, row: {row}");
     }
 
     #[test]
