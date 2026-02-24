@@ -9,21 +9,41 @@ pub trait Analyzer: Send + Sync {
     /// A short name identifying this analyzer.
     fn name(&self) -> &str;
 
-    /// Analyze the given source code and return signals.
+    /// Analyze Rust source code (the default / fallback language).
     fn analyze(&self, source: &str) -> Vec<Signal>;
 
-    /// Language-aware entry point.
-    ///
-    /// The default implementation delegates to [`analyze`], preserving
-    /// backward-compatible behaviour for callers that do not know the
-    /// language (e.g. tests, unknown file extensions).
-    ///
-    /// Language-specific analyzers override this to:
-    /// * skip signals that only make sense for a different language, and
-    /// * add heuristics tailored to the detected language.
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        let _ = lang;
+    /// Analyze Rust source (alias used by the dispatch table).
+    /// Defaults to [`analyze`].
+    fn analyze_rust(&self, source: &str) -> Vec<Signal> {
         self.analyze(source)
+    }
+
+    /// Analyze Python source.  Defaults to [`analyze`] when not overridden.
+    fn analyze_python(&self, source: &str) -> Vec<Signal> {
+        self.analyze(source)
+    }
+
+    /// Analyze JavaScript / TypeScript source.  Defaults to [`analyze`].
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> {
+        self.analyze(source)
+    }
+
+    /// Analyze Go source.  Defaults to [`analyze`].
+    fn analyze_go(&self, source: &str) -> Vec<Signal> {
+        self.analyze(source)
+    }
+
+    /// Fully-provided language dispatch — **never override**.
+    ///
+    /// Routes the call to the appropriate `analyze_<lang>` method based on
+    /// the detected language.
+    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
+        match lang {
+            None | Some(Language::Rust)       => self.analyze_rust(source),
+            Some(Language::Python)            => self.analyze_python(source),
+            Some(Language::JavaScript)        => self.analyze_javascript(source),
+            Some(Language::Go)                => self.analyze_go(source),
+        }
     }
 }
 

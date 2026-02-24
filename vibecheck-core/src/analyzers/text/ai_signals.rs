@@ -1,5 +1,5 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
+use crate::heuristics::signal_ids;
 use crate::report::{ModelFamily, Signal};
 
 pub struct AiSignalsAnalyzer;
@@ -76,8 +76,16 @@ mod tests {
 }
 
 impl AiSignalsAnalyzer {
-    /// Language-agnostic signals shared across all languages.
-    fn analyze_common(name: &str, source: &str) -> Vec<Signal> {
+    /// Language-agnostic signals shared across Rust / Python / JS / Go.
+    ///
+    /// Each caller passes the language-specific signal ID constants so that
+    /// the heuristics system can look them up by stable ID.
+    fn analyze_common(
+        no_todo_id: &str,
+        no_trailing_ws_id: &str,
+        no_placeholder_id: &str,
+        source: &str,
+    ) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -91,23 +99,25 @@ impl AiSignalsAnalyzer {
             upper.contains("TODO") || upper.contains("FIXME")
         });
         if !has_todo && total_lines > 30 {
-            signals.push(Signal {
-                source: name.into(),
-                description: "No TODO/FIXME markers in a substantial file".into(),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                no_todo_id,
+                "ai_signals",
+                "No TODO/FIXME markers in a substantial file",
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Zero trailing whitespace — machine-perfect formatting
         let trailing_ws = lines.iter().filter(|l| !l.is_empty() && l.ends_with(' ')).count();
         if trailing_ws == 0 && total_lines > 20 {
-            signals.push(Signal {
-                source: name.into(),
-                description: "Zero trailing whitespace — machine-perfect formatting".into(),
-                family: ModelFamily::Gpt,
-                weight: 0.5,
-            });
+            signals.push(Signal::new(
+                no_trailing_ws_id,
+                "ai_signals",
+                "Zero trailing whitespace — machine-perfect formatting",
+                ModelFamily::Gpt,
+                0.5,
+            ));
         }
 
         // Placeholder strings
@@ -121,19 +131,25 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if placeholder_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: name.into(),
-                description: "No placeholder values — polished code".into(),
-                family: ModelFamily::Claude,
-                weight: 0.5,
-            });
+            signals.push(Signal::new(
+                no_placeholder_id,
+                "ai_signals",
+                "No placeholder values — polished code",
+                ModelFamily::Claude,
+                0.5,
+            ));
         }
 
         signals
     }
 
-    fn analyze_python(source: &str) -> Vec<Signal> {
-        let mut signals = Self::analyze_common("ai_signals", source);
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
+        let mut signals = Self::analyze_common(
+            signal_ids::PYTHON_AI_SIGNALS_NO_TODO,
+            signal_ids::PYTHON_AI_SIGNALS_NO_TRAILING_WS,
+            signal_ids::PYTHON_AI_SIGNALS_NO_PLACEHOLDER,
+            source,
+        );
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
 
@@ -146,12 +162,13 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if suppression_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: "No linter suppressions (noqa/type: ignore)".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_AI_SIGNALS_NO_LINTER_SUPPRESSION,
+                "ai_signals",
+                "No linter suppressions (noqa/type: ignore)",
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Commented-out code (Python style)
@@ -167,12 +184,13 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if commented_code >= 2 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: format!("{commented_code} lines of commented-out code"),
-                family: ModelFamily::Human,
-                weight: 2.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_AI_SIGNALS_COMMENTED_OUT_CODE,
+                "ai_signals",
+                format!("{commented_code} lines of commented-out code"),
+                ModelFamily::Human,
+                2.5,
+            ));
         }
 
         // All functions have docstrings — AI is very thorough
@@ -190,19 +208,25 @@ impl AiSignalsAnalyzer {
                 && (next.starts_with("\"\"\"") || next.starts_with("'''"))
         }).count();
         if fn_count >= 3 && docstring_count == fn_count {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: "Every function has a docstring — suspiciously thorough".into(),
-                family: ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_AI_SIGNALS_ALL_FNS_DOCUMENTED,
+                "ai_signals",
+                "Every function has a docstring — suspiciously thorough",
+                ModelFamily::Claude,
+                2.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
-        let mut signals = Self::analyze_common("ai_signals", source);
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
+        let mut signals = Self::analyze_common(
+            signal_ids::JS_AI_SIGNALS_NO_TODO,
+            signal_ids::JS_AI_SIGNALS_NO_TRAILING_WS,
+            signal_ids::JS_AI_SIGNALS_NO_PLACEHOLDER,
+            source,
+        );
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
 
@@ -217,12 +241,13 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if suppression_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: "No linter/type suppressions (eslint-disable/@ts-ignore)".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_AI_SIGNALS_NO_LINTER_SUPPRESSION,
+                "ai_signals",
+                "No linter/type suppressions (eslint-disable/@ts-ignore)",
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Commented-out code (JS style)
@@ -239,12 +264,13 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if commented_code >= 2 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: format!("{commented_code} lines of commented-out code"),
-                family: ModelFamily::Human,
-                weight: 2.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_AI_SIGNALS_COMMENTED_OUT_CODE,
+                "ai_signals",
+                format!("{commented_code} lines of commented-out code"),
+                ModelFamily::Human,
+                2.5,
+            ));
         }
 
         // JSDoc on all exported functions
@@ -253,12 +279,13 @@ impl AiSignalsAnalyzer {
             .filter(|l| l.trim().starts_with("/**"))
             .count();
         if jsdoc_count >= 3 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: format!("{jsdoc_count} JSDoc comment blocks — thorough documentation"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_AI_SIGNALS_JSDOC_BLOCKS,
+                "ai_signals",
+                format!("{jsdoc_count} JSDoc comment blocks — thorough documentation"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // console.log left in code — debugging artifact
@@ -270,19 +297,25 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if console_log >= 3 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: format!("{console_log} console.log calls — likely debugging artifacts"),
-                family: ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_AI_SIGNALS_CONSOLE_LOG,
+                "ai_signals",
+                format!("{console_log} console.log calls — likely debugging artifacts"),
+                ModelFamily::Human,
+                2.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
-        let mut signals = Self::analyze_common("ai_signals", source);
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
+        let mut signals = Self::analyze_common(
+            signal_ids::GO_AI_SIGNALS_NO_TODO,
+            signal_ids::GO_AI_SIGNALS_NO_TRAILING_WS,
+            signal_ids::GO_AI_SIGNALS_NO_PLACEHOLDER,
+            source,
+        );
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
 
@@ -292,12 +325,13 @@ impl AiSignalsAnalyzer {
             .filter(|l| l.contains("//nolint") || l.contains("// nolint"))
             .count();
         if suppression_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: "No nolint suppressions — clean linter compliance".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_AI_SIGNALS_NO_NOLINT,
+                "ai_signals",
+                "No nolint suppressions — clean linter compliance",
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Commented-out code (Go style)
@@ -314,12 +348,13 @@ impl AiSignalsAnalyzer {
             })
             .count();
         if commented_code >= 2 {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: format!("{commented_code} lines of commented-out code"),
-                family: ModelFamily::Human,
-                weight: 2.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_AI_SIGNALS_COMMENTED_OUT_CODE,
+                "ai_signals",
+                format!("{commented_code} lines of commented-out code"),
+                ModelFamily::Human,
+                2.5,
+            ));
         }
 
         // All exported identifiers have doc comments — Go convention
@@ -341,12 +376,13 @@ impl AiSignalsAnalyzer {
                     .map(|c| c.is_uppercase()).unwrap_or(false)
         }).count();
         if exported_fn >= 3 && doc_before_exported == exported_fn {
-            signals.push(Signal {
-                source: "ai_signals".into(),
-                description: "All exported identifiers have doc comments — Go-idiomatic and thorough".into(),
-                family: ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_AI_SIGNALS_ALL_EXPORTED_DOCUMENTED,
+                "ai_signals",
+                "All exported identifiers have doc comments — Go-idiomatic and thorough",
+                ModelFamily::Claude,
+                2.0,
+            ));
         }
 
         signals
@@ -358,14 +394,18 @@ impl Analyzer for AiSignalsAnalyzer {
         "ai_signals"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> {
+        Self::analyze_python_impl(source)
     }
+
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> {
+        Self::analyze_javascript_impl(source)
+    }
+
+    fn analyze_go(&self, source: &str) -> Vec<Signal> {
+        Self::analyze_go_impl(source)
+    }
+
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -381,12 +421,13 @@ impl Analyzer for AiSignalsAnalyzer {
             upper.contains("TODO") || upper.contains("FIXME")
         });
         if !has_todo && total_lines > 30 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "No TODO/FIXME markers in a substantial file".into(),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_NO_TODO,
+                self.name(),
+                "No TODO/FIXME markers in a substantial file",
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // No dead code markers (#[allow(dead_code)], #[allow(unused)])
@@ -395,12 +436,13 @@ impl Analyzer for AiSignalsAnalyzer {
             .iter()
             .any(|l| dead_code_markers.iter().any(|m| l.contains(m)));
         if !has_dead_code && total_lines > 30 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "No dead code suppressions".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_NO_DEAD_CODE,
+                self.name(),
+                "No dead code suppressions",
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Suspicious consistency: all functions have doc comments
@@ -418,23 +460,25 @@ impl Analyzer for AiSignalsAnalyzer {
         }).count();
 
         if fn_count >= 3 && documented_fn_count == fn_count {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Every function has a doc comment — suspiciously thorough".into(),
-                family: ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_ALL_FNS_DOCUMENTED,
+                self.name(),
+                "Every function has a doc comment — suspiciously thorough",
+                ModelFamily::Claude,
+                2.0,
+            ));
         }
 
         // Consistent formatting: no trailing whitespace, consistent indentation
         let trailing_ws = lines.iter().filter(|l| !l.is_empty() && l.ends_with(' ')).count();
         if trailing_ws == 0 && total_lines > 20 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Zero trailing whitespace — machine-perfect formatting".into(),
-                family: ModelFamily::Gpt,
-                weight: 0.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_NO_TRAILING_WS,
+                self.name(),
+                "Zero trailing whitespace — machine-perfect formatting",
+                ModelFamily::Gpt,
+                0.5,
+            ));
         }
 
         // Commented-out code is a human signal
@@ -447,12 +491,13 @@ impl Analyzer for AiSignalsAnalyzer {
                 || trimmed.starts_with("// pub ")
         }).count();
         if commented_code >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{commented_code} lines of commented-out code"),
-                family: ModelFamily::Human,
-                weight: 2.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_COMMENTED_OUT_CODE,
+                self.name(),
+                format!("{commented_code} lines of commented-out code"),
+                ModelFamily::Human,
+                2.5,
+            ));
         }
 
         // Placeholder strings like "lorem ipsum" or "foo/bar/baz"
@@ -464,12 +509,13 @@ impl Analyzer for AiSignalsAnalyzer {
                 || lower.contains("placeholder")
         }).count();
         if placeholder_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "No placeholder values — polished code".into(),
-                family: ModelFamily::Claude,
-                weight: 0.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_NO_PLACEHOLDER,
+                self.name(),
+                "No placeholder values — polished code",
+                ModelFamily::Claude,
+                0.5,
+            ));
         }
 
         signals

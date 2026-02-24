@@ -1,5 +1,5 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
+use crate::heuristics::signal_ids;
 use crate::report::{ModelFamily, Signal};
 
 pub struct NamingAnalyzer;
@@ -112,7 +112,15 @@ impl NamingAnalyzer {
         names
     }
 
-    fn analyze_names(source_name: &str, names: &[String]) -> Vec<Signal> {
+    fn analyze_names(
+        source_name: &str,
+        very_descriptive_id: &str,
+        descriptive_id: &str,
+        short_names_id: &str,
+        many_single_char_id: &str,
+        no_single_char_id: &str,
+        names: &[String],
+    ) -> Vec<Signal> {
         let mut signals = Vec::new();
         if names.is_empty() {
             return signals;
@@ -121,58 +129,71 @@ impl NamingAnalyzer {
             names.iter().map(|n| n.len() as f64).sum::<f64>() / names.len() as f64;
 
         if avg_len > 12.0 {
-            signals.push(Signal {
-                source: source_name.into(),
-                description: format!("Very descriptive names (avg {avg_len:.1} chars)"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                very_descriptive_id,
+                source_name,
+                format!("Very descriptive names (avg {avg_len:.1} chars)"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if avg_len > 8.0 {
-            signals.push(Signal {
-                source: source_name.into(),
-                description: format!("Descriptive names (avg {avg_len:.1} chars)"),
-                family: ModelFamily::Gpt,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                descriptive_id,
+                source_name,
+                format!("Descriptive names (avg {avg_len:.1} chars)"),
+                ModelFamily::Gpt,
+                1.0,
+            ));
         } else if avg_len < 4.0 {
-            signals.push(Signal {
-                source: source_name.into(),
-                description: format!("Short names (avg {avg_len:.1} chars)"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                short_names_id,
+                source_name,
+                format!("Short names (avg {avg_len:.1} chars)"),
+                ModelFamily::Human,
+                1.5,
+            ));
         }
 
         let single_char = names.iter().filter(|n| n.len() == 1).count();
         if single_char >= 3 {
-            signals.push(Signal {
-                source: source_name.into(),
-                description: format!("{single_char} single-character names"),
-                family: ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                many_single_char_id,
+                source_name,
+                format!("{single_char} single-character names"),
+                ModelFamily::Human,
+                2.0,
+            ));
         } else if single_char == 0 && names.len() >= 5 {
-            signals.push(Signal {
-                source: source_name.into(),
-                description: "No single-character names".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                no_single_char_id,
+                source_name,
+                "No single-character names",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_python(source: &str) -> Vec<Signal> {
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let lines: Vec<&str> = source.lines().collect();
         if lines.len() < 10 {
             return vec![];
         }
         let names = Self::python_names(&lines);
-        Self::analyze_names("naming", &names)
+        Self::analyze_names(
+            "naming",
+            signal_ids::PYTHON_NAMING_VERY_DESCRIPTIVE,
+            signal_ids::PYTHON_NAMING_DESCRIPTIVE,
+            signal_ids::PYTHON_NAMING_SHORT_NAMES,
+            signal_ids::PYTHON_NAMING_MANY_SINGLE_CHAR,
+            signal_ids::PYTHON_NAMING_NO_SINGLE_CHAR,
+            &names,
+        )
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
         let lines: Vec<&str> = source.lines().collect();
         if lines.len() < 10 {
             return vec![];
@@ -203,10 +224,18 @@ impl NamingAnalyzer {
             .filter(|n| !n.is_empty() && n.chars().all(|c| c.is_alphanumeric() || c == '_'))
             .collect();
 
-        Self::analyze_names("naming", &names)
+        Self::analyze_names(
+            "naming",
+            signal_ids::JS_NAMING_VERY_DESCRIPTIVE,
+            signal_ids::JS_NAMING_DESCRIPTIVE,
+            signal_ids::JS_NAMING_SHORT_NAMES,
+            signal_ids::JS_NAMING_MANY_SINGLE_CHAR,
+            signal_ids::JS_NAMING_NO_SINGLE_CHAR,
+            &names,
+        )
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
         let lines: Vec<&str> = source.lines().collect();
         if lines.len() < 10 {
             return vec![];
@@ -245,7 +274,15 @@ impl NamingAnalyzer {
             }
         }
 
-        Self::analyze_names("naming", &names)
+        Self::analyze_names(
+            "naming",
+            signal_ids::GO_NAMING_VERY_DESCRIPTIVE,
+            signal_ids::GO_NAMING_DESCRIPTIVE,
+            signal_ids::GO_NAMING_SHORT_NAMES,
+            signal_ids::GO_NAMING_MANY_SINGLE_CHAR,
+            signal_ids::GO_NAMING_NO_SINGLE_CHAR,
+            &names,
+        )
     }
 }
 
@@ -254,14 +291,9 @@ impl Analyzer for NamingAnalyzer {
         "naming"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
-    }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> { Self::analyze_python_impl(source) }
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> { Self::analyze_javascript_impl(source) }
+    fn analyze_go(&self, source: &str) -> Vec<Signal> { Self::analyze_go_impl(source) }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -301,58 +333,64 @@ impl Analyzer for NamingAnalyzer {
             let_names.iter().map(|n| n.len() as f64).sum::<f64>() / let_names.len() as f64;
 
         if avg_len > 12.0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!(
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_VERY_DESCRIPTIVE_VARS,
+                self.name(),
+                format!(
                     "Very descriptive variable names (avg {:.1} chars)",
                     avg_len
                 ),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if avg_len > 8.0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("Descriptive variable names (avg {:.1} chars)", avg_len),
-                family: ModelFamily::Gpt,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_DESCRIPTIVE_VARS,
+                self.name(),
+                format!("Descriptive variable names (avg {:.1} chars)", avg_len),
+                ModelFamily::Gpt,
+                1.0,
+            ));
         } else if avg_len < 4.0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("Short variable names (avg {:.1} chars)", avg_len),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_SHORT_VARS,
+                self.name(),
+                format!("Short variable names (avg {:.1} chars)", avg_len),
+                ModelFamily::Human,
+                1.5,
+            ));
         }
 
         // Single-character variable names
         let single_char = let_names.iter().filter(|n| n.len() == 1).count();
         if single_char >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{single_char} single-character variable names"),
-                family: ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_MANY_SINGLE_CHAR_VARS,
+                self.name(),
+                format!("{single_char} single-character variable names"),
+                ModelFamily::Human,
+                2.0,
+            ));
         } else if single_char == 0 && let_names.len() >= 5 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "No single-character variable names".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_NO_SINGLE_CHAR_VARS,
+                self.name(),
+                "No single-character variable names",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Underscore-prefixed unused bindings (let _foo = ...)
         let underscore_bindings = let_names.iter().filter(|n| n.starts_with('_') && n.len() > 1).count();
         if underscore_bindings >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{underscore_bindings} underscore-prefixed bindings (acknowledging unused)"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_UNDERSCORE_BINDINGS,
+                self.name(),
+                format!("{underscore_bindings} underscore-prefixed bindings (acknowledging unused)"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // Function name analysis
@@ -378,15 +416,16 @@ impl Analyzer for NamingAnalyzer {
         };
 
         if avg_fn_len > 15.0 && fn_names.len() >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!(
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_DESCRIPTIVE_FN_NAMES,
+                self.name(),
+                format!(
                     "Very descriptive function names (avg {:.1} chars)",
                     avg_fn_len
                 ),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals

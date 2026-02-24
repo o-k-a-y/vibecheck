@@ -1,6 +1,6 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
-use crate::report::Signal;
+use crate::heuristics::signal_ids;
+use crate::report::{ModelFamily, Signal};
 
 pub struct CommentStyleAnalyzer;
 
@@ -87,8 +87,16 @@ mod tests {
 }
 
 impl CommentStyleAnalyzer {
-    /// Comment signals that apply regardless of language.
-    fn analyze_slash_comments(name: &str, source: &str) -> Vec<Signal> {
+    /// Comment signals that apply regardless of language (slash-comment languages).
+    fn analyze_slash_comments(
+        name: &str,
+        high_density_id: &str,
+        low_density_id: &str,
+        teaching_id: &str,
+        explanatory_id: &str,
+        terse_id: &str,
+        source: &str,
+    ) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -104,19 +112,21 @@ impl CommentStyleAnalyzer {
         let density = comment_count as f64 / total_lines as f64;
 
         if density > 0.15 {
-            signals.push(Signal {
-                source: name.into(),
-                description: format!("High comment density ({:.0}%)", density * 100.0),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                high_density_id,
+                name,
+                format!("High comment density ({:.0}%)", density * 100.0),
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if density < 0.03 && total_lines > 20 {
-            signals.push(Signal {
-                source: name.into(),
-                description: "Very low comment density".into(),
-                family: crate::report::ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                low_density_id,
+                name,
+                "Very low comment density",
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // Teaching voice
@@ -133,19 +143,21 @@ impl CommentStyleAnalyzer {
             }
         }
         if teaching_count >= 3 {
-            signals.push(Signal {
-                source: name.into(),
-                description: format!("{teaching_count} comments with teaching/explanatory voice"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                teaching_id,
+                name,
+                format!("{teaching_count} comments with teaching/explanatory voice"),
+                ModelFamily::Claude,
+                2.0,
+            ));
         } else if teaching_count >= 1 {
-            signals.push(Signal {
-                source: name.into(),
-                description: "Some explanatory comments present".into(),
-                family: crate::report::ModelFamily::Gpt,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                explanatory_id,
+                name,
+                "Some explanatory comments present",
+                ModelFamily::Gpt,
+                0.8,
+            ));
         }
 
         // Terse frustration markers
@@ -158,18 +170,19 @@ impl CommentStyleAnalyzer {
             })
             .count();
         if terse_count >= 2 {
-            signals.push(Signal {
-                source: name.into(),
-                description: format!("{terse_count} terse/frustrated comments (TODO, HACK, etc.)"),
-                family: crate::report::ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                terse_id,
+                name,
+                format!("{terse_count} terse/frustrated comments (TODO, HACK, etc.)"),
+                ModelFamily::Human,
+                2.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_python(source: &str) -> Vec<Signal> {
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
         if total_lines == 0 {
@@ -186,19 +199,21 @@ impl CommentStyleAnalyzer {
         let mut signals = Vec::new();
 
         if density > 0.15 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: format!("High comment density ({:.0}%)", density * 100.0),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_HIGH_DENSITY,
+                "comments",
+                format!("High comment density ({:.0}%)", density * 100.0),
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if density < 0.03 && total_lines > 20 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: "Very low comment density".into(),
-                family: crate::report::ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_LOW_DENSITY,
+                "comments",
+                "Very low comment density",
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // Teaching voice in # comments
@@ -214,19 +229,21 @@ impl CommentStyleAnalyzer {
             })
             .count();
         if teaching_count >= 3 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: format!("{teaching_count} comments with teaching/explanatory voice"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_TEACHING_VOICE,
+                "comments",
+                format!("{teaching_count} comments with teaching/explanatory voice"),
+                ModelFamily::Claude,
+                2.0,
+            ));
         } else if teaching_count >= 1 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: "Some explanatory comments present".into(),
-                family: crate::report::ModelFamily::Gpt,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_SOME_EXPLANATORY,
+                "comments",
+                "Some explanatory comments present",
+                ModelFamily::Gpt,
+                0.8,
+            ));
         }
 
         // Docstrings — triple-quoted strings (""" or ''') as first statement
@@ -238,12 +255,13 @@ impl CommentStyleAnalyzer {
             })
             .count();
         if docstring_count >= 5 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: format!("{docstring_count} docstring blocks — thorough documentation"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_DOCSTRING_BLOCKS,
+                "comments",
+                format!("{docstring_count} docstring blocks — thorough documentation"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Terse markers
@@ -256,38 +274,56 @@ impl CommentStyleAnalyzer {
             })
             .count();
         if terse_count >= 2 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: format!("{terse_count} terse/frustrated comments"),
-                family: crate::report::ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_COMMENTS_TERSE_MARKERS,
+                "comments",
+                format!("{terse_count} terse/frustrated comments"),
+                ModelFamily::Human,
+                2.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
-        let mut signals = Self::analyze_slash_comments("comments", source);
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
+        let mut signals = Self::analyze_slash_comments(
+            "comments",
+            signal_ids::JS_COMMENTS_HIGH_DENSITY,
+            signal_ids::JS_COMMENTS_LOW_DENSITY,
+            signal_ids::JS_COMMENTS_TEACHING_VOICE,
+            signal_ids::JS_COMMENTS_SOME_EXPLANATORY,
+            signal_ids::JS_COMMENTS_TERSE_MARKERS,
+            source,
+        );
         let lines: Vec<&str> = source.lines().collect();
 
         // JSDoc blocks (/** ... */)
         let jsdoc_count = lines.iter().filter(|l| l.trim().starts_with("/**")).count();
         if jsdoc_count >= 5 {
-            signals.push(Signal {
-                source: "comments".into(),
-                description: format!("{jsdoc_count} JSDoc comment blocks — thorough API documentation"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_COMMENTS_JSDOC_BLOCKS,
+                "comments",
+                format!("{jsdoc_count} JSDoc comment blocks — thorough API documentation"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         signals
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
         // Go uses // for all comments, same as Rust — reuse slash comment logic
-        Self::analyze_slash_comments("comments", source)
+        Self::analyze_slash_comments(
+            "comments",
+            signal_ids::GO_COMMENTS_HIGH_DENSITY,
+            signal_ids::GO_COMMENTS_LOW_DENSITY,
+            signal_ids::GO_COMMENTS_TEACHING_VOICE,
+            signal_ids::GO_COMMENTS_SOME_EXPLANATORY,
+            signal_ids::GO_COMMENTS_TERSE_MARKERS,
+            source,
+        )
     }
 }
 
@@ -296,14 +332,9 @@ impl Analyzer for CommentStyleAnalyzer {
         "comments"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
-    }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> { Self::analyze_python_impl(source) }
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> { Self::analyze_javascript_impl(source) }
+    fn analyze_go(&self, source: &str) -> Vec<Signal> { Self::analyze_go_impl(source) }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -319,19 +350,21 @@ impl Analyzer for CommentStyleAnalyzer {
 
         // High comment density is an AI signal
         if density > 0.15 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("High comment density ({:.0}%)", density * 100.0),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_HIGH_DENSITY,
+                self.name(),
+                format!("High comment density ({:.0}%)", density * 100.0),
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if density < 0.03 && total_lines > 20 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Very low comment density".into(),
-                family: crate::report::ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_LOW_DENSITY,
+                self.name(),
+                "Very low comment density",
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // Teaching voice: comments that explain "why" or use pedagogical language
@@ -349,19 +382,21 @@ impl Analyzer for CommentStyleAnalyzer {
         }
 
         if teaching_count >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{teaching_count} comments with teaching/explanatory voice"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_TEACHING_VOICE,
+                self.name(),
+                format!("{teaching_count} comments with teaching/explanatory voice"),
+                ModelFamily::Claude,
+                2.0,
+            ));
         } else if teaching_count >= 1 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Some explanatory comments present".into(),
-                family: crate::report::ModelFamily::Gpt,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_SOME_EXPLANATORY,
+                self.name(),
+                "Some explanatory comments present",
+                ModelFamily::Gpt,
+                0.8,
+            ));
         }
 
         // Doc comments (///) — AI loves these
@@ -370,12 +405,13 @@ impl Analyzer for CommentStyleAnalyzer {
             .filter(|l| l.trim_start().starts_with("///"))
             .count();
         if doc_comment_count >= 5 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{doc_comment_count} doc comments — thorough documentation"),
-                family: crate::report::ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_DOC_COMMENTS,
+                self.name(),
+                format!("{doc_comment_count} doc comments — thorough documentation"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Inline comments that are terse ("// TODO", "// hack", "// fix")
@@ -388,12 +424,13 @@ impl Analyzer for CommentStyleAnalyzer {
             })
             .count();
         if terse_count >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{terse_count} terse/frustrated comments (TODO, HACK, etc.)"),
-                family: crate::report::ModelFamily::Human,
-                weight: 2.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_COMMENTS_TERSE_MARKERS,
+                self.name(),
+                format!("{terse_count} terse/frustrated comments (TODO, HACK, etc.)"),
+                ModelFamily::Human,
+                2.0,
+            ));
         }
 
         signals

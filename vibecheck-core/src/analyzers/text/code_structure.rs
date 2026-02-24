@@ -1,5 +1,5 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
+use crate::heuristics::signal_ids;
 use crate::report::{ModelFamily, Signal};
 
 pub struct CodeStructureAnalyzer;
@@ -87,7 +87,7 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
 }
 
 impl CodeStructureAnalyzer {
-    fn analyze_python(source: &str) -> Vec<Signal> {
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -104,12 +104,13 @@ impl CodeStructureAnalyzer {
         if import_lines.len() >= 3 {
             let is_sorted = import_lines.windows(2).all(|w| w[0] <= w[1]);
             if is_sorted {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "Import statements are alphabetically sorted".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::PYTHON_STRUCTURE_SORTED_IMPORTS,
+                    "structure",
+                    "Import statements are alphabetically sorted",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -129,12 +130,13 @@ impl CodeStructureAnalyzer {
         if blank_runs.len() >= 3 {
             let all_same = blank_runs.iter().all(|&r| r == blank_runs[0]);
             if all_same {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "Perfectly consistent blank line spacing".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::PYTHON_STRUCTURE_CONSISTENT_BLANK_LINES,
+                    "structure",
+                    "Perfectly consistent blank line spacing",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -147,19 +149,20 @@ impl CodeStructureAnalyzer {
         if non_empty.len() >= 10 {
             let over_88 = non_empty.iter().filter(|&&l| l > 88).count();
             if over_88 == 0 {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "All lines under 88 chars — PEP 8 / Black-style discipline".into(),
-                    family: ModelFamily::Claude,
-                    weight: 0.8,
-                });
+                signals.push(Signal::new(
+                    signal_ids::PYTHON_STRUCTURE_LINES_UNDER_88,
+                    "structure",
+                    "All lines under 88 chars — PEP 8 / Black-style discipline",
+                    ModelFamily::Claude,
+                    0.8,
+                ));
             }
         }
 
         signals
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -176,12 +179,13 @@ impl CodeStructureAnalyzer {
         if import_lines.len() >= 3 {
             let is_sorted = import_lines.windows(2).all(|w| w[0] <= w[1]);
             if is_sorted {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "Import statements are alphabetically sorted".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::JS_STRUCTURE_SORTED_IMPORTS,
+                    "structure",
+                    "Import statements are alphabetically sorted",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -199,12 +203,13 @@ impl CodeStructureAnalyzer {
             }
         }
         if blank_runs.len() >= 3 && blank_runs.iter().all(|&r| r == blank_runs[0]) {
-            signals.push(Signal {
-                source: "structure".into(),
-                description: "Perfectly consistent blank line spacing".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_STRUCTURE_CONSISTENT_BLANK_LINES,
+                "structure",
+                "Perfectly consistent blank line spacing",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Line length
@@ -216,26 +221,28 @@ impl CodeStructureAnalyzer {
         if non_empty.len() >= 10 {
             let over_100 = non_empty.iter().filter(|&&l| l > 100).count();
             if over_100 == 0 {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "All lines under 100 chars — disciplined formatting".into(),
-                    family: ModelFamily::Claude,
-                    weight: 0.8,
-                });
+                signals.push(Signal::new(
+                    signal_ids::JS_STRUCTURE_LINES_UNDER_100,
+                    "structure",
+                    "All lines under 100 chars — disciplined formatting",
+                    ModelFamily::Claude,
+                    0.8,
+                ));
             } else if over_100 >= 5 {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: format!("{over_100} lines over 100 chars"),
-                    family: ModelFamily::Human,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::JS_STRUCTURE_MANY_LONG_LINES,
+                    "structure",
+                    format!("{over_100} lines over 100 chars"),
+                    ModelFamily::Human,
+                    1.0,
+                ));
             }
         }
 
         signals
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -255,12 +262,13 @@ impl CodeStructureAnalyzer {
         if import_block.len() >= 3 {
             let is_sorted = import_block.windows(2).all(|w| w[0] <= w[1]);
             if is_sorted {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "Import strings are sorted — goimports-style".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::GO_STRUCTURE_SORTED_IMPORTS,
+                    "structure",
+                    "Import strings are sorted — goimports-style",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -278,12 +286,13 @@ impl CodeStructureAnalyzer {
             }
         }
         if blank_runs.len() >= 3 && blank_runs.iter().all(|&r| r == blank_runs[0]) {
-            signals.push(Signal {
-                source: "structure".into(),
-                description: "Perfectly consistent blank line spacing".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_STRUCTURE_CONSISTENT_BLANK_LINES,
+                "structure",
+                "Perfectly consistent blank line spacing",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Line length (Go convention: 80-120 chars)
@@ -295,12 +304,13 @@ impl CodeStructureAnalyzer {
         if non_empty.len() >= 10 {
             let over_120 = non_empty.iter().filter(|&&l| l > 120).count();
             if over_120 == 0 {
-                signals.push(Signal {
-                    source: "structure".into(),
-                    description: "All lines under 120 chars — gofmt-style discipline".into(),
-                    family: ModelFamily::Claude,
-                    weight: 0.8,
-                });
+                signals.push(Signal::new(
+                    signal_ids::GO_STRUCTURE_LINES_UNDER_120,
+                    "structure",
+                    "All lines under 120 chars — gofmt-style discipline",
+                    ModelFamily::Claude,
+                    0.8,
+                ));
             }
         }
 
@@ -313,14 +323,9 @@ impl Analyzer for CodeStructureAnalyzer {
         "structure"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
-    }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> { Self::analyze_python_impl(source) }
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> { Self::analyze_javascript_impl(source) }
+    fn analyze_go(&self, source: &str) -> Vec<Signal> { Self::analyze_go_impl(source) }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -352,22 +357,24 @@ impl Analyzer for CodeStructureAnalyzer {
         if !let_lines.is_empty() {
             let annotation_ratio = annotated as f64 / let_lines.len() as f64;
             if annotation_ratio > 0.7 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_HIGH_TYPE_ANNOTATION,
+                    self.name(),
+                    format!(
                         "Explicit type annotations on {:.0}% of let bindings",
                         annotation_ratio * 100.0
                     ),
-                    family: ModelFamily::Gpt,
-                    weight: 1.0,
-                });
+                    ModelFamily::Gpt,
+                    1.0,
+                ));
             } else if annotation_ratio < 0.2 && let_lines.len() >= 5 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: "Relies on type inference — minimal annotations".into(),
-                    family: ModelFamily::Claude,
-                    weight: 0.8,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_LOW_TYPE_ANNOTATION,
+                    self.name(),
+                    "Relies on type inference — minimal annotations",
+                    ModelFamily::Claude,
+                    0.8,
+                ));
             }
         }
 
@@ -380,12 +387,13 @@ impl Analyzer for CodeStructureAnalyzer {
         if use_lines.len() >= 3 {
             let is_sorted = use_lines.windows(2).all(|w| w[0] <= w[1]);
             if is_sorted {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: "Import statements are alphabetically sorted".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_SORTED_IMPORTS,
+                    self.name(),
+                    "Import statements are alphabetically sorted",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -405,12 +413,13 @@ impl Analyzer for CodeStructureAnalyzer {
         if blank_runs.len() >= 3 {
             let all_same = blank_runs.iter().all(|&r| r == blank_runs[0]);
             if all_same {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: "Perfectly consistent blank line spacing".into(),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_CONSISTENT_BLANK_LINES,
+                    self.name(),
+                    "Perfectly consistent blank line spacing",
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 
@@ -424,19 +433,21 @@ impl Analyzer for CodeStructureAnalyzer {
             let max_len = non_empty_lines.iter().max().copied().unwrap_or(0);
             let over_100 = non_empty_lines.iter().filter(|&&l| l > 100).count();
             if over_100 == 0 && max_len <= 100 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: "All lines under 100 chars — disciplined formatting".into(),
-                    family: ModelFamily::Claude,
-                    weight: 0.8,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_LINES_UNDER_100,
+                    self.name(),
+                    "All lines under 100 chars — disciplined formatting",
+                    ModelFamily::Claude,
+                    0.8,
+                ));
             } else if over_100 >= 5 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: format!("{over_100} lines over 100 chars"),
-                    family: ModelFamily::Human,
-                    weight: 1.0,
-                });
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_MANY_LONG_LINES,
+                    self.name(),
+                    format!("{over_100} lines over 100 chars"),
+                    ModelFamily::Human,
+                    1.0,
+                ));
             }
         }
 
@@ -453,15 +464,16 @@ impl Analyzer for CodeStructureAnalyzer {
                 .sum::<f64>()
                 / derive_count as f64;
             if avg_derives >= 4.0 {
-                signals.push(Signal {
-                    source: self.name().into(),
-                    description: format!(
+                signals.push(Signal::new(
+                    signal_ids::RUST_STRUCTURE_HEAVY_DERIVE,
+                    self.name(),
+                    format!(
                         "Heavy derive usage (avg {:.1} traits per derive)",
                         avg_derives
                     ),
-                    family: ModelFamily::Claude,
-                    weight: 1.0,
-                });
+                    ModelFamily::Claude,
+                    1.0,
+                ));
             }
         }
 

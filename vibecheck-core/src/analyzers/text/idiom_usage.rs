@@ -1,11 +1,11 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
+use crate::heuristics::signal_ids;
 use crate::report::{ModelFamily, Signal};
 
 pub struct IdiomUsageAnalyzer;
 
 impl IdiomUsageAnalyzer {
-    fn analyze_python(source: &str) -> Vec<Signal> {
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -23,12 +23,13 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if comprehension_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{comprehension_count} list/dict/set comprehensions — pythonic style"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_COMPREHENSIONS,
+                "idioms",
+                format!("{comprehension_count} list/dict/set comprehensions — pythonic style"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // All function defs have return type annotations → AI thoroughness
@@ -47,23 +48,25 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if total_defs >= 3 && typed_defs == total_defs {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: "All function definitions have return type annotations".into(),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_RETURN_TYPE_ANNOTATIONS,
+                "idioms",
+                "All function definitions have return type annotations",
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Context managers (with statement)
         let with_count = lines.iter().filter(|l| l.trim().starts_with("with ")).count();
         if with_count >= 2 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{with_count} context manager usages (with statement) — safe resource handling"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_CONTEXT_MANAGERS,
+                "idioms",
+                format!("{with_count} context manager usages (with statement) — safe resource handling"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Functional builtins: enumerate, zip, any, all, map, filter, sorted
@@ -76,12 +79,13 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if builtin_count >= 4 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{builtin_count} functional builtin usages — idiomatic Python"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_FUNCTIONAL_BUILTINS,
+                "idioms",
+                format!("{builtin_count} functional builtin usages — idiomatic Python"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // f-strings vs old-style formatting
@@ -94,25 +98,27 @@ impl IdiomUsageAnalyzer {
             .filter(|l| l.contains("% (") || l.contains("% \"") || l.contains(".format("))
             .count();
         if fstring_count >= 3 && old_format_count == 0 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: "Uses f-strings exclusively — modern string formatting".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_FSTRINGS,
+                "idioms",
+                "Uses f-strings exclusively — modern string formatting",
+                ModelFamily::Claude,
+                0.8,
+            ));
         } else if old_format_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{old_format_count} old-style format calls — legacy string formatting"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_IDIOMS_OLD_FORMAT,
+                "idioms",
+                format!("{old_format_count} old-style format calls — legacy string formatting"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -130,38 +136,42 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if arrow_fn_count >= 5 && regular_fn_count == 0 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{arrow_fn_count} arrow functions, no regular functions — modern ES6+ style"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_ARROW_FNS_ONLY,
+                "idioms",
+                format!("{arrow_fn_count} arrow functions, no regular functions — modern ES6+ style"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if regular_fn_count >= 3 && arrow_fn_count == 0 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{regular_fn_count} traditional function declarations — older style"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_REGULAR_FNS_ONLY,
+                "idioms",
+                format!("{regular_fn_count} traditional function declarations — older style"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // var declarations — legacy
         let var_count = lines.iter().filter(|l| l.trim().starts_with("var ")).count();
         let const_count = lines.iter().filter(|l| l.trim().starts_with("const ")).count();
         if var_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{var_count} var declarations — legacy hoisting style"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_VAR_DECLARATIONS,
+                "idioms",
+                format!("{var_count} var declarations — legacy hoisting style"),
+                ModelFamily::Human,
+                1.5,
+            ));
         } else if const_count >= 5 && var_count == 0 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{const_count} const declarations — immutability-first approach"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_CONST_DECLARATIONS,
+                "idioms",
+                format!("{const_count} const declarations — immutability-first approach"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Optional chaining (?.) and nullish coalescing (??)
@@ -170,12 +180,13 @@ impl IdiomUsageAnalyzer {
             .filter(|l| l.contains("?.") || l.contains("??"))
             .count();
         if null_safe_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{null_safe_count} optional chaining/nullish ops — modern null safety"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_NULL_SAFE_OPS,
+                "idioms",
+                format!("{null_safe_count} optional chaining/nullish ops — modern null safety"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Destructuring assignments
@@ -189,12 +200,13 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if destructure_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{destructure_count} destructuring assignments — idiomatic ES6+"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_DESTRUCTURING,
+                "idioms",
+                format!("{destructure_count} destructuring assignments — idiomatic ES6+"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // async/await
@@ -206,18 +218,19 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if async_count >= 3 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{async_count} async/await usages — modern asynchronous style"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_IDIOMS_ASYNC_AWAIT,
+                "idioms",
+                format!("{async_count} async/await usages — modern asynchronous style"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         signals
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -231,12 +244,13 @@ impl IdiomUsageAnalyzer {
             .filter(|l| l.contains("var _") && l.contains(")(nil)"))
             .count();
         if interface_check >= 1 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{interface_check} compile-time interface checks — thorough Go design"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_IDIOMS_INTERFACE_CHECKS,
+                "idioms",
+                format!("{interface_check} compile-time interface checks — thorough Go design"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Goroutines
@@ -248,23 +262,25 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if goroutine_count >= 2 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{goroutine_count} goroutine launches — concurrent design"),
-                family: ModelFamily::Gpt,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_IDIOMS_GOROUTINES,
+                "idioms",
+                format!("{goroutine_count} goroutine launches — concurrent design"),
+                ModelFamily::Gpt,
+                0.8,
+            ));
         }
 
         // defer — idiomatic cleanup
         let defer_count = lines.iter().filter(|l| l.trim().starts_with("defer ")).count();
         if defer_count >= 2 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{defer_count} defer statements — idiomatic resource cleanup"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_IDIOMS_DEFER_STMTS,
+                "idioms",
+                format!("{defer_count} defer statements — idiomatic resource cleanup"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Table-driven test pattern
@@ -277,23 +293,25 @@ impl IdiomUsageAnalyzer {
             })
             .count();
         if table_driven >= 1 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: "Table-driven test pattern detected — idiomatic Go testing".into(),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_IDIOMS_TABLE_DRIVEN_TESTS,
+                "idioms",
+                "Table-driven test pattern detected — idiomatic Go testing",
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // iota constants
         let iota_count = lines.iter().filter(|l| l.contains("iota")).count();
         if iota_count >= 1 {
-            signals.push(Signal {
-                source: "idioms".into(),
-                description: format!("{iota_count} iota constant(s) — idiomatic Go enumeration"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_IDIOMS_IOTA_CONSTANTS,
+                "idioms",
+                format!("{iota_count} iota constant(s) — idiomatic Go enumeration"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         signals
@@ -305,14 +323,9 @@ impl Analyzer for IdiomUsageAnalyzer {
         "idioms"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
-    }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> { Self::analyze_python_impl(source) }
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> { Self::analyze_javascript_impl(source) }
+    fn analyze_go(&self, source: &str) -> Vec<Signal> { Self::analyze_go_impl(source) }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -333,12 +346,13 @@ impl Analyzer for IdiomUsageAnalyzer {
             })
             .count();
         if iterator_count >= 5 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{iterator_count} iterator chain usages — textbook-idiomatic Rust"),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_ITERATOR_CHAINS,
+                self.name(),
+                format!("{iterator_count} iterator chain usages — textbook-idiomatic Rust"),
+                ModelFamily::Claude,
+                1.5,
+            ));
         }
 
         // Builder pattern usage
@@ -350,22 +364,24 @@ impl Analyzer for IdiomUsageAnalyzer {
             })
             .count();
         if builder_chain >= 8 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{builder_chain} method chain continuation lines — builder pattern"),
-                family: ModelFamily::Gpt,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_BUILDER_PATTERN,
+                self.name(),
+                format!("{builder_chain} method chain continuation lines — builder pattern"),
+                ModelFamily::Gpt,
+                1.0,
+            ));
         }
 
         // impl Display / impl std::fmt::Display
         if source.contains("impl std::fmt::Display") || source.contains("impl Display for") {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Implements Display trait — thorough API design".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_IMPL_DISPLAY,
+                self.name(),
+                "Implements Display trait — thorough API design",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // From/Into implementations
@@ -374,12 +390,13 @@ impl Analyzer for IdiomUsageAnalyzer {
             .filter(|l| l.contains("impl From<") || l.contains("impl Into<"))
             .count();
         if from_impl >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{from_impl} From/Into implementations — conversion-rich design"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_FROM_INTO_IMPLS,
+                self.name(),
+                format!("{from_impl} From/Into implementations — conversion-rich design"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Self:: usage in impl blocks (textbook Rust)
@@ -388,12 +405,13 @@ impl Analyzer for IdiomUsageAnalyzer {
             .filter(|l| l.contains("Self::") || l.contains("Self {"))
             .count();
         if self_usage >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{self_usage} uses of Self — consistent self-referencing"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_SELF_USAGE,
+                self.name(),
+                format!("{self_usage} uses of Self — consistent self-referencing"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // if let / while let (pattern matching idioms)
@@ -405,12 +423,13 @@ impl Analyzer for IdiomUsageAnalyzer {
             })
             .count();
         if pattern_match_count >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{pattern_match_count} if-let/while-let patterns"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_PATTERN_MATCHING,
+                self.name(),
+                format!("{pattern_match_count} if-let/while-let patterns"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // String formatting with format!() vs concatenation
@@ -423,19 +442,21 @@ impl Analyzer for IdiomUsageAnalyzer {
             .filter(|l| l.contains("+ \"") || l.contains("+ &"))
             .count();
         if format_macro >= 3 && string_concat == 0 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Uses format!() exclusively, no string concatenation".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_FORMAT_MACRO,
+                self.name(),
+                "Uses format!() exclusively, no string concatenation",
+                ModelFamily::Claude,
+                0.8,
+            ));
         } else if string_concat >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{string_concat} string concatenations — less idiomatic"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_STRING_CONCAT,
+                self.name(),
+                format!("{string_concat} string concatenations — less idiomatic"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // Over-abstraction: many trait definitions in a single file
@@ -447,12 +468,13 @@ impl Analyzer for IdiomUsageAnalyzer {
             })
             .count();
         if trait_count >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{trait_count} trait definitions — heavy abstraction"),
-                family: ModelFamily::Gpt,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_IDIOMS_MANY_TRAITS,
+                self.name(),
+                format!("{trait_count} trait definitions — heavy abstraction"),
+                ModelFamily::Gpt,
+                1.5,
+            ));
         }
 
         signals

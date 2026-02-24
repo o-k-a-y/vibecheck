@@ -1,5 +1,5 @@
 use crate::analyzers::Analyzer;
-use crate::language::Language;
+use crate::heuristics::signal_ids;
 use crate::report::{ModelFamily, Signal};
 
 pub struct ErrorHandlingAnalyzer;
@@ -186,7 +186,7 @@ mod tests {
 }
 
 impl ErrorHandlingAnalyzer {
-    fn analyze_python(source: &str) -> Vec<Signal> {
+    fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -203,12 +203,13 @@ impl ErrorHandlingAnalyzer {
             })
             .count();
         if broad_except >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{broad_except} broad except clauses — swallows all exceptions"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_ERRORS_BROAD_EXCEPT,
+                "errors",
+                format!("{broad_except} broad except clauses — swallows all exceptions"),
+                ModelFamily::Human,
+                1.5,
+            ));
         }
 
         // Specific exception types — AI-like precision
@@ -222,23 +223,25 @@ impl ErrorHandlingAnalyzer {
             })
             .count();
         if specific_except >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{specific_except} specific exception types — precise error handling"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_ERRORS_SPECIFIC_EXCEPT,
+                "errors",
+                format!("{specific_except} specific exception types — precise error handling"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // No try/except in a large file
         let try_count = lines.iter().filter(|l| l.trim() == "try:").count();
         if try_count == 0 && total_lines > 40 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: "No try/except blocks in a substantial file".into(),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_ERRORS_NO_TRY_EXCEPT,
+                "errors",
+                "No try/except blocks in a substantial file",
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // raise ... from (idiomatic exception chaining)
@@ -247,18 +250,19 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.trim().starts_with("raise ") && l.contains(" from "))
             .count();
         if raise_from >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{raise_from} raise…from patterns — idiomatic exception chaining"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::PYTHON_ERRORS_RAISE_FROM,
+                "errors",
+                format!("{raise_from} raise…from patterns — idiomatic exception chaining"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         signals
     }
 
-    fn analyze_javascript(source: &str) -> Vec<Signal> {
+    fn analyze_javascript_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -276,12 +280,13 @@ impl ErrorHandlingAnalyzer {
             })
             .count();
         if console_err >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{console_err} console.error/warn calls — debug artifacts"),
-                family: ModelFamily::Human,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_ERRORS_CONSOLE_ERROR,
+                "errors",
+                format!("{console_err} console.error/warn calls — debug artifacts"),
+                ModelFamily::Human,
+                1.0,
+            ));
         }
 
         // instanceof Error checks — typed error handling
@@ -290,12 +295,13 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.contains("instanceof ") && l.contains("Error"))
             .count();
         if typed_catch >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{typed_catch} instanceof Error checks — typed error handling"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_ERRORS_TYPED_ERROR_CHECK,
+                "errors",
+                format!("{typed_catch} instanceof Error checks — typed error handling"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Promise .catch() vs try/catch: style indicator
@@ -305,19 +311,21 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.trim().starts_with("} catch") || l.trim().starts_with("catch ("))
             .count();
         if promise_catch >= 2 && try_catch_blocks == 0 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{promise_catch} .catch() chains — promise-based error handling"),
-                family: ModelFamily::Human,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_ERRORS_PROMISE_CATCH,
+                "errors",
+                format!("{promise_catch} .catch() chains — promise-based error handling"),
+                ModelFamily::Human,
+                0.8,
+            ));
         } else if try_catch_blocks >= 2 && promise_catch == 0 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{try_catch_blocks} try/catch blocks — structured async error handling"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_ERRORS_TRY_CATCH_BLOCKS,
+                "errors",
+                format!("{try_catch_blocks} try/catch blocks — structured async error handling"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         // Typed Error constructors: new TypeError(...), new RangeError(...), etc.
@@ -331,18 +339,19 @@ impl ErrorHandlingAnalyzer {
             })
             .count();
         if typed_throw >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{typed_throw} typed Error constructions — specific error classes"),
-                family: ModelFamily::Claude,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::JS_ERRORS_TYPED_ERROR_CONSTRUCTION,
+                "errors",
+                format!("{typed_throw} typed Error constructions — specific error classes"),
+                ModelFamily::Claude,
+                0.8,
+            ));
         }
 
         signals
     }
 
-    fn analyze_go(source: &str) -> Vec<Signal> {
+    fn analyze_go_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
         let total_lines = lines.len();
@@ -356,12 +365,13 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.contains("err != nil") && (l.contains("return err") || l.contains("return nil, err")))
             .count();
         if simple_err_return >= 3 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{simple_err_return} simple 'if err != nil' returns — idiomatic propagation"),
-                family: ModelFamily::Human,
-                weight: 0.8,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_ERRORS_SIMPLE_ERR_RETURN,
+                "errors",
+                format!("{simple_err_return} simple 'if err != nil' returns — idiomatic propagation"),
+                ModelFamily::Human,
+                0.8,
+            ));
         }
 
         // fmt.Errorf with %w — idiomatic error wrapping
@@ -370,12 +380,13 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.contains("fmt.Errorf(") && l.contains("%w"))
             .count();
         if errorf_wrap >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{errorf_wrap} fmt.Errorf(%w) wrappings — idiomatic error context"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_ERRORS_ERRORF_WRAP,
+                "errors",
+                format!("{errorf_wrap} fmt.Errorf(%w) wrappings — idiomatic error context"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // errors.Is / errors.As — modern structured error inspection
@@ -384,12 +395,13 @@ impl ErrorHandlingAnalyzer {
             .filter(|l| l.contains("errors.Is(") || l.contains("errors.As("))
             .count();
         if errors_sentinel >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{errors_sentinel} errors.Is/As calls — structured error inspection"),
-                family: ModelFamily::Claude,
-                weight: 1.2,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_ERRORS_ERRORS_SENTINEL,
+                "errors",
+                format!("{errors_sentinel} errors.Is/As calls — structured error inspection"),
+                ModelFamily::Claude,
+                1.2,
+            ));
         }
 
         // panic() in Go — non-idiomatic for recoverable errors
@@ -401,12 +413,13 @@ impl ErrorHandlingAnalyzer {
             })
             .count();
         if panic_count >= 2 {
-            signals.push(Signal {
-                source: "errors".into(),
-                description: format!("{panic_count} panic() calls — non-recoverable or human shortcut"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::GO_ERRORS_PANIC_CALLS,
+                "errors",
+                format!("{panic_count} panic() calls — non-recoverable or human shortcut"),
+                ModelFamily::Human,
+                1.5,
+            ));
         }
 
         signals
@@ -418,14 +431,9 @@ impl Analyzer for ErrorHandlingAnalyzer {
         "errors"
     }
 
-    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
-        match lang {
-            None | Some(Language::Rust) => self.analyze(source),
-            Some(Language::Python) => Self::analyze_python(source),
-            Some(Language::JavaScript) => Self::analyze_javascript(source),
-            Some(Language::Go) => Self::analyze_go(source),
-        }
-    }
+    fn analyze_python(&self, source: &str) -> Vec<Signal> { Self::analyze_python_impl(source) }
+    fn analyze_javascript(&self, source: &str) -> Vec<Signal> { Self::analyze_javascript_impl(source) }
+    fn analyze_go(&self, source: &str) -> Vec<Signal> { Self::analyze_go_impl(source) }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -442,26 +450,29 @@ impl Analyzer for ErrorHandlingAnalyzer {
             .count();
 
         if unwrap_count == 0 && total_lines > 30 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Zero .unwrap() calls — careful error handling".into(),
-                family: ModelFamily::Claude,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_ZERO_UNWRAP,
+                self.name(),
+                "Zero .unwrap() calls — careful error handling",
+                ModelFamily::Claude,
+                1.5,
+            ));
         } else if unwrap_count >= 5 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{unwrap_count} .unwrap() calls — pragmatic/quick style"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_MANY_UNWRAPS,
+                self.name(),
+                format!("{unwrap_count} .unwrap() calls — pragmatic/quick style"),
+                ModelFamily::Human,
+                1.5,
+            ));
         } else if unwrap_count >= 1 && unwrap_count <= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{unwrap_count} .unwrap() calls — moderate"),
-                family: ModelFamily::Copilot,
-                weight: 0.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_FEW_UNWRAPS,
+                self.name(),
+                format!("{unwrap_count} .unwrap() calls — moderate"),
+                ModelFamily::Copilot,
+                0.5,
+            ));
         }
 
         // .expect() usage — Claude and GPT prefer this over unwrap
@@ -470,12 +481,13 @@ impl Analyzer for ErrorHandlingAnalyzer {
             .filter(|l| l.contains(".expect("))
             .count();
         if expect_count >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{expect_count} .expect() calls — descriptive error handling"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_EXPECT_CALLS,
+                self.name(),
+                format!("{expect_count} .expect() calls — descriptive error handling"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // ? operator usage — idiomatic Rust error propagation
@@ -484,12 +496,13 @@ impl Analyzer for ErrorHandlingAnalyzer {
             .filter(|l| l.contains('?') && !l.trim_start().starts_with("//"))
             .count();
         if question_mark_count >= 3 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{question_mark_count} uses of ? operator — idiomatic error propagation"),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_QUESTION_MARK,
+                self.name(),
+                format!("{question_mark_count} uses of ? operator — idiomatic error propagation"),
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // Exhaustive match patterns (match with _ => arm at the end)
@@ -500,12 +513,13 @@ impl Analyzer for ErrorHandlingAnalyzer {
         }).count();
 
         if match_count >= 2 && wildcard_arm <= match_count / 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: "Match expressions prefer exhaustive patterns over wildcards".into(),
-                family: ModelFamily::Claude,
-                weight: 1.0,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_EXHAUSTIVE_MATCH,
+                self.name(),
+                "Match expressions prefer exhaustive patterns over wildcards",
+                ModelFamily::Claude,
+                1.0,
+            ));
         }
 
         // panic!() usage — typically a human shortcut
@@ -514,12 +528,13 @@ impl Analyzer for ErrorHandlingAnalyzer {
             .filter(|l| l.contains("panic!(") && !l.trim_start().starts_with("//"))
             .count();
         if panic_count >= 2 {
-            signals.push(Signal {
-                source: self.name().into(),
-                description: format!("{panic_count} panic!() calls"),
-                family: ModelFamily::Human,
-                weight: 1.5,
-            });
+            signals.push(Signal::new(
+                signal_ids::RUST_ERRORS_PANIC_CALLS,
+                self.name(),
+                format!("{panic_count} panic!() calls"),
+                ModelFamily::Human,
+                1.5,
+            ));
         }
 
         signals
