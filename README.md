@@ -17,8 +17,8 @@
 [![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/o-k-a-y/vibecheck/blob/main/LICENSE)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
-[![vibecheck-core on crates.io](https://img.shields.io/crates/v/vibecheck-core.svg)](https://crates.io/crates/vibecheck-core)
-[![vibecheck-cli on crates.io](https://img.shields.io/crates/v/vibecheck-cli.svg)](https://crates.io/crates/vibecheck-cli)
+[![vibecheck-core on crates.io](https://img.shields.io/crates/v/vibecheck-core.svg?label=vibecheck-core)](https://crates.io/crates/vibecheck-core)
+[![vibecheck-cli on crates.io](https://img.shields.io/crates/v/vibecheck-cli.svg?label=vibecheck-cli)](https://crates.io/crates/vibecheck-cli)
 [![vibecheck: Claude 96%](https://img.shields.io/badge/vibecheck-Claude%2096%25-a855f7)](https://github.com/o-k-a-y/vibecheck)
 
 > *"I don't always write Rust, but when I do, every function has a doc comment and zero `.unwrap()` calls."*
