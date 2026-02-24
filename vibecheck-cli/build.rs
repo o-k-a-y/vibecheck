@@ -401,10 +401,13 @@ fn generate_tui_svg() -> Option<String> {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/commands/tui.rs");
     println!("cargo:rerun-if-changed=src/output.rs");
+    println!("cargo:rerun-if-changed=../vibecheck-core/src/colors.rs");
+    println!("cargo:rerun-if-changed=../vibecheck-core/src/report.rs");
     println!("cargo:rerun-if-changed=../vibecheck-core/src/pipeline.rs");
     println!("cargo:rerun-if-changed=../vibecheck-core/src/cache.rs");
-    println!("cargo:rerun-if-changed=../vibecheck-core/src/report.rs");
     println!("cargo:rerun-if-changed=../vibecheck-core/src/analyzers/text/ai_signals.rs");
     println!("cargo:rerun-if-changed=../vibecheck-core/src/analyzers/text/code_structure.rs");
 
