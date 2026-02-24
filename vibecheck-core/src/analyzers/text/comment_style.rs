@@ -84,6 +84,43 @@ mod tests {
             "expected terse markers Human signal (weight 2.0)"
         );
     }
+
+    #[test]
+    fn python_high_comment_density_is_claude() {
+        // Many # comments relative to code lines
+        let mut lines: Vec<String> = (0..10).map(|_| "# This explains the approach".into()).collect();
+        lines.extend((0..5).map(|i| format!("x{i} = {i}")));
+        let source = lines.join("\n");
+        let signals = CommentStyleAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for high Python comment density"
+        );
+    }
+
+    #[test]
+    fn javascript_high_comment_density_is_claude() {
+        let mut lines: Vec<String> = (0..10).map(|_| "// This explains the approach".into()).collect();
+        lines.extend((0..5).map(|i| format!("const x{i} = {i};")));
+        let source = lines.join("\n");
+        let signals = CommentStyleAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for high JS comment density"
+        );
+    }
+
+    #[test]
+    fn go_high_comment_density_is_claude() {
+        let mut lines: Vec<String> = (0..10).map(|_| "// This explains the approach".into()).collect();
+        lines.extend((0..5).map(|i| format!("var x{i} int = {i}")));
+        let source = lines.join("\n");
+        let signals = CommentStyleAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for high Go comment density"
+        );
+    }
 }
 
 impl CommentStyleAnalyzer {

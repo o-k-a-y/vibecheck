@@ -97,3 +97,66 @@ pub fn default_cst_analyzers() -> Vec<Box<dyn CstAnalyzer>> {
         Box::new(cst::go::GoCstAnalyzer),
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::report::Signal;
+
+    /// Minimal analyzer that returns one signal per `analyze()` call.
+    struct EchoAnalyzer;
+    impl Analyzer for EchoAnalyzer {
+        fn name(&self) -> &str { "echo" }
+        fn analyze(&self, _: &str) -> Vec<Signal> {
+            vec![Signal::new("echo.signal", "echo", "echoed", crate::report::ModelFamily::Human, 1.0)]
+        }
+    }
+
+    #[test]
+    fn analyze_rust_defaults_to_analyze() {
+        let sigs = EchoAnalyzer.analyze_rust("x");
+        assert_eq!(sigs.len(), 1);
+    }
+
+    #[test]
+    fn analyze_python_defaults_to_analyze() {
+        let sigs = EchoAnalyzer.analyze_python("x");
+        assert_eq!(sigs.len(), 1);
+    }
+
+    #[test]
+    fn analyze_javascript_defaults_to_analyze() {
+        let sigs = EchoAnalyzer.analyze_javascript("x");
+        assert_eq!(sigs.len(), 1);
+    }
+
+    #[test]
+    fn analyze_go_defaults_to_analyze() {
+        let sigs = EchoAnalyzer.analyze_go("x");
+        assert_eq!(sigs.len(), 1);
+    }
+
+    #[test]
+    fn analyze_with_language_dispatches_none_as_rust() {
+        let sigs = EchoAnalyzer.analyze_with_language("x", None);
+        assert_eq!(sigs.len(), 1);
+    }
+
+    #[test]
+    fn analyze_with_language_dispatches_all_variants() {
+        for lang in [Language::Rust, Language::Python, Language::JavaScript, Language::Go] {
+            let sigs = EchoAnalyzer.analyze_with_language("x", Some(lang));
+            assert_eq!(sigs.len(), 1, "dispatch failed for {lang:?}");
+        }
+    }
+
+    #[test]
+    fn default_analyzers_are_nonempty() {
+        assert!(!default_analyzers().is_empty());
+    }
+
+    #[test]
+    fn default_cst_analyzers_are_nonempty() {
+        assert!(!default_cst_analyzers().is_empty());
+    }
+}

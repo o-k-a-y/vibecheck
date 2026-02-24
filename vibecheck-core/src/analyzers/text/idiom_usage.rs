@@ -639,4 +639,182 @@ mod tests {
             "expected string concatenation Human signal (weight 1.0)"
         );
     }
+
+    // --- JavaScript branch coverage ---
+
+    #[test]
+    fn javascript_arrow_functions_only_is_claude() {
+        let source: Vec<String> = (0..10)
+            .map(|i| format!("const fn{i} = (x) => x + {i};"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("arrow")),
+            "expected arrow functions Claude signal"
+        );
+    }
+
+    #[test]
+    fn javascript_regular_functions_only_is_human() {
+        let source: Vec<String> = (0..10)
+            .map(|i| format!("function fn{i}(x) {{ return x + {i}; }}"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.description.contains("traditional")),
+            "expected traditional function declarations Human signal"
+        );
+    }
+
+    #[test]
+    fn javascript_const_declarations_is_claude() {
+        let source: Vec<String> = (0..12)
+            .map(|i| format!("const value{i} = {i};"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("const")),
+            "expected const declarations Claude signal"
+        );
+    }
+
+    #[test]
+    fn javascript_optional_chaining_is_claude() {
+        let source: Vec<String> = (0..10)
+            .map(|i| format!("const v{i} = obj?.prop{i} ?? defaultVal{i};"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("null")),
+            "expected optional chaining Claude signal"
+        );
+    }
+
+    #[test]
+    fn javascript_destructuring_is_claude() {
+        let source: Vec<String> = (0..12).map(|i| {
+            if i % 2 == 0 {
+                format!("const {{ prop{i} }} = obj{i};")
+            } else {
+                format!("let [ item{i} ] = arr{i};")
+            }
+        }).collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("destructuring")),
+            "expected destructuring Claude signal"
+        );
+    }
+
+    #[test]
+    fn javascript_async_await_is_claude() {
+        let source: Vec<String> = (0..10)
+            .map(|i| format!("async function step{i}() {{ const r = await fetch{i}(); return r; }}"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("async")),
+            "expected async/await Claude signal"
+        );
+    }
+
+    // --- Go branch coverage ---
+
+    #[test]
+    fn go_goroutines_is_gpt() {
+        let mut lines: Vec<String> = vec![
+            "go func() { doWork() }()".into(),
+            "go processItem(item)".into(),
+        ];
+        lines.extend((0..10).map(|i| format!("x{i} := step{i}()")));
+        let source = lines.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Gpt && s.description.contains("goroutine")),
+            "expected goroutines Gpt signal"
+        );
+    }
+
+    #[test]
+    fn go_defer_stmts_is_claude() {
+        let mut lines: Vec<String> = vec![
+            "defer f.Close()".into(),
+            "defer mu.Unlock()".into(),
+        ];
+        lines.extend((0..10).map(|i| format!("x{i} := step{i}()")));
+        let source = lines.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("defer")),
+            "expected defer statements Claude signal"
+        );
+    }
+
+    // --- Python remaining branch coverage ---
+
+    #[test]
+    fn python_fstrings_is_claude() {
+        let source: Vec<String> = (0..12)
+            .map(|i| format!("msg{i} = f\"value is {{val{i}}}\""))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("f-string")),
+            "expected f-strings Claude signal"
+        );
+    }
+
+    #[test]
+    fn python_old_format_is_human() {
+        let source: Vec<String> = (0..12)
+            .map(|i| format!("msg{i} = \"value %d\" % (val{i},)"))
+            .collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.description.contains("format")),
+            "expected old-style format Human signal"
+        );
+    }
+
+    #[test]
+    fn python_context_managers_is_claude() {
+        let mut lines: Vec<String> = vec![
+            "with open(path) as f:".into(),
+            "    data = f.read()".into(),
+            "with lock:".into(),
+            "    do_critical()".into(),
+        ];
+        lines.extend((0..10).map(|i| format!("x{i} = {i}")));
+        let source = lines.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("context")),
+            "expected context manager Claude signal"
+        );
+    }
+
+    #[test]
+    fn python_type_annotated_functions_is_claude() {
+        let source: Vec<String> = (0..12).map(|i| {
+            if i < 4 {
+                format!("def fn{i}(x: int) -> str:\n    return str(x)")
+            } else {
+                format!("x{i} = {i}")
+            }
+        }).collect();
+        let source = source.join("\n");
+        let signals = IdiomUsageAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("annotation")),
+            "expected return type annotations Claude signal"
+        );
+    }
 }

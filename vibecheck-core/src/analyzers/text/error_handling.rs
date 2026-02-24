@@ -183,6 +183,41 @@ mod tests {
             "expected panic!() Human signal (weight 1.5)"
         );
     }
+
+    #[test]
+    fn javascript_try_catch_is_human() {
+        let source: Vec<String> = vec![
+            "try { doThing(); } catch (e) { console.error(e); }".into(),
+            "try { doOther(); } catch (e) { console.error(e); }".into(),
+        ].into_iter()
+        .chain((0..10).map(|i| format!("const x{i} = {i};")))
+        .collect();
+        let source = source.join("\n");
+        let signals = ErrorHandlingAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human),
+            "expected Human signal for JS try/catch"
+        );
+    }
+
+    #[test]
+    fn go_error_returns_is_claude() {
+        let source: Vec<String> = (0..10)
+            .map(|i| {
+                if i < 3 {
+                    format!("if err != nil {{ return fmt.Errorf(\"step {i}: %w\", err) }}")
+                } else {
+                    format!("x{i} := step{i}()")
+                }
+            })
+            .collect();
+        let source = source.join("\n");
+        let signals = ErrorHandlingAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for Go error wrapping"
+        );
+    }
 }
 
 impl ErrorHandlingAnalyzer {

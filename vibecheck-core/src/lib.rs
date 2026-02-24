@@ -3,6 +3,7 @@
 pub mod analyzers;
 pub mod cache;
 pub mod colors;
+pub mod heuristics;
 pub mod ignore_rules;
 pub mod language;
 pub mod merkle;
@@ -16,10 +17,17 @@ pub mod store;
 use std::path::{Path, PathBuf};
 
 use cache::Cache;
+use heuristics::{ConfiguredHeuristics, HeuristicsProvider};
 use ignore_rules::{IgnoreConfig, IgnoreRules};
 use merkle::walk_and_hash_with;
 use pipeline::Pipeline;
 use report::Report;
+
+/// Load heuristics from a `.vibecheck` config rooted at `dir`.
+fn load_heuristics(dir: &std::path::Path) -> Box<dyn HeuristicsProvider> {
+    let cfg = IgnoreConfig::load(dir);
+    Box::new(ConfiguredHeuristics::from_config(cfg.heuristics_map()))
+}
 
 /// Analyze a source code string and return a report.
 pub fn analyze(source: &str) -> Report {
@@ -44,7 +52,12 @@ pub fn analyze_file(path: &Path) -> std::io::Result<Report> {
 
     let source = String::from_utf8(bytes)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-    let pipeline = Pipeline::with_defaults();
+    let dir = path.parent().unwrap_or(path);
+    let pipeline = Pipeline::with_heuristics(
+        crate::analyzers::default_analyzers(),
+        crate::analyzers::default_cst_analyzers(),
+        load_heuristics(dir),
+    );
     let report = pipeline.run(&source, Some(path.to_path_buf()));
 
     if let Some(ref c) = cache {
@@ -57,7 +70,12 @@ pub fn analyze_file(path: &Path) -> std::io::Result<Report> {
 /// Analyze a file without consulting or updating the cache.
 pub fn analyze_file_no_cache(path: &Path) -> std::io::Result<Report> {
     let source = std::fs::read_to_string(path)?;
-    let pipeline = Pipeline::with_defaults();
+    let dir = path.parent().unwrap_or(path);
+    let pipeline = Pipeline::with_heuristics(
+        crate::analyzers::default_analyzers(),
+        crate::analyzers::default_cst_analyzers(),
+        load_heuristics(dir),
+    );
     Ok(pipeline.run(&source, Some(path.to_path_buf())))
 }
 
@@ -86,6 +104,9 @@ pub fn analyze_directory(
 /// [`ignore_rules::AllowAll`] to disable all filtering,
 /// [`ignore_rules::PatternIgnore`] for substring matching in tests, or any
 /// other [`IgnoreRules`] implementation.
+///
+/// Heuristics are loaded automatically from the nearest `.vibecheck` config
+/// file relative to `dir`.
 pub fn analyze_directory_with(
     dir: &Path,
     use_cache: bool,
@@ -121,8 +142,8 @@ pub fn analyze_directory_with(
         collect_cached_reports(dir, &supported_exts, cache.as_ref(), &mut results, ignore);
     } else {
         // Walk and analyze, relying on the per-file cache to avoid re-parsing
-        // individual unchanged files.
-        walk_and_analyze(dir, &supported_exts, cache.as_ref(), &mut results, ignore)?;
+        // individual unchanged files (analyze_file handles per-file caching).
+        walk_and_analyze(dir, &supported_exts, &mut results, ignore)?;
 
         // Persist the updated directory node.
         if let Some(ref c) = cache {
@@ -180,7 +201,6 @@ fn collect_cached_reports(
 fn walk_and_analyze(
     dir: &Path,
     supported_exts: &[&str],
-    cache: Option<&Cache>,
     results: &mut Vec<(PathBuf, Report)>,
     ignore: &dyn IgnoreRules,
 ) -> anyhow::Result<()> {
@@ -195,7 +215,7 @@ fn walk_and_analyze(
             if ignore.is_ignored_dir(&path) {
                 continue;
             }
-            walk_and_analyze(&path, supported_exts, cache, results, ignore)?;
+            walk_and_analyze(&path, supported_exts, results, ignore)?;
         } else if path.is_file() {
             if ignore.is_ignored(&path) {
                 continue;
@@ -260,4 +280,84 @@ pub fn analyze_file_symbols_no_cache(file_path: &Path) -> anyhow::Result<Report>
     let symbol_reports = pipeline.run_symbols(&bytes, file_path)?;
     report.symbol_reports = Some(symbol_reports);
     Ok(report)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ignore_rules::AllowAll;
+    use std::io::Write;
+
+    fn sample_rust_source(n_lines: usize) -> String {
+        (0..n_lines).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n")
+    }
+
+    #[test]
+    fn analyze_string_returns_report() {
+        let source = sample_rust_source(40);
+        let report = analyze(&source);
+        assert!(report.metadata.lines_of_code > 0);
+        assert!(report.metadata.signal_count > 0 || report.signals.is_empty()); // either is fine
+    }
+
+    #[test]
+    fn analyze_file_no_cache_works() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, "{}", sample_rust_source(40)).unwrap();
+        let path = f.path().to_path_buf();
+        let report = analyze_file_no_cache(&path).unwrap();
+        assert!(report.metadata.lines_of_code > 0);
+        assert_eq!(report.metadata.file_path, Some(path));
+    }
+
+    #[test]
+    fn analyze_file_works() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, "{}", sample_rust_source(40)).unwrap();
+        let report = analyze_file(f.path()).unwrap();
+        assert!(report.metadata.lines_of_code > 0);
+    }
+
+    #[test]
+    fn analyze_directory_with_empty_dir_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let results = analyze_directory_with(dir.path(), false, &AllowAll).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn analyze_directory_with_rust_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("main.rs");
+        std::fs::write(&path, sample_rust_source(40)).unwrap();
+        let results = analyze_directory_with(dir.path(), false, &AllowAll).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, path);
+    }
+
+    #[test]
+    fn analyze_directory_ignores_non_source_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("readme.md"), "# hello").unwrap();
+        let results = analyze_directory_with(dir.path(), false, &AllowAll).unwrap();
+        assert!(results.is_empty(), "markdown files should not be analyzed");
+    }
+
+    #[test]
+    fn analyze_directory_recurses_into_subdirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("lib.py"), sample_rust_source(40)).unwrap();
+        let results = analyze_directory_with(dir.path(), false, &AllowAll).unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn analyze_file_symbols_no_cache_works() {
+        let mut f = tempfile::NamedTempFile::with_suffix(".rs").unwrap();
+        writeln!(f, "fn hello() {{}}\nfn world() {{}}\n{}", sample_rust_source(40)).unwrap();
+        let report = analyze_file_symbols_no_cache(f.path()).unwrap();
+        assert!(report.metadata.lines_of_code > 0);
+    }
 }

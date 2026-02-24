@@ -50,3 +50,74 @@ pub fn format_text(report: &Report) -> String {
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::report::{Attribution, ModelFamily, ReportMetadata, Signal};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    fn make_report(with_path: bool, with_signals: bool) -> Report {
+        let mut scores = HashMap::new();
+        scores.insert(ModelFamily::Claude, 0.8);
+        scores.insert(ModelFamily::Human, 0.2);
+        let signals = if with_signals {
+            vec![Signal::new("rust.errors.zero_unwrap", "errors", "No .unwrap() calls", ModelFamily::Claude, 1.5)]
+        } else {
+            vec![]
+        };
+        Report {
+            attribution: Attribution {
+                primary: ModelFamily::Claude,
+                confidence: 0.8,
+                scores,
+            },
+            signals,
+            metadata: ReportMetadata {
+                file_path: if with_path { Some(PathBuf::from("src/main.rs")) } else { None },
+                lines_of_code: 42,
+                signal_count: if with_signals { 1 } else { 0 },
+            },
+            symbol_reports: None,
+        }
+    }
+
+    #[test]
+    fn format_text_contains_verdict() {
+        let report = make_report(false, false);
+        let out = format_text(&report);
+        assert!(out.contains("Verdict: Claude"));
+        assert!(out.contains("80%"));
+    }
+
+    #[test]
+    fn format_text_with_file_path() {
+        let report = make_report(true, false);
+        let out = format_text(&report);
+        assert!(out.contains("File: src/main.rs"));
+    }
+
+    #[test]
+    fn format_text_with_signals() {
+        let report = make_report(false, true);
+        let out = format_text(&report);
+        assert!(out.contains("Signals:"));
+        assert!(out.contains("No .unwrap() calls"));
+        assert!(out.contains("+1.5"));
+    }
+
+    #[test]
+    fn format_json_is_valid() {
+        let report = make_report(false, true);
+        let json = format_json(&report);
+        assert!(json.contains("\"primary\""));
+        assert!(json.contains("claude"));
+    }
+
+    #[test]
+    fn output_format_eq() {
+        assert_eq!(OutputFormat::Pretty, OutputFormat::Pretty);
+        assert_ne!(OutputFormat::Json, OutputFormat::Text);
+    }
+}

@@ -73,6 +73,43 @@ mod tests {
             "expected all-documented-functions Claude signal (weight 2.0)"
         );
     }
+
+    fn large_clean_source(prefix: &str) -> String {
+        // 35 lines of clean code with no TODO/FIXME/trailing whitespace
+        let mut lines: Vec<String> = (0..35).map(|i| format!("{prefix}line_{i} = {i}")).collect();
+        lines[0] = format!("{prefix}line_0 = 0");
+        lines.join("\n")
+    }
+
+    #[test]
+    fn python_no_todo_is_claude() {
+        let source = large_clean_source("");
+        let signals = AiSignalsAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for Python source with no TODO"
+        );
+    }
+
+    #[test]
+    fn javascript_no_todo_is_claude() {
+        let source = large_clean_source("const ");
+        let signals = AiSignalsAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for JS source with no TODO"
+        );
+    }
+
+    #[test]
+    fn go_no_todo_is_claude() {
+        let source = large_clean_source("var ");
+        let signals = AiSignalsAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for Go source with no TODO"
+        );
+    }
 }
 
 impl AiSignalsAnalyzer {

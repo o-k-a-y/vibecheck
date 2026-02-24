@@ -23,3 +23,26 @@ impl ModelFamily {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn svg_colors_all_families() {
+        assert_eq!(ModelFamily::Claude.svg_color(),  "#d2a8ff");
+        assert_eq!(ModelFamily::Gpt.svg_color(),     "#7ee787");
+        assert_eq!(ModelFamily::Gemini.svg_color(),  "#79c0ff");
+        assert_eq!(ModelFamily::Copilot.svg_color(), "#39c5cf");
+        assert_eq!(ModelFamily::Human.svg_color(),   "#e3b341");
+    }
+
+    #[test]
+    fn terminal_colors_all_families() {
+        assert_eq!(ModelFamily::Claude.terminal_color(),  "magenta");
+        assert_eq!(ModelFamily::Gpt.terminal_color(),     "green");
+        assert_eq!(ModelFamily::Gemini.terminal_color(),  "blue");
+        assert_eq!(ModelFamily::Copilot.terminal_color(), "cyan");
+        assert_eq!(ModelFamily::Human.terminal_color(),   "yellow");
+    }
+}

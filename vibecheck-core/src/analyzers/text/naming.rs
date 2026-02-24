@@ -79,6 +79,74 @@ let extra_one = 6;\nlet extra_two = 7;\nlet extra_three = 8;\nlet extra_four = 9
             "expected no single-char names Claude signal (weight 1.0)"
         );
     }
+
+    #[test]
+    fn python_long_names_is_claude() {
+        // Python source with very descriptive function/variable names
+        let source = "\
+def process_authentication_token(user_context):\n    pass\n\
+def handle_connection_manager(request_handler):\n    pass\n\
+def validate_configuration_data(initialization_state):\n    pass\n\
+def serialize_transformation_output(processed_result_value):\n    pass\n\
+def compute_serialization_context():\n    pass\n\
+def build_error_description():\n    pass\n\
+authentication_token = None\n\
+configuration_data = None\n\
+processed_result_value = None\n\
+transformation_output = None\n";
+        let signals = NamingAnalyzer.analyze_python(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for very descriptive Python names"
+        );
+    }
+
+    #[test]
+    fn python_short_source_no_signals() {
+        let source = "x = 1\ny = 2\n";
+        let signals = NamingAnalyzer.analyze_python(source);
+        assert!(signals.is_empty());
+    }
+
+    #[test]
+    fn javascript_long_names_is_claude() {
+        let source = "\
+const processAuthenticationToken = () => {};\n\
+const handleConnectionManager = () => {};\n\
+const validateConfigurationData = () => {};\n\
+const serializeTransformationOutput = () => {};\n\
+const computeSerializationContext = () => {};\n\
+const buildErrorDescription = () => {};\n\
+let authenticationToken = null;\n\
+let configurationData = null;\n\
+let processedResultValue = null;\n\
+let transformationOutput = null;\n";
+        let signals = NamingAnalyzer.analyze_javascript(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for very descriptive JS names"
+        );
+    }
+
+    #[test]
+    fn go_long_names_is_claude() {
+        let source = "\
+func ProcessAuthenticationToken() {}\n\
+func HandleConnectionManager() {}\n\
+func ValidateConfigurationData() {}\n\
+func SerializeTransformationOutput() {}\n\
+func ComputeSerializationContext() {}\n\
+func BuildErrorDescription() {}\n\
+var authenticationToken string\n\
+var configurationData string\n\
+var processedResultValue string\n\
+var transformationOutput string\n";
+        let signals = NamingAnalyzer.analyze_go(source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for very descriptive Go names"
+        );
+    }
 }
 
 impl NamingAnalyzer {

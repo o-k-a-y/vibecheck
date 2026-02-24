@@ -84,6 +84,56 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
             "expected all-lines-under-100 Claude signal (weight 0.8)"
         );
     }
+
+    fn make_lines(n: usize, prefix: &str) -> String {
+        (0..n).map(|i| format!("{prefix}line_{i} = {i}")).collect::<Vec<_>>().join("\n")
+    }
+
+    #[test]
+    fn python_short_lines_is_claude() {
+        let source = make_lines(12, "");
+        let signals = CodeStructureAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for short Python lines"
+        );
+    }
+
+    #[test]
+    fn python_sorted_imports_is_claude() {
+        let mut lines: Vec<String> = vec![
+            "import abc".into(),
+            "import collections".into(),
+            "import sys".into(),
+        ];
+        lines.extend((0..10).map(|i| format!("x_{i} = {i}")));
+        let source = lines.join("\n");
+        let signals = CodeStructureAnalyzer.analyze_python(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for sorted Python imports"
+        );
+    }
+
+    #[test]
+    fn javascript_short_lines_is_claude() {
+        let source = make_lines(12, "const ");
+        let signals = CodeStructureAnalyzer.analyze_javascript(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for short JS lines"
+        );
+    }
+
+    #[test]
+    fn go_short_lines_is_claude() {
+        let source = make_lines(12, "var ");
+        let signals = CodeStructureAnalyzer.analyze_go(&source);
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude),
+            "expected Claude signal for short Go lines"
+        );
+    }
 }
 
 impl CodeStructureAnalyzer {

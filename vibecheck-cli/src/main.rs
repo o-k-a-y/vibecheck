@@ -1,5 +1,7 @@
 #![deny(dead_code)]
 
+#![deny(dead_code)]
+
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -60,6 +62,9 @@ enum Command {
 
     /// Walk git history and show how attribution changed over time.
     History(HistoryArgs),
+
+    /// List all signal heuristics with their default weights.
+    Heuristics(HeuristicsArgs),
 }
 
 #[derive(Args)]
@@ -118,6 +123,13 @@ struct HistoryArgs {
     limit: usize,
 }
 
+#[derive(Args)]
+struct HeuristicsArgs {
+    /// Output format: `table` (default) or `toml`.
+    #[arg(long, default_value = "table")]
+    format: String,
+}
+
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
@@ -140,6 +152,8 @@ fn main() -> Result<()> {
         Some(Command::Watch(a)) => commands::watch::run(&a.path, a.no_cache, a.ignore_file.as_ref()),
 
         Some(Command::History(a)) => commands::history::run(&a.path, Some(a.limit)),
+
+        Some(Command::Heuristics(a)) => commands::heuristics::run(&a.format),
 
         None => match cli.path {
             Some(path) => commands::analyze::run(
