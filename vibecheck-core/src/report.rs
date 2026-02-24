@@ -24,14 +24,14 @@ impl ModelFamily {
         ]
     }
 
-    /// Short display abbreviation for compact UI contexts (e.g. TUI badges, table cells).
+    /// Short display name for compact UI contexts (e.g. TUI badges, table cells).
     pub fn abbrev(self) -> &'static str {
         match self {
-            ModelFamily::Claude  => "Cl",
+            ModelFamily::Claude  => "Claude",
             ModelFamily::Gpt     => "GPT",
-            ModelFamily::Gemini  => "Ge",
-            ModelFamily::Copilot => "Co",
-            ModelFamily::Human   => "Hu",
+            ModelFamily::Gemini  => "Gemini",
+            ModelFamily::Copilot => "Copilot",
+            ModelFamily::Human   => "Human",
         }
     }
 }
