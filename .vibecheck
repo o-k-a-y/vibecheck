@@ -1,0 +1,238 @@
+# .vibecheck — vibecheck configuration for this project
+#
+# This file is discovered automatically when running vibecheck from the repo root
+# (or any subdirectory). It configures both the path-ignore rules and heuristic
+# signal weights.
+#
+# Run `vibecheck heuristics --format toml` to regenerate the heuristics section
+# with all current signal IDs and their defaults.
+
+# ---------------------------------------------------------------------------
+# [ignore] — control which files/directories are scanned
+# ---------------------------------------------------------------------------
+
+[ignore]
+# Additional gitignore-style patterns (additive on top of .gitignore).
+# patterns = ["vendor/", "dist/", "*.min.js"]
+
+# Respect the project .gitignore (default: true).
+# use_gitignore = true
+
+# Respect the global gitignore (~/.gitignore_global etc.) (default: true).
+# use_global_gitignore = true
+
+# ---------------------------------------------------------------------------
+# [heuristics] — override signal weights (0.0 = disabled)
+# ---------------------------------------------------------------------------
+# Uncomment and adjust any line to override its default weight.
+# Weight meaning: positive → signal points toward the listed model family;
+# 0.0 → signal is disabled entirely for this project.
+
+[heuristics]
+
+# ── rust · errors ──────────────────────────────────────────────────────────
+# "rust.errors.zero_unwrap" = 1.5        # Claude: Zero .unwrap() calls in a large file
+# "rust.errors.many_unwraps" = 1.5       # Human:  5+ .unwrap() calls — pragmatic style
+# "rust.errors.few_unwraps" = 0.5        # Copilot: 1–3 .unwrap() calls — moderate usage
+# "rust.errors.expect_calls" = 1.0       # Claude: 2+ .expect() calls — descriptive error handling
+# "rust.errors.question_mark" = 1.0      # Claude: 3+ uses of the ? operator
+# "rust.errors.exhaustive_match" = 1.0   # Claude: Match expressions prefer exhaustive patterns
+# "rust.errors.panic_calls" = 1.5        # Human:  2+ panic!() calls
+
+# ── python · errors ────────────────────────────────────────────────────────
+# "python.errors.broad_except" = 1.5     # Human:  2+ broad except clauses
+# "python.errors.specific_except" = 1.0  # Claude: 2+ specific exception types
+# "python.errors.no_try_except" = 0.8    # Claude: No try/except blocks in a substantial file
+# "python.errors.raise_from" = 1.0       # Claude: 2+ raise…from patterns
+
+# ── js · errors ────────────────────────────────────────────────────────────
+# "js.errors.console_error" = 1.0             # Human:  2+ console.error/warn calls
+# "js.errors.typed_error_check" = 1.0         # Claude: 2+ instanceof Error checks
+# "js.errors.promise_catch" = 0.8             # Human:  2+ .catch() chains
+# "js.errors.try_catch_blocks" = 0.8          # Claude: 2+ try/catch blocks
+# "js.errors.typed_error_construction" = 0.8  # Claude: 2+ typed Error constructions
+
+# ── go · errors ────────────────────────────────────────────────────────────
+# "go.errors.simple_err_return" = 0.8    # Human:  3+ simple 'if err != nil' returns
+# "go.errors.errorf_wrap" = 1.0          # Claude: 2+ fmt.Errorf(%w) wrappings
+# "go.errors.errors_sentinel" = 1.2      # Claude: 2+ errors.Is/As calls
+# "go.errors.panic_calls" = 1.5          # Human:  2+ panic() calls
+
+# ── rust · ai_signals ──────────────────────────────────────────────────────
+# "rust.ai_signals.no_todo" = 1.5            # Claude: No TODO/FIXME markers
+# "rust.ai_signals.no_dead_code" = 0.8       # Claude: No dead code suppressions
+# "rust.ai_signals.all_fns_documented" = 2.0 # Claude: Every function has a doc comment
+# "rust.ai_signals.no_trailing_ws" = 0.5     # Gpt:    Zero trailing whitespace
+# "rust.ai_signals.commented_out_code" = 2.5 # Human:  2+ lines of commented-out code
+# "rust.ai_signals.no_placeholder" = 0.5     # Claude: No placeholder values
+
+# ── python · ai_signals ────────────────────────────────────────────────────
+# "python.ai_signals.no_todo" = 1.5               # Claude: No TODO/FIXME markers
+# "python.ai_signals.no_trailing_ws" = 0.5         # Gpt:    Zero trailing whitespace
+# "python.ai_signals.no_placeholder" = 0.5         # Claude: No placeholder values
+# "python.ai_signals.no_linter_suppression" = 0.8  # Claude: No noqa/type: ignore suppressions
+# "python.ai_signals.commented_out_code" = 2.5     # Human:  2+ lines of commented-out code
+# "python.ai_signals.all_fns_documented" = 2.0     # Claude: Every function has a docstring
+
+# ── js · ai_signals ────────────────────────────────────────────────────────
+# "js.ai_signals.no_todo" = 1.5               # Claude: No TODO/FIXME markers
+# "js.ai_signals.no_trailing_ws" = 0.5         # Gpt:    Zero trailing whitespace
+# "js.ai_signals.no_placeholder" = 0.5         # Claude: No placeholder values
+# "js.ai_signals.no_linter_suppression" = 0.8  # Claude: No eslint-disable / @ts-ignore
+# "js.ai_signals.commented_out_code" = 2.5     # Human:  2+ lines of commented-out code
+# "js.ai_signals.jsdoc_blocks" = 1.5           # Claude: 3+ JSDoc comment blocks
+# "js.ai_signals.console_log" = 2.0            # Human:  3+ console.log calls
+
+# ── go · ai_signals ────────────────────────────────────────────────────────
+# "go.ai_signals.no_todo" = 1.5                  # Claude: No TODO/FIXME markers
+# "go.ai_signals.no_trailing_ws" = 0.5            # Gpt:    Zero trailing whitespace
+# "go.ai_signals.no_placeholder" = 0.5            # Claude: No placeholder values
+# "go.ai_signals.no_nolint" = 0.8                 # Claude: No nolint suppressions
+# "go.ai_signals.commented_out_code" = 2.5        # Human:  2+ lines of commented-out code
+# "go.ai_signals.all_exported_documented" = 2.0   # Claude: All exported identifiers have doc comments
+
+# ── rust · structure ───────────────────────────────────────────────────────
+# "rust.structure.high_type_annotation" = 1.0   # Gpt:    High type annotation ratio
+# "rust.structure.low_type_annotation" = 0.8    # Claude: Relies on type inference
+# "rust.structure.sorted_imports" = 1.0         # Claude: Import statements sorted
+# "rust.structure.consistent_blank_lines" = 1.0 # Claude: Perfectly consistent blank lines
+# "rust.structure.lines_under_100" = 0.8        # Claude: All lines ≤100 chars
+# "rust.structure.many_long_lines" = 1.0        # Human:  5+ lines over 100 chars
+# "rust.structure.heavy_derive" = 1.0           # Claude: Heavy derive usage
+
+# ── python · structure ─────────────────────────────────────────────────────
+# "python.structure.sorted_imports" = 1.0          # Claude: Import statements sorted
+# "python.structure.consistent_blank_lines" = 1.0  # Claude: Perfectly consistent blank lines
+# "python.structure.lines_under_88" = 0.8          # Claude: All lines ≤88 chars (PEP 8)
+
+# ── js · structure ─────────────────────────────────────────────────────────
+# "js.structure.sorted_imports" = 1.0         # Claude: Import statements sorted
+# "js.structure.consistent_blank_lines" = 1.0 # Claude: Perfectly consistent blank lines
+# "js.structure.lines_under_100" = 0.8        # Claude: All lines ≤100 chars
+# "js.structure.many_long_lines" = 1.0        # Human:  5+ lines over 100 chars
+
+# ── go · structure ─────────────────────────────────────────────────────────
+# "go.structure.sorted_imports" = 1.0         # Claude: Import strings sorted (goimports)
+# "go.structure.consistent_blank_lines" = 1.0 # Claude: Perfectly consistent blank lines
+# "go.structure.lines_under_120" = 0.8        # Claude: All lines ≤120 chars (gofmt)
+
+# ── rust · comments ────────────────────────────────────────────────────────
+# "rust.comments.high_density" = 1.5     # Claude: High comment density (>15%)
+# "rust.comments.low_density" = 1.0      # Human:  Very low comment density (<3%)
+# "rust.comments.teaching_voice" = 2.0   # Claude: 3+ comments with teaching voice
+# "rust.comments.some_explanatory" = 0.8 # Gpt:    Some explanatory comments
+# "rust.comments.doc_comments" = 1.5     # Claude: 5+ doc comments (///)
+# "rust.comments.terse_markers" = 2.0    # Human:  2+ terse/frustrated comments
+
+# ── python · comments ──────────────────────────────────────────────────────
+# "python.comments.high_density" = 1.5     # Claude: High comment density (>15%)
+# "python.comments.low_density" = 1.0      # Human:  Very low comment density (<3%)
+# "python.comments.teaching_voice" = 2.0   # Claude: 3+ comments with teaching voice
+# "python.comments.some_explanatory" = 0.8 # Gpt:    Some explanatory comments
+# "python.comments.docstring_blocks" = 1.5 # Claude: 5+ docstring blocks
+# "python.comments.terse_markers" = 2.0    # Human:  2+ terse/frustrated comments
+
+# ── js · comments ──────────────────────────────────────────────────────────
+# "js.comments.high_density" = 1.5     # Claude: High comment density (>15%)
+# "js.comments.low_density" = 1.0      # Human:  Very low comment density (<3%)
+# "js.comments.teaching_voice" = 2.0   # Claude: 3+ comments with teaching voice
+# "js.comments.some_explanatory" = 0.8 # Gpt:    Some explanatory comments
+# "js.comments.terse_markers" = 2.0    # Human:  2+ terse/frustrated comments
+# "js.comments.jsdoc_blocks" = 1.5     # Claude: 5+ JSDoc comment blocks
+
+# ── go · comments ──────────────────────────────────────────────────────────
+# "go.comments.high_density" = 1.5     # Claude: High comment density (>15%)
+# "go.comments.low_density" = 1.0      # Human:  Very low comment density (<3%)
+# "go.comments.teaching_voice" = 2.0   # Claude: 3+ comments with teaching voice
+# "go.comments.some_explanatory" = 0.8 # Gpt:    Some explanatory comments
+# "go.comments.terse_markers" = 2.0    # Human:  2+ terse/frustrated comments
+
+# ── rust · naming ──────────────────────────────────────────────────────────
+# "rust.naming.very_descriptive_vars" = 1.5  # Claude: Very descriptive variable names (avg >12 chars)
+# "rust.naming.descriptive_vars" = 1.0       # Gpt:    Descriptive variable names (avg 8–12 chars)
+# "rust.naming.short_vars" = 1.5             # Human:  Short variable names (avg <4 chars)
+# "rust.naming.many_single_char_vars" = 2.0  # Human:  3+ single-character variable names
+# "rust.naming.no_single_char_vars" = 1.0    # Claude: No single-character variable names
+# "rust.naming.underscore_bindings" = 1.0    # Human:  2+ underscore-prefixed bindings
+# "rust.naming.descriptive_fn_names" = 1.0   # Claude: Very descriptive function names (avg >15 chars)
+
+# ── python · naming ────────────────────────────────────────────────────────
+# "python.naming.very_descriptive" = 1.5  # Claude: Very descriptive names (avg >12 chars)
+# "python.naming.descriptive" = 1.0       # Gpt:    Descriptive names (avg 8–12 chars)
+# "python.naming.short_names" = 1.5       # Human:  Short names (avg <4 chars)
+# "python.naming.many_single_char" = 2.0  # Human:  3+ single-character names
+# "python.naming.no_single_char" = 1.0    # Claude: No single-character names
+
+# ── js · naming ────────────────────────────────────────────────────────────
+# "js.naming.very_descriptive" = 1.5  # Claude: Very descriptive names (avg >12 chars)
+# "js.naming.descriptive" = 1.0       # Gpt:    Descriptive names (avg 8–12 chars)
+# "js.naming.short_names" = 1.5       # Human:  Short names (avg <4 chars)
+# "js.naming.many_single_char" = 2.0  # Human:  3+ single-character names
+# "js.naming.no_single_char" = 1.0    # Claude: No single-character names
+
+# ── go · naming ────────────────────────────────────────────────────────────
+# "go.naming.very_descriptive" = 1.5  # Claude: Very descriptive names (avg >12 chars)
+# "go.naming.descriptive" = 1.0       # Gpt:    Descriptive names (avg 8–12 chars)
+# "go.naming.short_names" = 1.5       # Human:  Short names (avg <4 chars)
+# "go.naming.many_single_char" = 2.0  # Human:  3+ single-character names
+# "go.naming.no_single_char" = 1.0    # Claude: No single-character names
+
+# ── rust · idioms ──────────────────────────────────────────────────────────
+# "rust.idioms.iterator_chains" = 1.5   # Claude: 5+ iterator chain usages
+# "rust.idioms.builder_pattern" = 1.0   # Gpt:    8+ method chain continuation lines
+# "rust.idioms.impl_display" = 1.0      # Claude: Implements Display trait
+# "rust.idioms.from_into_impls" = 1.0   # Claude: 2+ From/Into implementations
+# "rust.idioms.self_usage" = 0.8        # Claude: 3+ uses of Self
+# "rust.idioms.pattern_matching" = 0.8  # Claude: 3+ if-let/while-let patterns
+# "rust.idioms.format_macro" = 0.8      # Claude: Uses format!() exclusively
+# "rust.idioms.string_concat" = 1.0     # Human:  3+ string concatenations
+# "rust.idioms.many_traits" = 1.5       # Gpt:    3+ trait definitions
+
+# ── python · idioms ────────────────────────────────────────────────────────
+# "python.idioms.comprehensions" = 1.5          # Claude: 3+ list/dict/set comprehensions
+# "python.idioms.return_type_annotations" = 1.5 # Claude: All functions have return type annotations
+# "python.idioms.context_managers" = 0.8        # Claude: 2+ context manager usages
+# "python.idioms.functional_builtins" = 1.0     # Claude: 4+ functional builtin usages
+# "python.idioms.fstrings" = 0.8                # Claude: Uses f-strings exclusively
+# "python.idioms.old_format" = 1.0              # Human:  3+ old-style format calls
+
+# ── js · idioms ────────────────────────────────────────────────────────────
+# "js.idioms.arrow_fns_only" = 1.5      # Claude: 5+ arrow functions, no regular functions
+# "js.idioms.regular_fns_only" = 1.0    # Human:  3+ traditional function declarations
+# "js.idioms.var_declarations" = 1.5    # Human:  3+ var declarations — legacy hoisting
+# "js.idioms.const_declarations" = 1.0  # Claude: 5+ const declarations
+# "js.idioms.null_safe_ops" = 1.0       # Claude: 3+ optional chaining / nullish coalescing
+# "js.idioms.destructuring" = 0.8       # Claude: 3+ destructuring assignments
+# "js.idioms.async_await" = 0.8         # Claude: 3+ async/await usages
+
+# ── go · idioms ────────────────────────────────────────────────────────────
+# "go.idioms.interface_checks" = 1.5      # Claude: 1+ compile-time interface checks
+# "go.idioms.goroutines" = 0.8            # Gpt:    2+ goroutine launches
+# "go.idioms.defer_stmts" = 0.8           # Claude: 2+ defer statements
+# "go.idioms.table_driven_tests" = 1.5    # Claude: Table-driven test pattern
+# "go.idioms.iota_constants" = 0.8        # Claude: 1+ iota constants
+
+# ── rust_cst · complexity / structure ─────────────────────────────────────
+# "rust_cst.complexity.low" = 2.5       # Claude: Low avg cyclomatic complexity (≤2.0)
+# "rust_cst.complexity.high" = 1.5      # Human:  High avg cyclomatic complexity (≥5.0)
+# "rust_cst.doc_coverage.high" = 2.0    # Claude: ≥90% doc comment coverage on pub functions
+# "rust_cst.entropy.high" = 1.5         # Claude: High identifier entropy (≥4.0)
+# "rust_cst.entropy.low" = 1.0          # Human:  Low identifier entropy (<3.0)
+# "rust_cst.nesting.low" = 1.5          # Claude: Low avg nesting depth (≤3.0)
+# "rust_cst.imports.sorted" = 1.0       # Claude: use declarations are alphabetically sorted
+
+# ── python_cst ────────────────────────────────────────────────────────────
+# "python_cst.doc_coverage.high" = 2.0        # Claude: ≥85% docstring coverage
+# "python_cst.type_annotations.high" = 1.5    # Claude: ≥80% type annotation coverage
+# "python_cst.fstrings.only" = 1.0            # Claude: f-strings present, no %-formatting
+
+# ── js_cst ────────────────────────────────────────────────────────────────
+# "js_cst.arrow_fns.high_ratio" = 1.5    # Claude: ≥70% arrow functions
+# "js_cst.async.await_only" = 1.5        # Claude: 2+ await expressions, no .then()
+# "js_cst.async.then_only" = 1.0         # Human:  2+ .then() chains
+# "js_cst.optional_chaining.high" = 1.0  # Claude: 3+ optional chaining usages (?.)
+
+# ── go_cst ────────────────────────────────────────────────────────────────
+# "go_cst.doc_coverage.high" = 2.0   # Claude: ≥80% Godoc coverage on exported functions
+# "go_cst.goroutines.present" = 1.0  # Claude: 2+ goroutines — concurrent design
+# "go_cst.errors.nil_checks" = 1.5   # Claude: 3+ err != nil checks — thorough error handling
