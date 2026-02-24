@@ -470,9 +470,11 @@ vibecheck history src/pipeline.rs --limit 20
   v0.2 - "Infrastructure That Doesn't Lie" ✓ shipped
          (Merkle cache, symbol-level, TUI,
           watch mode, git history)
-  v0.3 - "Your Codebase Has a Trend Problem" <- next
+  v0.3 - "Please Don't Scan My node_modules" ✓ shipped
+         (ignore rules, .vibecheck config, IgnoreRules DI)
+  v0.4 - "Your Codebase Has a Trend Problem" <- next
          (persistent trend store, sparklines)
-  v0.4 - "We Trained a Model On This"
+  v0.5 - "We Trained a Model On This"
   v1.0 - "Skynet But For Code Review"
   ──────────────────────────────────────────────────────
 ```
