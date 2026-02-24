@@ -1516,6 +1516,7 @@ dependencies = [
  "notify",
  "ratatui",
  "serde_json",
+ "tempfile",
  "vibecheck-core",
  "walkdir",
 ]

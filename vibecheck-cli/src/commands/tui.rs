@@ -49,6 +49,19 @@ struct App {
 }
 
 impl App {
+    #[cfg(test)]
+    fn for_test(all: Vec<FlatEntry>) -> Self {
+        let mut list_state = ListState::default();
+        list_state.select(Some(0));
+        App {
+            all,
+            collapsed: HashSet::new(),
+            selected: 0,
+            list_state,
+            detail: None,
+        }
+    }
+
     fn new(all: Vec<FlatEntry>) -> Self {
         let mut list_state = ListState::default();
         list_state.select(Some(0));
@@ -588,4 +601,451 @@ fn event_loop<B: ratatui::backend::Backend>(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use vibecheck_core::report::{
+        Attribution, ModelFamily, Report, ReportMetadata, SymbolMetadata, SymbolReport,
+    };
+
+    // -------------------------------------------------------------------------
+    // Test helpers
+    // -------------------------------------------------------------------------
+
+    fn make_report(family: ModelFamily, confidence: f64, loc: usize) -> Report {
+        let mut scores = HashMap::new();
+        scores.insert(family, confidence);
+        Report {
+            attribution: Attribution { primary: family, confidence, scores },
+            signals: vec![],
+            metadata: ReportMetadata { file_path: None, lines_of_code: loc, signal_count: 0 },
+            symbol_reports: None,
+        }
+    }
+
+    fn make_sym(name: &str, kind: &str, family: ModelFamily, confidence: f64) -> SymbolReport {
+        SymbolReport {
+            metadata: SymbolMetadata {
+                name: name.to_string(),
+                kind: kind.to_string(),
+                start_line: 1,
+                end_line: 10,
+            },
+            attribution: Attribution {
+                primary: family,
+                confidence,
+                scores: HashMap::new(),
+            },
+            signals: vec![],
+        }
+    }
+
+    fn file_entry(path: &str, depth: usize, family: ModelFamily, confidence: f64) -> FlatEntry {
+        let p = PathBuf::from(path);
+        let name = p.file_name().unwrap().to_str().unwrap().to_string();
+        FlatEntry { path: p, name, depth, is_dir: false, family, confidence }
+    }
+
+    fn dir_entry(path: &str, depth: usize, family: ModelFamily, confidence: f64) -> FlatEntry {
+        let p = PathBuf::from(path);
+        let name = p.file_name().unwrap().to_str().unwrap().to_string();
+        FlatEntry { path: p, name, depth, is_dir: true, family, confidence }
+    }
+
+    // -------------------------------------------------------------------------
+    // render_symbol_lines
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn symbol_lines_empty_slice_returns_empty() {
+        assert!(render_symbol_lines(&[]).is_empty());
+    }
+
+    #[test]
+    fn symbol_lines_header_shows_count() {
+        let lines = render_symbol_lines(&[make_sym("foo", "function", ModelFamily::Claude, 0.9)]);
+        // index 0 = blank line, index 1 = header
+        let header = format!("{:?}", lines[1]);
+        assert!(header.contains("Symbols (1):"));
+    }
+
+    #[test]
+    fn symbol_lines_multiple_count_in_header() {
+        let syms: Vec<_> = (0..5)
+            .map(|i| make_sym(&format!("fn{i}"), "function", ModelFamily::Claude, 0.8))
+            .collect();
+        let lines = render_symbol_lines(&syms);
+        assert!(format!("{:?}", lines[1]).contains("Symbols (5):"));
+    }
+
+    #[test]
+    fn symbol_lines_function_kind_tag() {
+        let lines = render_symbol_lines(&[make_sym("run", "function", ModelFamily::Claude, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains("f run"));
+    }
+
+    #[test]
+    fn symbol_lines_method_kind_tag() {
+        let lines = render_symbol_lines(&[make_sym("do_it", "method", ModelFamily::Gpt, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains("M do_it"));
+    }
+
+    #[test]
+    fn symbol_lines_class_kind_tag() {
+        let lines = render_symbol_lines(&[make_sym("Foo", "class", ModelFamily::Gpt, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains("C Foo"));
+    }
+
+    #[test]
+    fn symbol_lines_unknown_kind_defaults_to_f() {
+        let lines = render_symbol_lines(&[make_sym("x", "trait", ModelFamily::Claude, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains("f x"));
+    }
+
+    #[test]
+    fn symbol_lines_name_fits_within_22_chars_unchanged() {
+        let name = "short_name";
+        let lines = render_symbol_lines(&[make_sym(name, "function", ModelFamily::Claude, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains(name));
+    }
+
+    #[test]
+    fn symbol_lines_name_truncated_when_over_22_chars() {
+        let name = "a_very_long_function_name_exceeding_limit";
+        let lines = render_symbol_lines(&[make_sym(name, "function", ModelFamily::Claude, 0.5)]);
+        let row = format!("{:?}", lines[2]);
+        assert!(!row.contains(name), "full long name should be truncated");
+        assert!(row.contains('…'), "truncation marker should be present");
+    }
+
+    #[test]
+    fn symbol_lines_full_confidence_fills_bar() {
+        let lines = render_symbol_lines(&[make_sym("f", "function", ModelFamily::Claude, 1.0)]);
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("████████████████"), "16 blocks at 100% confidence");
+    }
+
+    #[test]
+    fn symbol_lines_zero_confidence_has_no_bar() {
+        let lines = render_symbol_lines(&[make_sym("f", "function", ModelFamily::Claude, 0.0)]);
+        assert!(!format!("{:?}", lines[2]).contains('█'));
+    }
+
+    #[test]
+    fn symbol_lines_half_confidence_has_8_blocks() {
+        let lines = render_symbol_lines(&[make_sym("f", "function", ModelFamily::Claude, 0.5)]);
+        let row = format!("{:?}", lines[2]);
+        let count = row.chars().filter(|&c| c == '█').count();
+        assert_eq!(count, 8);
+    }
+
+    #[test]
+    fn symbol_lines_one_row_per_symbol() {
+        let syms = vec![
+            make_sym("a", "function", ModelFamily::Claude, 0.9),
+            make_sym("b", "method",   ModelFamily::Gpt,    0.7),
+            make_sym("c", "function", ModelFamily::Human,  0.3),
+        ];
+        // 2 header lines (blank + title) + 3 symbol rows = 5
+        assert_eq!(render_symbol_lines(&syms).len(), 5);
+    }
+
+    // -------------------------------------------------------------------------
+    // name_to_family
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn name_to_family_all_known() {
+        assert_eq!(name_to_family("claude"),  ModelFamily::Claude);
+        assert_eq!(name_to_family("gpt"),     ModelFamily::Gpt);
+        assert_eq!(name_to_family("gemini"),  ModelFamily::Gemini);
+        assert_eq!(name_to_family("copilot"), ModelFamily::Copilot);
+        assert_eq!(name_to_family("human"),   ModelFamily::Human);
+    }
+
+    #[test]
+    fn name_to_family_unknown_falls_back_to_human() {
+        assert_eq!(name_to_family("llama"),   ModelFamily::Human);
+        assert_eq!(name_to_family(""),        ModelFamily::Human);
+    }
+
+    // -------------------------------------------------------------------------
+    // family_abbrev / family_color — smoke tests
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn family_abbrev_all_families_return_nonempty() {
+        for &f in ModelFamily::all() {
+            assert!(!family_abbrev(f).is_empty());
+        }
+    }
+
+    #[test]
+    fn family_color_all_families_return_a_color() {
+        // Just ensure it doesn't panic and returns distinct values for each family.
+        let colors: Vec<_> = ModelFamily::all().iter().map(|&f| family_color(f)).collect();
+        assert_eq!(colors.len(), 5);
+    }
+
+    // -------------------------------------------------------------------------
+    // App::visible — collapse / expand logic
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn visible_all_entries_shown_when_nothing_collapsed() {
+        let app = App::for_test(vec![
+            dir_entry("/src",         0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs",   1, ModelFamily::Claude, 0.9),
+            file_entry("/src/b.rs",   1, ModelFamily::Claude, 0.85),
+        ]);
+        assert_eq!(app.visible().len(), 3);
+    }
+
+    #[test]
+    fn visible_collapsed_dir_hides_direct_children() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",        0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs",  1, ModelFamily::Claude, 0.9),
+            file_entry("/src/b.rs",  1, ModelFamily::Claude, 0.85),
+        ]);
+        app.collapsed.insert(PathBuf::from("/src"));
+        assert_eq!(app.visible().len(), 1);
+    }
+
+    #[test]
+    fn visible_collapsed_dir_hides_deeply_nested_entries() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",                    0, ModelFamily::Claude, 0.8),
+            dir_entry("/src/analyzers",          1, ModelFamily::Claude, 0.8),
+            file_entry("/src/analyzers/rust.rs", 2, ModelFamily::Claude, 0.9),
+            file_entry("/src/lib.rs",            1, ModelFamily::Claude, 0.85),
+        ]);
+        app.collapsed.insert(PathBuf::from("/src/analyzers"));
+        // /src, /src/analyzers (collapsed), /src/lib.rs — rust.rs hidden
+        assert_eq!(app.visible().len(), 3);
+    }
+
+    #[test]
+    fn visible_sibling_dir_stays_visible_when_other_collapsed() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",          0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs",    1, ModelFamily::Claude, 0.9),
+            dir_entry("/tests",        0, ModelFamily::Claude, 0.7),
+            file_entry("/tests/t.rs",  1, ModelFamily::Claude, 0.7),
+        ]);
+        app.collapsed.insert(PathBuf::from("/src"));
+        // /src (collapsed), /tests, /tests/t.rs
+        assert_eq!(app.visible().len(), 3);
+    }
+
+    #[test]
+    fn visible_empty_app_returns_empty() {
+        let app = App::for_test(vec![]);
+        assert_eq!(app.visible().len(), 0);
+    }
+
+    // -------------------------------------------------------------------------
+    // App::toggle_collapse
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn toggle_collapse_collapses_expanded_dir() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",       0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs", 1, ModelFamily::Claude, 0.9),
+        ]);
+        app.toggle_collapse();
+        assert!(app.collapsed.contains(&PathBuf::from("/src")));
+    }
+
+    #[test]
+    fn toggle_collapse_expands_collapsed_dir() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",       0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs", 1, ModelFamily::Claude, 0.9),
+        ]);
+        app.collapsed.insert(PathBuf::from("/src"));
+        app.toggle_collapse();
+        assert!(!app.collapsed.contains(&PathBuf::from("/src")));
+    }
+
+    #[test]
+    fn toggle_collapse_on_file_is_noop() {
+        let mut app = App::for_test(vec![
+            file_entry("/src/a.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.toggle_collapse();
+        assert!(app.collapsed.is_empty());
+    }
+
+    // -------------------------------------------------------------------------
+    // App::move_down / move_up
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn move_down_increments_selected() {
+        let mut app = App::for_test(vec![
+            file_entry("/a.rs", 0, ModelFamily::Claude, 0.9),
+            file_entry("/b.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.move_down();
+        assert_eq!(app.selected, 1);
+    }
+
+    #[test]
+    fn move_down_clamps_at_last_entry() {
+        let mut app = App::for_test(vec![
+            file_entry("/a.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.move_down();
+        app.move_down();
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn move_up_decrements_selected() {
+        let mut app = App::for_test(vec![
+            file_entry("/a.rs", 0, ModelFamily::Claude, 0.9),
+            file_entry("/b.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.selected = 1;
+        app.list_state.select(Some(1));
+        app.move_up();
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn move_up_clamps_at_zero() {
+        let mut app = App::for_test(vec![
+            file_entry("/a.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.move_up();
+        assert_eq!(app.selected, 0);
+    }
+
+    #[test]
+    fn move_down_skips_hidden_entries_correctly() {
+        let mut app = App::for_test(vec![
+            dir_entry("/src",       0, ModelFamily::Claude, 0.8),
+            file_entry("/src/a.rs", 1, ModelFamily::Claude, 0.9),
+            file_entry("/b.rs",     0, ModelFamily::Claude, 0.9),
+        ]);
+        app.collapsed.insert(PathBuf::from("/src"));
+        // visible: /src (0), /b.rs (1)
+        app.move_down();
+        assert_eq!(app.selected, 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // build_flat_tree — needs real filesystem paths because dfs calls is_dir()
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn flat_tree_empty_reports_returns_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(build_flat_tree(dir.path(), &[]).is_empty());
+    }
+
+    #[test]
+    fn flat_tree_single_file_at_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("main.rs");
+        std::fs::write(&file, "").unwrap();
+        let result = build_flat_tree(dir.path(), &[(file, make_report(ModelFamily::Claude, 0.9, 10))]);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].name, "main.rs");
+        assert!(!result[0].is_dir);
+    }
+
+    #[test]
+    fn flat_tree_synthesises_directory_entry() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        std::fs::create_dir(&sub).unwrap();
+        let file = sub.join("lib.rs");
+        std::fs::write(&file, "").unwrap();
+        let result = build_flat_tree(dir.path(), &[(file, make_report(ModelFamily::Claude, 0.9, 10))]);
+        // src/ (depth 0) then lib.rs (depth 1)
+        assert_eq!(result.len(), 2);
+        assert!(result[0].is_dir);
+        assert_eq!(result[0].name, "src");
+        assert_eq!(result[1].name, "lib.rs");
+        assert_eq!(result[1].depth, 1);
+    }
+
+    #[test]
+    fn flat_tree_files_sorted_alphabetically() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in &["z.rs", "a.rs", "m.rs"] {
+            std::fs::write(dir.path().join(name), "").unwrap();
+        }
+        let reports: Vec<_> = ["z.rs", "a.rs", "m.rs"]
+            .iter()
+            .map(|n| (dir.path().join(n), make_report(ModelFamily::Claude, 0.8, 5)))
+            .collect();
+        let result = build_flat_tree(dir.path(), &reports);
+        let names: Vec<_> = result.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["a.rs", "m.rs", "z.rs"]);
+    }
+
+    #[test]
+    fn flat_tree_dir_confidence_is_weighted_average() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        std::fs::create_dir(&sub).unwrap();
+        // Two Claude files: 100 LOC at 90%, 100 LOC at 70% → avg 80%
+        let f1 = sub.join("a.rs");
+        let f2 = sub.join("b.rs");
+        std::fs::write(&f1, "").unwrap();
+        std::fs::write(&f2, "").unwrap();
+        let reports = vec![
+            (f1, make_report(ModelFamily::Claude, 0.9, 100)),
+            (f2, make_report(ModelFamily::Claude, 0.7, 100)),
+        ];
+        let result = build_flat_tree(dir.path(), &reports);
+        let dir_entry = result.iter().find(|e| e.is_dir).unwrap();
+        assert!((dir_entry.confidence - 0.8).abs() < 0.01, "expected ~80% got {}", dir_entry.confidence);
+    }
+
+    #[test]
+    fn flat_tree_dir_family_is_dominant_by_weighted_score() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("src");
+        std::fs::create_dir(&sub).unwrap();
+        // One large Claude file vs one small GPT file
+        let f1 = sub.join("big.rs");
+        let f2 = sub.join("small.rs");
+        std::fs::write(&f1, "").unwrap();
+        std::fs::write(&f2, "").unwrap();
+        let reports = vec![
+            (f1, make_report(ModelFamily::Claude, 0.9, 200)),
+            (f2, make_report(ModelFamily::Gpt,    0.9,  10)),
+        ];
+        let result = build_flat_tree(dir.path(), &reports);
+        let dir_entry = result.iter().find(|e| e.is_dir).unwrap();
+        assert_eq!(dir_entry.family, ModelFamily::Claude);
+    }
+
+    #[test]
+    fn flat_tree_dirs_appear_before_sibling_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        let nested = sub.join("nested.rs");
+        let root_file = dir.path().join("root.rs");
+        std::fs::write(&nested, "").unwrap();
+        std::fs::write(&root_file, "").unwrap();
+        let reports = vec![
+            (nested,    make_report(ModelFamily::Claude, 0.8, 10)),
+            (root_file, make_report(ModelFamily::Claude, 0.8, 10)),
+        ];
+        let result = build_flat_tree(dir.path(), &reports);
+        // sub/ should come before root.rs in the flat list
+        let sub_idx   = result.iter().position(|e| e.name == "sub").unwrap();
+        let root_idx  = result.iter().position(|e| e.name == "root.rs").unwrap();
+        assert!(sub_idx < root_idx);
+    }
 }
