@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 use anyhow::Result;
 use crossterm::{
@@ -23,6 +24,28 @@ use vibecheck_core::report::{ModelFamily, Report, SymbolReport};
 // ---------------------------------------------------------------------------
 // Data model
 // ---------------------------------------------------------------------------
+
+/// A single commit in the git history panel.
+#[derive(Clone)]
+struct HistoryEntry {
+    /// 7-character abbreviated commit hash.
+    hash: String,
+    /// Commit date (YYYY-MM-DD).
+    date: String,
+    /// First line of the commit message.
+    summary: String,
+    /// AI attribution family for the file at this commit.
+    family: ModelFamily,
+    /// Attribution confidence at this commit (0.0–1.0).
+    confidence: f64,
+}
+
+/// Which pane currently has keyboard focus.
+#[derive(PartialEq, Clone, Copy)]
+enum FocusPane {
+    Tree,
+    History,
+}
 
 /// A single entry in the flattened, visible tree list.
 #[derive(Clone)]
@@ -51,6 +74,18 @@ struct App {
     detail_scroll: u16,
     /// Horizontal scroll offset for the detail pane.
     detail_scroll_x: u16,
+    /// Whether the git history panel is visible.
+    show_history: bool,
+    /// Which pane has keyboard focus.
+    focus: FocusPane,
+    /// Loaded git history entries (most-recent first).
+    history_entries: Vec<HistoryEntry>,
+    /// Selected row within the history panel.
+    history_cursor: usize,
+    /// True while the background analysis thread is still running.
+    history_loading: bool,
+    /// Receives the loaded history from the background thread.
+    history_rx: Option<mpsc::Receiver<Vec<HistoryEntry>>>,
 }
 
 impl App {
@@ -66,6 +101,12 @@ impl App {
             detail: None,
             detail_scroll: 0,
             detail_scroll_x: 0,
+            show_history: false,
+            focus: FocusPane::Tree,
+            history_entries: Vec::new(),
+            history_cursor: 0,
+            history_loading: false,
+            history_rx: None,
         }
     }
 
@@ -84,6 +125,12 @@ impl App {
             detail,
             detail_scroll: 0,
             detail_scroll_x: 0,
+            show_history: false,
+            focus: FocusPane::Tree,
+            history_entries: Vec::new(),
+            history_cursor: 0,
+            history_loading: false,
+            history_rx: None,
         }
     }
 
@@ -147,6 +194,12 @@ impl App {
             .and_then(|e| vibecheck_core::analyze_file_symbols(&e.path).ok());
         self.detail_scroll = 0;
         self.detail_scroll_x = 0;
+        // Close the history panel when navigating to a different file.
+        self.show_history = false;
+        self.focus = FocusPane::Tree;
+        self.history_entries.clear();
+        self.history_loading = false;
+        self.history_rx = None;
     }
 
     fn scroll_detail_down(&mut self, amount: u16) {
@@ -163,6 +216,56 @@ impl App {
 
     fn scroll_detail_left(&mut self, amount: u16) {
         self.detail_scroll_x = self.detail_scroll_x.saturating_sub(amount);
+    }
+
+    /// Toggle the git history panel for the currently selected file.
+    ///
+    /// Opening it starts a background thread that fetches and re-analyses the
+    /// last 20 commits; results arrive via `history_rx`. Closing it discards
+    /// any in-flight load and resets cursor and entries.
+    fn toggle_history(&mut self) {
+        if self.show_history {
+            self.show_history = false;
+            self.focus = FocusPane::Tree;
+            self.history_entries.clear();
+            self.history_cursor = 0;
+            self.history_loading = false;
+            self.history_rx = None;
+        } else {
+            let visible = self.visible();
+            let Some(entry) = visible.get(self.selected) else { return };
+            if entry.is_dir { return; }
+            let path = entry.path.clone();
+            self.show_history = true;
+            self.focus = FocusPane::History;
+            self.history_entries.clear();
+            self.history_cursor = 0;
+            self.history_loading = true;
+            self.history_rx = Some(load_history_bg(path));
+        }
+    }
+
+    /// Receive completed history results from the background thread (non-blocking).
+    fn poll_history(&mut self) {
+        if let Some(ref rx) = self.history_rx {
+            if let Ok(entries) = rx.try_recv() {
+                self.history_entries = entries;
+                self.history_loading = false;
+                self.history_rx = None;
+            }
+        }
+    }
+
+    fn history_cursor_down(&mut self) {
+        if self.history_cursor + 1 < self.history_entries.len() {
+            self.history_cursor += 1;
+        }
+    }
+
+    fn history_cursor_up(&mut self) {
+        if self.history_cursor > 0 {
+            self.history_cursor -= 1;
+        }
     }
 }
 
@@ -370,7 +473,18 @@ fn render(frame: &mut Frame, app: &mut App) {
         .split(outer[0]);
 
     render_tree(frame, app, main[0]);
-    render_detail(frame, app, main[1]);
+
+    if app.show_history {
+        let right = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+            .split(main[1]);
+        render_detail(frame, app, right[0]);
+        render_history(frame, app, right[1]);
+    } else {
+        render_detail(frame, app, main[1]);
+    }
+
     render_statusbar(frame, outer[1]);
 }
 
@@ -563,6 +677,64 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     frame.render_widget(Paragraph::new(all_lines).scroll((scroll, scroll_x)), inner);
 }
 
+fn render_history(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+    let title = if app.history_loading {
+        " History (loading…) "
+    } else {
+        " History [h: close | ↑↓: navigate] "
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(if app.focus == FocusPane::History {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default()
+        });
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if app.history_loading {
+        frame.render_widget(Paragraph::new("  Loading git history…"), inner);
+        return;
+    }
+
+    if app.history_entries.is_empty() {
+        frame.render_widget(Paragraph::new("  No git history found for this file."), inner);
+        return;
+    }
+
+    let items: Vec<ListItem> = app
+        .history_entries
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let color = family_color(entry.family);
+            let abbrev = family_abbrev(entry.family);
+            let summary = truncate_to(&entry.summary, 40);
+            let line = Line::from(vec![
+                Span::styled(
+                    format!(" {} {}  ", entry.hash, entry.date),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    format!("{} {:>3.0}%  ", abbrev, entry.confidence * 100.0),
+                    Style::default().fg(color),
+                ),
+                Span::raw(summary),
+            ]);
+            if i == app.history_cursor {
+                ListItem::new(line).style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
+            } else {
+                ListItem::new(line)
+            }
+        })
+        .collect();
+
+    frame.render_widget(List::new(items), inner);
+}
+
 fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
     let bar = Paragraph::new(Line::from(vec![
         Span::styled(" ↑↓ ", Style::default().fg(Color::Cyan)),
@@ -575,11 +747,97 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
         Span::raw("scroll detail  "),
         Span::styled("⇧←/⇧→ ", Style::default().fg(Color::Cyan)),
         Span::raw("scroll right pane  "),
+        Span::styled(" h ", Style::default().fg(Color::Cyan)),
+        Span::raw("history  "),
         Span::styled(" q ", Style::default().fg(Color::Cyan)),
         Span::raw("quit"),
     ]))
     .style(Style::default().bg(Color::DarkGray));
     frame.render_widget(bar, area);
+}
+
+// ---------------------------------------------------------------------------
+// Git history loading
+// ---------------------------------------------------------------------------
+
+/// Spawn a background thread to load and re-analyse the last 20 commits that
+/// touched `path`. Returns a channel receiver; call `try_recv` to poll for
+/// the completed list without blocking the TUI thread.
+fn load_history_bg(path: PathBuf) -> mpsc::Receiver<Vec<HistoryEntry>> {
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let entries = git_history_for_file(&path).unwrap_or_default();
+        let _ = tx.send(entries);
+    });
+    rx
+}
+
+/// Run `git log` + `git show` + `vibecheck_core::analyze` for the last 20
+/// commits that touched `path`, returning one `HistoryEntry` per commit.
+fn git_history_for_file(path: &Path) -> anyhow::Result<Vec<HistoryEntry>> {
+    // Resolve the git repository root.
+    let git_root_out = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(path.parent().unwrap_or(path))
+        .output()?;
+    let git_root = PathBuf::from(
+        std::str::from_utf8(&git_root_out.stdout)
+            .unwrap_or("")
+            .trim(),
+    );
+
+    // `git log --format="%H %ad %s"` gives: full-hash  date  subject
+    let log_out = std::process::Command::new("git")
+        .args([
+            "log",
+            "--format=%H %ad %s",
+            "--date=short",
+            "-n",
+            "20",
+            "--",
+            path.to_str().unwrap_or(""),
+        ])
+        .current_dir(&git_root)
+        .output()?;
+
+    let log_str = std::str::from_utf8(&log_out.stdout).unwrap_or("");
+    let mut entries = Vec::new();
+
+    for line in log_str.lines() {
+        let mut parts = line.splitn(3, ' ');
+        let Some(full_hash) = parts.next() else { continue };
+        let Some(date) = parts.next() else { continue };
+        let summary = parts.next().unwrap_or("").to_string();
+        let hash: String = full_hash.chars().take(7).collect();
+
+        // Retrieve the file content at this commit.
+        let rel = path.strip_prefix(&git_root).unwrap_or(path);
+        let spec = format!("{}:{}", full_hash, rel.to_string_lossy());
+        let show_bytes = std::process::Command::new("git")
+            .args(["show", &spec])
+            .current_dir(&git_root)
+            .output()
+            .map(|o| o.stdout)
+            .unwrap_or_default();
+
+        let content = String::from_utf8_lossy(&show_bytes);
+        let (family, confidence) = if content.is_empty() {
+            (ModelFamily::Human, 0.5)
+        } else {
+            let report = vibecheck_core::analyze(&content);
+            (report.attribution.primary, report.attribution.confidence)
+        };
+
+        entries.push(HistoryEntry {
+            hash,
+            date: date.to_string(),
+            summary,
+            family,
+            confidence,
+        });
+    }
+
+    Ok(entries)
 }
 
 // ---------------------------------------------------------------------------
@@ -628,6 +886,8 @@ fn event_loop<B: ratatui::backend::Backend>(
     app: &mut App,
 ) -> Result<()> {
     loop {
+        // Poll for completed background history loads before drawing.
+        app.poll_history();
         terminal.draw(|f| render(f, app))?;
 
         if !event::poll(std::time::Duration::from_millis(100))? {
@@ -638,8 +898,19 @@ fn event_loop<B: ratatui::backend::Backend>(
             match key.code {
                 KeyCode::Char('q') => break,
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+
+                // History panel navigation (takes priority when panel has focus).
+                KeyCode::Down | KeyCode::Char('j') if app.focus == FocusPane::History => {
+                    app.history_cursor_down();
+                }
+                KeyCode::Up | KeyCode::Char('k') if app.focus == FocusPane::History => {
+                    app.history_cursor_up();
+                }
+
+                // Tree navigation.
                 KeyCode::Down | KeyCode::Char('j') => app.move_down(),
                 KeyCode::Up   | KeyCode::Char('k') => app.move_up(),
+
                 KeyCode::PageDown | KeyCode::Char('d') => app.scroll_detail_down(5),
                 KeyCode::PageUp   | KeyCode::Char('u') => app.scroll_detail_up(5),
                 KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
@@ -651,7 +922,14 @@ fn event_loop<B: ratatui::backend::Backend>(
                 KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
                     app.toggle_collapse();
                 }
-                KeyCode::Left | KeyCode::Char('h') => {
+                // `h` toggles the history panel (also closes it from history focus).
+                KeyCode::Char('h') | KeyCode::Esc if app.focus == FocusPane::History => {
+                    app.toggle_history();
+                }
+                KeyCode::Char('h') => {
+                    app.toggle_history();
+                }
+                KeyCode::Left => {
                     // Collapse the current directory, or navigate to parent.
                     let visible = app.visible();
                     if let Some(entry) = visible.get(app.selected) {
