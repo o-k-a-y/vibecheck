@@ -33,13 +33,13 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Check test coverage
-        run: cargo llvm-cov -p vibecheck --ignore-filename-regex "cst/(go|javascript)" --fail-under-lines 65
+        run: cargo llvm-cov -p vibecheck-core --ignore-filename-regex "cst/(go|javascript)" --fail-under-lines 65
 
       - name: Vibecheck source code
         run: |
           echo "Running vibecheck against its own source..."
           echo ""
-          cargo run --release -p vibecheck-cli -- vibecheck/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
+          cargo run --release -p vibecheck-cli -- vibecheck-core/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
           echo ""
           cargo run --release -p vibecheck-cli -- vibecheck-cli/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
           echo ""

@@ -1,4 +1,4 @@
-use vibecheck::report::{ModelFamily, Report};
+use vibecheck_core::report::{ModelFamily, Report};
 
 const FONT: &str = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace";
 const BG: &str = "#161b22";
@@ -196,7 +196,7 @@ fn main() {
         }
     };
 
-    let report = vibecheck::analyze(&source);
+    let report = vibecheck_core::analyze(&source);
     let svg = generate_svg(&report, "./vibecheck-cli/src/output.rs");
 
     let out = "../.github/assets/example.svg";
