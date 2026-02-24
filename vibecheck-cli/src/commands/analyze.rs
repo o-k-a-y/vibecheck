@@ -68,7 +68,7 @@ pub fn format_report(report: &Report, fmt: OutputFormat) -> String {
     match fmt {
         OutputFormat::Json => output::format_json(report),
         OutputFormat::Text => output::format_text(report),
-        OutputFormat::Pretty => output::format_pretty(report),
+        OutputFormat::Pretty => output::format_pretty(report, &vibecheck_core::colors::DefaultTheme),
     }
 }
 

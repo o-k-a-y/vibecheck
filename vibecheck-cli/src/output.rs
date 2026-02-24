@@ -1,15 +1,19 @@
 use colored::Colorize;
+use vibecheck_core::colors::ColorTheme;
 use vibecheck_core::report::Report;
 
-/// Format a report with terminal colors.
-pub fn format_pretty(report: &Report) -> String {
+/// Format a report with terminal colors, using the supplied [`ColorTheme`].
+///
+/// Call with `&DefaultTheme` for the standard palette, or a custom
+/// implementation for alternative colour schemes.
+pub fn format_pretty(report: &Report, theme: &dyn ColorTheme) -> String {
     let mut out = String::new();
 
     if let Some(ref path) = report.metadata.file_path {
         out.push_str(&format!("{} {}\n", "File:".bold(), path.display()));
     }
 
-    let verdict_color = report.attribution.primary.terminal_color();
+    let verdict_color = theme.terminal_color(report.attribution.primary);
     let verdict_str = format!(
         "{} ({:.0}% confidence)",
         report.attribution.primary,
@@ -35,7 +39,7 @@ pub fn format_pretty(report: &Report) -> String {
         let bar_len = (*score * 30.0) as usize;
         let bar = "█".repeat(bar_len);
         let family_str = format!("{:<10}", family.to_string());
-        let bar_color = family.terminal_color();
+        let bar_color = theme.terminal_color(**family);
         out.push_str(&format!(
             "  {} {} {:.1}%\n",
             family_str,

@@ -319,11 +319,11 @@ fn name_to_family(name: &str) -> ModelFamily {
 
 fn family_color(family: ModelFamily) -> Color {
     match family {
-        ModelFamily::Claude => Color::Magenta,
-        ModelFamily::Gpt => Color::Green,
-        ModelFamily::Gemini => Color::Blue,
-        ModelFamily::Copilot => Color::Cyan,
-        ModelFamily::Human => Color::Yellow,
+        ModelFamily::Claude  => Color::Rgb(210, 168, 255), // #d2a8ff
+        ModelFamily::Gpt     => Color::Rgb(126, 231, 135), // #7ee787
+        ModelFamily::Gemini  => Color::Rgb(121, 192, 255), // #79c0ff
+        ModelFamily::Copilot => Color::Rgb( 57, 197, 207), // #39c5cf
+        ModelFamily::Human   => Color::Rgb(227, 179,  65), // #e3b341
     }
 }
 
