@@ -8,13 +8,6 @@ use vibecheck_core::report::ModelFamily;
 const DEFAULT_LIMIT: usize = 20;
 
 pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
-    if path.is_dir() {
-        anyhow::bail!(
-            "`vibecheck history` requires a file path, not a directory.\n\
-             Try: vibecheck history <file>   e.g. vibecheck history src/main.rs"
-        );
-    }
-
     let limit = limit.unwrap_or(DEFAULT_LIMIT);
 
     let repo = Repository::discover(path)
@@ -31,14 +24,18 @@ pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
         .context("path is not inside the repository work tree")?
         .to_path_buf();
 
+    let is_dir = path.is_dir();
+
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head().context("no HEAD commit found")?;
     revwalk.set_sorting(Sort::TIME)?;
 
-    println!(
-        "Attribution history for {}\n",
-        relative.display()
-    );
+    let label = if relative.as_os_str().is_empty() {
+        ".".to_string()
+    } else {
+        relative.display().to_string()
+    };
+    println!("Attribution history for {}\n", label);
     println!(
         "{:<10}  {:<12}  {:<8}  {:<6}  {}",
         "COMMIT", "DATE", "FAMILY", "CONF", "CHANGE"
@@ -57,30 +54,46 @@ pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
         let commit = repo.find_commit(oid)?;
         let tree = commit.tree()?;
 
-        let entry = match tree.get_path(&relative) {
-            Ok(e) => e,
-            Err(_) => continue, // file didn't exist in this commit
+        let (family, conf) = if is_dir {
+            // Aggregate attribution across all source files in the subtree.
+            let subtree = if relative.as_os_str().is_empty() {
+                // Root directory — use the commit tree directly.
+                tree
+            } else {
+                match tree.get_path(&relative) {
+                    Ok(entry) => match repo.find_tree(entry.id()) {
+                        Ok(t) => t,
+                        Err(_) => continue,
+                    },
+                    Err(_) => continue, // dir didn't exist in this commit
+                }
+            };
+
+            match aggregate_tree(&repo, &subtree) {
+                Some(result) => result,
+                None => continue, // no analysable source files
+            }
+        } else {
+            // Single file — fetch the blob and analyse it.
+            let entry = match tree.get_path(&relative) {
+                Ok(e) => e,
+                Err(_) => continue, // file didn't exist in this commit
+            };
+            if entry.kind() != Some(git2::ObjectType::Blob) {
+                continue;
+            }
+            let blob = repo.find_blob(entry.id())?;
+            let content = match std::str::from_utf8(blob.content()) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let report = vibecheck_core::analyze(content);
+            (report.attribution.primary, report.attribution.confidence)
         };
 
-        if entry.kind() != Some(git2::ObjectType::Blob) {
-            continue;
-        }
-
-        let blob = repo.find_blob(entry.id())?;
-        let content = match std::str::from_utf8(blob.content()) {
-            Ok(s) => s,
-            Err(_) => continue, // binary or non-UTF-8 file
-        };
-
-        let report = vibecheck_core::analyze(content);
-        let family = report.attribution.primary;
-        let conf = report.attribution.confidence;
-
-        // Format the timestamp from the committer time.
         let ts = commit.time().seconds();
         let date = format_date(ts);
 
-        // Compute change indicator vs previous entry.
         let change = match (prev_family, prev_conf) {
             (Some(pf), Some(_pc)) if pf != family => {
                 format!("⚠ family changed from {pf}")
@@ -114,10 +127,65 @@ pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
     }
 
     if shown == 0 {
-        println!("(no commits found that touched {})", relative.display());
+        println!("(no commits found that touched {})", label);
     }
 
     Ok(())
+}
+
+/// Walk `tree` recursively, analyse every source blob, and return the
+/// line-weighted dominant family + confidence. Returns `None` if no
+/// supported source files are found in the tree.
+fn aggregate_tree(repo: &Repository, tree: &git2::Tree) -> Option<(ModelFamily, f64)> {
+    use std::collections::HashMap;
+
+    let mut total_lines = 0usize;
+    let mut family_scores: HashMap<ModelFamily, f64> = HashMap::new();
+
+    tree.walk(git2::TreeWalkMode::PreOrder, |_root, entry| {
+        if entry.kind() != Some(git2::ObjectType::Blob) {
+            return git2::TreeWalkResult::Ok;
+        }
+        let name = entry.name().unwrap_or("");
+        if !is_source_file(name) {
+            return git2::TreeWalkResult::Ok;
+        }
+        let blob = match repo.find_blob(entry.id()) {
+            Ok(b) => b,
+            Err(_) => return git2::TreeWalkResult::Ok,
+        };
+        let content = match std::str::from_utf8(blob.content()) {
+            Ok(s) => s,
+            Err(_) => return git2::TreeWalkResult::Ok,
+        };
+        let report = vibecheck_core::analyze(content);
+        let lines = content.lines().count().max(1);
+        total_lines += lines;
+        *family_scores
+            .entry(report.attribution.primary)
+            .or_insert(0.0) += lines as f64 * report.attribution.confidence;
+        git2::TreeWalkResult::Ok
+    })
+    .ok()?;
+
+    if total_lines == 0 {
+        return None;
+    }
+    let total = total_lines as f64;
+    family_scores
+        .into_iter()
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        .map(|(family, score)| (family, score / total))
+}
+
+/// Return `true` for file extensions vibecheck can analyse.
+fn is_source_file(name: &str) -> bool {
+    matches!(
+        std::path::Path::new(name)
+            .extension()
+            .and_then(|e| e.to_str()),
+        Some("rs" | "py" | "js" | "ts" | "go")
+    )
 }
 
 /// Format a Unix timestamp as `YYYY-MM-DD`.
