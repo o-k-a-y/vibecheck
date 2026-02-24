@@ -1,4 +1,5 @@
 use crate::analyzers::Analyzer;
+use crate::language::Language;
 use crate::report::{ModelFamily, Signal};
 
 pub struct CodeStructureAnalyzer;
@@ -85,9 +86,240 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
     }
 }
 
+impl CodeStructureAnalyzer {
+    fn analyze_python(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // Sorted imports (import x before import y)
+        let import_lines: Vec<&str> = lines
+            .iter()
+            .filter(|l| l.trim().starts_with("import ") || l.trim().starts_with("from "))
+            .copied()
+            .collect();
+        if import_lines.len() >= 3 {
+            let is_sorted = import_lines.windows(2).all(|w| w[0] <= w[1]);
+            if is_sorted {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "Import statements are alphabetically sorted".into(),
+                    family: ModelFamily::Claude,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        // Consistent blank lines (PEP 8: 2 between top-level, 1 between methods)
+        let mut blank_runs = Vec::new();
+        let mut current_run = 0usize;
+        for line in &lines {
+            if line.trim().is_empty() {
+                current_run += 1;
+            } else {
+                if current_run > 0 {
+                    blank_runs.push(current_run);
+                }
+                current_run = 0;
+            }
+        }
+        if blank_runs.len() >= 3 {
+            let all_same = blank_runs.iter().all(|&r| r == blank_runs[0]);
+            if all_same {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "Perfectly consistent blank line spacing".into(),
+                    family: ModelFamily::Claude,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        // Line length discipline
+        let non_empty: Vec<usize> = lines
+            .iter()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.len())
+            .collect();
+        if non_empty.len() >= 10 {
+            let over_88 = non_empty.iter().filter(|&&l| l > 88).count();
+            if over_88 == 0 {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "All lines under 88 chars — PEP 8 / Black-style discipline".into(),
+                    family: ModelFamily::Claude,
+                    weight: 0.8,
+                });
+            }
+        }
+
+        signals
+    }
+
+    fn analyze_javascript(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // Sorted imports
+        let import_lines: Vec<&str> = lines
+            .iter()
+            .filter(|l| l.trim().starts_with("import "))
+            .copied()
+            .collect();
+        if import_lines.len() >= 3 {
+            let is_sorted = import_lines.windows(2).all(|w| w[0] <= w[1]);
+            if is_sorted {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "Import statements are alphabetically sorted".into(),
+                    family: ModelFamily::Claude,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        // Consistent blank lines
+        let mut blank_runs = Vec::new();
+        let mut current_run = 0usize;
+        for line in &lines {
+            if line.trim().is_empty() {
+                current_run += 1;
+            } else {
+                if current_run > 0 {
+                    blank_runs.push(current_run);
+                }
+                current_run = 0;
+            }
+        }
+        if blank_runs.len() >= 3 && blank_runs.iter().all(|&r| r == blank_runs[0]) {
+            signals.push(Signal {
+                source: "structure".into(),
+                description: "Perfectly consistent blank line spacing".into(),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        // Line length
+        let non_empty: Vec<usize> = lines
+            .iter()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.len())
+            .collect();
+        if non_empty.len() >= 10 {
+            let over_100 = non_empty.iter().filter(|&&l| l > 100).count();
+            if over_100 == 0 {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "All lines under 100 chars — disciplined formatting".into(),
+                    family: ModelFamily::Claude,
+                    weight: 0.8,
+                });
+            } else if over_100 >= 5 {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: format!("{over_100} lines over 100 chars"),
+                    family: ModelFamily::Human,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        signals
+    }
+
+    fn analyze_go(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // Sorted imports (Go typically groups stdlib + third-party)
+        let import_block: Vec<&str> = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with('"') || (t.starts_with("\"") && t.ends_with('"'))
+            })
+            .copied()
+            .collect();
+        if import_block.len() >= 3 {
+            let is_sorted = import_block.windows(2).all(|w| w[0] <= w[1]);
+            if is_sorted {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "Import strings are sorted — goimports-style".into(),
+                    family: ModelFamily::Claude,
+                    weight: 1.0,
+                });
+            }
+        }
+
+        // Consistent blank lines
+        let mut blank_runs = Vec::new();
+        let mut current_run = 0usize;
+        for line in &lines {
+            if line.trim().is_empty() {
+                current_run += 1;
+            } else {
+                if current_run > 0 {
+                    blank_runs.push(current_run);
+                }
+                current_run = 0;
+            }
+        }
+        if blank_runs.len() >= 3 && blank_runs.iter().all(|&r| r == blank_runs[0]) {
+            signals.push(Signal {
+                source: "structure".into(),
+                description: "Perfectly consistent blank line spacing".into(),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        // Line length (Go convention: 80-120 chars)
+        let non_empty: Vec<usize> = lines
+            .iter()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| l.len())
+            .collect();
+        if non_empty.len() >= 10 {
+            let over_120 = non_empty.iter().filter(|&&l| l > 120).count();
+            if over_120 == 0 {
+                signals.push(Signal {
+                    source: "structure".into(),
+                    description: "All lines under 120 chars — gofmt-style discipline".into(),
+                    family: ModelFamily::Claude,
+                    weight: 0.8,
+                });
+            }
+        }
+
+        signals
+    }
+}
+
 impl Analyzer for CodeStructureAnalyzer {
     fn name(&self) -> &str {
         "structure"
+    }
+
+    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
+        match lang {
+            None | Some(Language::Rust) => self.analyze(source),
+            Some(Language::Python) => Self::analyze_python(source),
+            Some(Language::JavaScript) => Self::analyze_javascript(source),
+            Some(Language::Go) => Self::analyze_go(source),
+        }
     }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {

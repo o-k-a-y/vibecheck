@@ -27,11 +27,14 @@ impl Pipeline {
     }
 
     pub fn run(&self, source: &str, file_path: Option<PathBuf>) -> Report {
-        // Text-pattern analysis
+        // Detect language early so text analyzers can gate on it.
+        let lang = file_path.as_ref().and_then(|p| detect_language(p));
+
+        // Text-pattern analysis (language-aware)
         let mut signals: Vec<Signal> = self
             .analyzers
             .iter()
-            .flat_map(|a| a.analyze(source))
+            .flat_map(|a| a.analyze_with_language(source, lang))
             .collect();
 
         // CST analysis — dispatch by Language enum

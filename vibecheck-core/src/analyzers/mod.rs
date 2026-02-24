@@ -11,6 +11,20 @@ pub trait Analyzer: Send + Sync {
 
     /// Analyze the given source code and return signals.
     fn analyze(&self, source: &str) -> Vec<Signal>;
+
+    /// Language-aware entry point.
+    ///
+    /// The default implementation delegates to [`analyze`], preserving
+    /// backward-compatible behaviour for callers that do not know the
+    /// language (e.g. tests, unknown file extensions).
+    ///
+    /// Language-specific analyzers override this to:
+    /// * skip signals that only make sense for a different language, and
+    /// * add heuristics tailored to the detected language.
+    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
+        let _ = lang;
+        self.analyze(source)
+    }
 }
 
 /// Trait for tree-sitter CST analyzers.

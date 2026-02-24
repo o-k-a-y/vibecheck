@@ -1,4 +1,5 @@
 use crate::analyzers::Analyzer;
+use crate::language::Language;
 use crate::report::{ModelFamily, Signal};
 
 pub struct NamingAnalyzer;
@@ -80,9 +81,186 @@ let extra_one = 6;\nlet extra_two = 7;\nlet extra_three = 8;\nlet extra_four = 9
     }
 }
 
+impl NamingAnalyzer {
+    /// Extract identifier names from Python assignments and definitions.
+    fn python_names(lines: &[&str]) -> Vec<String> {
+        let mut names = Vec::new();
+        for line in lines {
+            let t = line.trim();
+            // Variable assignments: name = ... or name: type = ...
+            if !t.starts_with('#') && !t.starts_with("def ") && !t.starts_with("class ")
+                && !t.starts_with("import ") && !t.starts_with("from ")
+                && !t.starts_with("return ") && !t.starts_with("if ")
+                && !t.starts_with("for ") && !t.starts_with("while ")
+            {
+                if let Some(name) = t.split([' ', ':', '=']).next().map(|s| s.trim()) {
+                    if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        names.push(name.to_string());
+                    }
+                }
+            }
+            // Function names
+            if t.starts_with("def ") || t.starts_with("async def ") {
+                let after = if t.starts_with("async def ") { &t[10..] } else { &t[4..] };
+                if let Some(name) = after.split('(').next().map(|s| s.trim()) {
+                    if !name.is_empty() {
+                        names.push(name.to_string());
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    fn analyze_names(source_name: &str, names: &[String]) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        if names.is_empty() {
+            return signals;
+        }
+        let avg_len: f64 =
+            names.iter().map(|n| n.len() as f64).sum::<f64>() / names.len() as f64;
+
+        if avg_len > 12.0 {
+            signals.push(Signal {
+                source: source_name.into(),
+                description: format!("Very descriptive names (avg {avg_len:.1} chars)"),
+                family: ModelFamily::Claude,
+                weight: 1.5,
+            });
+        } else if avg_len > 8.0 {
+            signals.push(Signal {
+                source: source_name.into(),
+                description: format!("Descriptive names (avg {avg_len:.1} chars)"),
+                family: ModelFamily::Gpt,
+                weight: 1.0,
+            });
+        } else if avg_len < 4.0 {
+            signals.push(Signal {
+                source: source_name.into(),
+                description: format!("Short names (avg {avg_len:.1} chars)"),
+                family: ModelFamily::Human,
+                weight: 1.5,
+            });
+        }
+
+        let single_char = names.iter().filter(|n| n.len() == 1).count();
+        if single_char >= 3 {
+            signals.push(Signal {
+                source: source_name.into(),
+                description: format!("{single_char} single-character names"),
+                family: ModelFamily::Human,
+                weight: 2.0,
+            });
+        } else if single_char == 0 && names.len() >= 5 {
+            signals.push(Signal {
+                source: source_name.into(),
+                description: "No single-character names".into(),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        signals
+    }
+
+    fn analyze_python(source: &str) -> Vec<Signal> {
+        let lines: Vec<&str> = source.lines().collect();
+        if lines.len() < 10 {
+            return vec![];
+        }
+        let names = Self::python_names(&lines);
+        Self::analyze_names("naming", &names)
+    }
+
+    fn analyze_javascript(source: &str) -> Vec<Signal> {
+        let lines: Vec<&str> = source.lines().collect();
+        if lines.len() < 10 {
+            return vec![];
+        }
+
+        // Extract names from const/let/var and function declarations
+        let names: Vec<String> = lines
+            .iter()
+            .filter_map(|l| {
+                let t = l.trim();
+                let after = if t.starts_with("const ") {
+                    Some(&t[6..])
+                } else if t.starts_with("let ") {
+                    Some(&t[4..])
+                } else if t.starts_with("var ") {
+                    Some(&t[4..])
+                } else if t.starts_with("function ") {
+                    Some(&t[9..])
+                } else {
+                    None
+                };
+                after.and_then(|s| {
+                    s.split(|c: char| c == ' ' || c == '=' || c == '(' || c == ':')
+                        .next()
+                        .map(|n| n.trim().to_string())
+                })
+            })
+            .filter(|n| !n.is_empty() && n.chars().all(|c| c.is_alphanumeric() || c == '_'))
+            .collect();
+
+        Self::analyze_names("naming", &names)
+    }
+
+    fn analyze_go(source: &str) -> Vec<Signal> {
+        let lines: Vec<&str> = source.lines().collect();
+        if lines.len() < 10 {
+            return vec![];
+        }
+
+        // Extract names from var, :=, func declarations
+        let mut names: Vec<String> = Vec::new();
+        for line in &lines {
+            let t = line.trim();
+            // Short variable declarations: name := ...
+            if let Some(pos) = t.find(" := ") {
+                let before = &t[..pos];
+                // Could be "name, err := ..." — take all identifiers
+                for part in before.split(',') {
+                    let n = part.trim();
+                    if !n.is_empty() && n.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                        names.push(n.to_string());
+                    }
+                }
+            }
+            // func names
+            if t.starts_with("func ") {
+                let after = &t[5..];
+                // Could be "func (r *Receiver) MethodName(" — get the actual name
+                let name_part = if after.starts_with('(') {
+                    // method: skip receiver
+                    after.find(')').and_then(|p| after[p + 1..].trim().split('(').next())
+                } else {
+                    after.split('(').next()
+                };
+                if let Some(n) = name_part.map(|s| s.trim()) {
+                    if !n.is_empty() {
+                        names.push(n.to_string());
+                    }
+                }
+            }
+        }
+
+        Self::analyze_names("naming", &names)
+    }
+}
+
 impl Analyzer for NamingAnalyzer {
     fn name(&self) -> &str {
         "naming"
+    }
+
+    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
+        match lang {
+            None | Some(Language::Rust) => self.analyze(source),
+            Some(Language::Python) => Self::analyze_python(source),
+            Some(Language::JavaScript) => Self::analyze_javascript(source),
+            Some(Language::Go) => Self::analyze_go(source),
+        }
     }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {

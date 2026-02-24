@@ -1,4 +1,5 @@
 use crate::analyzers::Analyzer;
+use crate::language::Language;
 use crate::report::{ModelFamily, Signal};
 
 pub struct ErrorHandlingAnalyzer;
@@ -106,6 +107,66 @@ mod tests {
     }
 
     #[test]
+    fn rust_unwrap_signal_not_emitted_for_python_file() {
+        // A Python file with `.unwrap()` text (unlikely but possible) should not
+        // trigger Rust-specific error-handling signals.
+        use crate::language::Language;
+        let python_source = (0..35)
+            .map(|i| format!("result_{i} = compute_{i}()  # no .unwrap() here"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let signals = ErrorHandlingAnalyzer.analyze_with_language(&python_source, Some(Language::Python));
+        assert!(
+            !signals.iter().any(|s| s.description.contains("unwrap")),
+            "Rust .unwrap() signal fired on a Python file"
+        );
+    }
+
+    #[test]
+    fn python_broad_except_is_human() {
+        use crate::language::Language;
+        let source = vec![
+            "try:",
+            "    do_thing()",
+            "except Exception:",
+            "    pass",
+            "try:",
+            "    do_other()",
+            "except Exception:",
+            "    pass",
+        ]
+        .into_iter()
+        .chain((0..5).map(|_| "x = 1"))
+        .collect::<Vec<_>>()
+        .join("\n");
+        let signals = ErrorHandlingAnalyzer.analyze_with_language(&source, Some(Language::Python));
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.description.contains("broad")),
+            "expected broad except Human signal"
+        );
+    }
+
+    #[test]
+    fn go_fmt_errorf_wrap_is_claude() {
+        use crate::language::Language;
+        let source = (0..12)
+            .map(|i| {
+                if i < 2 {
+                    format!("return fmt.Errorf(\"step {i}: %w\", err)")
+                } else {
+                    format!("x := step{i}()")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let signals = ErrorHandlingAnalyzer.analyze_with_language(&source, Some(Language::Go));
+        assert!(
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("Errorf")),
+            "expected fmt.Errorf Claude signal"
+        );
+    }
+
+    #[test]
     fn two_panics_is_human() {
         let lines: Vec<String> = vec![
             r#"panic!("something went wrong");"#.to_string(),
@@ -124,9 +185,246 @@ mod tests {
     }
 }
 
+impl ErrorHandlingAnalyzer {
+    fn analyze_python(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // Bare or overly broad except clause — human shortcut
+        let broad_except = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t == "except:" || t.starts_with("except Exception:")
+            })
+            .count();
+        if broad_except >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{broad_except} broad except clauses — swallows all exceptions"),
+                family: ModelFamily::Human,
+                weight: 1.5,
+            });
+        }
+
+        // Specific exception types — AI-like precision
+        let specific_except = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with("except ")
+                    && !t.starts_with("except Exception")
+                    && t != "except:"
+            })
+            .count();
+        if specific_except >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{specific_except} specific exception types — precise error handling"),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        // No try/except in a large file
+        let try_count = lines.iter().filter(|l| l.trim() == "try:").count();
+        if try_count == 0 && total_lines > 40 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: "No try/except blocks in a substantial file".into(),
+                family: ModelFamily::Claude,
+                weight: 0.8,
+            });
+        }
+
+        // raise ... from (idiomatic exception chaining)
+        let raise_from = lines
+            .iter()
+            .filter(|l| l.trim().starts_with("raise ") && l.contains(" from "))
+            .count();
+        if raise_from >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{raise_from} raise…from patterns — idiomatic exception chaining"),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        signals
+    }
+
+    fn analyze_javascript(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // console.error / console.warn left in code — human debugging artifact
+        let console_err = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("//")
+                    && (t.contains("console.error(") || t.contains("console.warn("))
+            })
+            .count();
+        if console_err >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{console_err} console.error/warn calls — debug artifacts"),
+                family: ModelFamily::Human,
+                weight: 1.0,
+            });
+        }
+
+        // instanceof Error checks — typed error handling
+        let typed_catch = lines
+            .iter()
+            .filter(|l| l.contains("instanceof ") && l.contains("Error"))
+            .count();
+        if typed_catch >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{typed_catch} instanceof Error checks — typed error handling"),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        // Promise .catch() vs try/catch: style indicator
+        let promise_catch = lines.iter().filter(|l| l.contains(".catch(")).count();
+        let try_catch_blocks = lines
+            .iter()
+            .filter(|l| l.trim().starts_with("} catch") || l.trim().starts_with("catch ("))
+            .count();
+        if promise_catch >= 2 && try_catch_blocks == 0 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{promise_catch} .catch() chains — promise-based error handling"),
+                family: ModelFamily::Human,
+                weight: 0.8,
+            });
+        } else if try_catch_blocks >= 2 && promise_catch == 0 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{try_catch_blocks} try/catch blocks — structured async error handling"),
+                family: ModelFamily::Claude,
+                weight: 0.8,
+            });
+        }
+
+        // Typed Error constructors: new TypeError(...), new RangeError(...), etc.
+        let typed_throw = lines
+            .iter()
+            .filter(|l| {
+                l.contains("new Error(")
+                    || l.contains("new TypeError(")
+                    || l.contains("new RangeError(")
+                    || l.contains("new SyntaxError(")
+            })
+            .count();
+        if typed_throw >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{typed_throw} typed Error constructions — specific error classes"),
+                family: ModelFamily::Claude,
+                weight: 0.8,
+            });
+        }
+
+        signals
+    }
+
+    fn analyze_go(source: &str) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let lines: Vec<&str> = source.lines().collect();
+        let total_lines = lines.len();
+        if total_lines < 10 {
+            return signals;
+        }
+
+        // Simple if err != nil { return err } — idiomatic but not AI-specific
+        let simple_err_return = lines
+            .iter()
+            .filter(|l| l.contains("err != nil") && (l.contains("return err") || l.contains("return nil, err")))
+            .count();
+        if simple_err_return >= 3 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{simple_err_return} simple 'if err != nil' returns — idiomatic propagation"),
+                family: ModelFamily::Human,
+                weight: 0.8,
+            });
+        }
+
+        // fmt.Errorf with %w — idiomatic error wrapping
+        let errorf_wrap = lines
+            .iter()
+            .filter(|l| l.contains("fmt.Errorf(") && l.contains("%w"))
+            .count();
+        if errorf_wrap >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{errorf_wrap} fmt.Errorf(%w) wrappings — idiomatic error context"),
+                family: ModelFamily::Claude,
+                weight: 1.0,
+            });
+        }
+
+        // errors.Is / errors.As — modern structured error inspection
+        let errors_sentinel = lines
+            .iter()
+            .filter(|l| l.contains("errors.Is(") || l.contains("errors.As("))
+            .count();
+        if errors_sentinel >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{errors_sentinel} errors.Is/As calls — structured error inspection"),
+                family: ModelFamily::Claude,
+                weight: 1.2,
+            });
+        }
+
+        // panic() in Go — non-idiomatic for recoverable errors
+        let panic_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("//") && t.contains("panic(")
+            })
+            .count();
+        if panic_count >= 2 {
+            signals.push(Signal {
+                source: "errors".into(),
+                description: format!("{panic_count} panic() calls — non-recoverable or human shortcut"),
+                family: ModelFamily::Human,
+                weight: 1.5,
+            });
+        }
+
+        signals
+    }
+}
+
 impl Analyzer for ErrorHandlingAnalyzer {
     fn name(&self) -> &str {
         "errors"
+    }
+
+    fn analyze_with_language(&self, source: &str, lang: Option<Language>) -> Vec<Signal> {
+        match lang {
+            None | Some(Language::Rust) => self.analyze(source),
+            Some(Language::Python) => Self::analyze_python(source),
+            Some(Language::JavaScript) => Self::analyze_javascript(source),
+            Some(Language::Go) => Self::analyze_go(source),
+        }
     }
 
     fn analyze(&self, source: &str) -> Vec<Signal> {
