@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -11,6 +11,9 @@ use vibecheck_core::output::OutputFormat;
 use crate::commands::analyze::format_report;
 
 const DEBOUNCE: Duration = Duration::from_millis(300);
+/// Minimum gap between two analyses of the same file. Prevents re-analysis
+/// from late-arriving OS events (kernel batching, atomic-rename sequences).
+const COOLDOWN: Duration = Duration::from_secs(2);
 const SUPPORTED_EXTS: &[&str] = &["rs", "py", "js", "ts", "jsx", "tsx", "go"];
 
 pub fn run(path: &Path, no_cache: bool) -> Result<()> {
@@ -24,6 +27,8 @@ pub fn run(path: &Path, no_cache: bool) -> Result<()> {
     // Debounce: collect events for DEBOUNCE duration, then process unique paths.
     let mut pending: HashSet<PathBuf> = HashSet::new();
     let mut deadline: Option<Instant> = None;
+    // Per-file cooldown: skip re-analysis if the file was analyzed < COOLDOWN ago.
+    let mut last_analyzed: HashMap<PathBuf, Instant> = HashMap::new();
 
     loop {
         // Block for up to DEBOUNCE, collecting events.
@@ -48,8 +53,17 @@ pub fn run(path: &Path, no_cache: bool) -> Result<()> {
         // Fire when the debounce window has elapsed and we have pending paths.
         let ready = deadline.map(|d| Instant::now() >= d).unwrap_or(false);
         if ready && !pending.is_empty() {
+            let now = Instant::now();
             let paths: Vec<PathBuf> = pending.drain().collect();
             for p in &paths {
+                if last_analyzed
+                    .get(p)
+                    .map(|&t| now.duration_since(t) < COOLDOWN)
+                    .unwrap_or(false)
+                {
+                    continue;
+                }
+                last_analyzed.insert(p.clone(), now);
                 analyze_and_print(p, no_cache);
             }
             // Drain events that accumulated during analysis. Keep any for
