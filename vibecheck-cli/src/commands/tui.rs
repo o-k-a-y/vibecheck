@@ -46,6 +46,8 @@ struct App {
     list_state: ListState,
     /// Full report for the currently selected file (None for dirs).
     detail: Option<Report>,
+    /// Vertical scroll offset for the detail pane.
+    detail_scroll: u16,
 }
 
 impl App {
@@ -59,6 +61,7 @@ impl App {
             selected: 0,
             list_state,
             detail: None,
+            detail_scroll: 0,
         }
     }
 
@@ -75,6 +78,7 @@ impl App {
             selected: 0,
             list_state,
             detail,
+            detail_scroll: 0,
         }
     }
 
@@ -136,6 +140,15 @@ impl App {
             .get(self.selected)
             .filter(|e| !e.is_dir)
             .and_then(|e| vibecheck_core::analyze_file_symbols(&e.path).ok());
+        self.detail_scroll = 0;
+    }
+
+    fn scroll_detail_down(&mut self, amount: u16) {
+        self.detail_scroll = self.detail_scroll.saturating_add(amount);
+    }
+
+    fn scroll_detail_up(&mut self, amount: u16) {
+        self.detail_scroll = self.detail_scroll.saturating_sub(amount);
     }
 }
 
@@ -407,6 +420,7 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
 }
 
 fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+    let scroll = app.detail_scroll;
     let block = Block::default().borders(Borders::ALL).title(" Detail ");
 
     let Some(ref report) = app.detail else {
@@ -468,16 +482,14 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         ]));
     }
 
-    // Signals (up to what fits).
+    // Signals (all — scrolling handles overflow).
     let signal_header = Line::from(Span::styled(
         format!("\n Signals ({}):", report.signals.len()),
         Style::default().add_modifier(Modifier::BOLD),
     ));
-    let max_signals = inner.height.saturating_sub(5 + sorted_scores.len() as u16 + 2) as usize;
     let signal_lines: Vec<Line> = report
         .signals
         .iter()
-        .take(max_signals)
         .map(|s| {
             let sign = if s.weight >= 0.0 { "+" } else { "" };
             Line::from(vec![
@@ -503,7 +515,7 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     all_lines.extend(signal_lines);
     all_lines.extend(sym_lines);
 
-    frame.render_widget(Paragraph::new(all_lines), inner);
+    frame.render_widget(Paragraph::new(all_lines).scroll((scroll, 0)), inner);
 }
 
 fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
@@ -514,6 +526,8 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
         Span::raw("expand  "),
         Span::styled("← ", Style::default().fg(Color::Cyan)),
         Span::raw("collapse  "),
+        Span::styled(" d/u ", Style::default().fg(Color::Cyan)),
+        Span::raw("scroll detail  "),
         Span::styled(" q ", Style::default().fg(Color::Cyan)),
         Span::raw("quit"),
     ]))
@@ -573,7 +587,9 @@ fn event_loop<B: ratatui::backend::Backend>(
                 KeyCode::Char('q') => break,
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
                 KeyCode::Down | KeyCode::Char('j') => app.move_down(),
-                KeyCode::Up | KeyCode::Char('k') => app.move_up(),
+                KeyCode::Up   | KeyCode::Char('k') => app.move_up(),
+                KeyCode::PageDown | KeyCode::Char('d') => app.scroll_detail_down(5),
+                KeyCode::PageUp   | KeyCode::Char('u') => app.scroll_detail_up(5),
                 KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
                     app.toggle_collapse();
                 }
@@ -937,6 +953,59 @@ mod tests {
         // visible: /src (0), /b.rs (1)
         app.move_down();
         assert_eq!(app.selected, 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // App::scroll_detail_down / scroll_detail_up
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn scroll_down_increases_offset() {
+        let mut app = App::for_test(vec![]);
+        app.scroll_detail_down(5);
+        assert_eq!(app.detail_scroll, 5);
+    }
+
+    #[test]
+    fn scroll_down_accumulates() {
+        let mut app = App::for_test(vec![]);
+        app.scroll_detail_down(5);
+        app.scroll_detail_down(3);
+        assert_eq!(app.detail_scroll, 8);
+    }
+
+    #[test]
+    fn scroll_up_decreases_offset() {
+        let mut app = App::for_test(vec![]);
+        app.detail_scroll = 10;
+        app.scroll_detail_up(5);
+        assert_eq!(app.detail_scroll, 5);
+    }
+
+    #[test]
+    fn scroll_up_clamps_at_zero() {
+        let mut app = App::for_test(vec![]);
+        app.scroll_detail_up(99);
+        assert_eq!(app.detail_scroll, 0);
+    }
+
+    #[test]
+    fn navigation_resets_scroll_offset() {
+        let mut app = App::for_test(vec![
+            file_entry("/a.rs", 0, ModelFamily::Claude, 0.9),
+            file_entry("/b.rs", 0, ModelFamily::Claude, 0.9),
+        ]);
+        app.detail_scroll = 42;
+        app.move_down();
+        assert_eq!(app.detail_scroll, 0);
+    }
+
+    #[test]
+    fn scroll_up_after_down_returns_to_origin() {
+        let mut app = App::for_test(vec![]);
+        app.scroll_detail_down(10);
+        app.scroll_detail_up(10);
+        assert_eq!(app.detail_scroll, 0);
     }
 
     // -------------------------------------------------------------------------
