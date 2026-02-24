@@ -17,7 +17,7 @@ use ratatui::{
     Frame, Terminal,
 };
 
-use vibecheck_core::report::{ModelFamily, Report};
+use vibecheck_core::report::{ModelFamily, Report, SymbolReport};
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -55,7 +55,7 @@ impl App {
         let detail = all
             .first()
             .filter(|e| !e.is_dir)
-            .and_then(|e| vibecheck_core::analyze_file(&e.path).ok());
+            .and_then(|e| vibecheck_core::analyze_file_symbols(&e.path).ok());
         App {
             all,
             collapsed: HashSet::new(),
@@ -122,7 +122,7 @@ impl App {
         self.detail = visible
             .get(self.selected)
             .filter(|e| !e.is_dir)
-            .and_then(|e| vibecheck_core::analyze_file(&e.path).ok());
+            .and_then(|e| vibecheck_core::analyze_file_symbols(&e.path).ok());
     }
 }
 
@@ -355,6 +355,44 @@ fn render_tree(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
     frame.render_stateful_widget(list, area, &mut app.list_state);
 }
 
+fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
+    if symbols.is_empty() {
+        return vec![];
+    }
+    let mut lines = vec![
+        Line::raw(""),
+        Line::from(Span::styled(
+            format!(" Symbols ({}):", symbols.len()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+    ];
+    for sym in symbols {
+        let bar_len = (sym.attribution.confidence * 16.0) as usize;
+        let bar = "█".repeat(bar_len);
+        let color = family_color(sym.attribution.primary);
+        let kind_tag = match sym.metadata.kind.as_str() {
+            "method" => "M",
+            "class"  => "C",
+            _        => "f",
+        };
+        let name = if sym.metadata.name.len() > 22 {
+            format!("{}…", &sym.metadata.name[..21])
+        } else {
+            sym.metadata.name.clone()
+        };
+        lines.push(Line::from(vec![
+            Span::raw(format!("  {kind_tag} {:<23}", name)),
+            Span::styled(bar, Style::default().fg(color)),
+            Span::raw("  "),
+            Span::styled(
+                format!("{} {:.0}%", family_abbrev(sym.attribution.primary), sym.attribution.confidence * 100.0),
+                Style::default().fg(color),
+            ),
+        ]));
+    }
+    lines
+}
+
 fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let block = Block::default().borders(Borders::ALL).title(" Detail ");
 
@@ -443,10 +481,14 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         })
         .collect();
 
+    // Symbol breakdown (if available).
+    let sym_lines = render_symbol_lines(report.symbol_reports.as_deref().unwrap_or(&[]));
+
     let mut all_lines = vec![header, Line::raw("")];
     all_lines.extend(score_lines);
     all_lines.push(signal_header);
     all_lines.extend(signal_lines);
+    all_lines.extend(sym_lines);
 
     frame.render_widget(Paragraph::new(all_lines), inner);
 }
