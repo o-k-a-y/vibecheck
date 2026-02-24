@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 215" width="760" height="215">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="174.5" y1="0" x2="585.5" y2="0">
+      <stop offset="0%" stop-color="#d2a8ff"/>
+      <stop offset="25%" stop-color="#79c0ff"/>
+      <stop offset="50%" stop-color="#39c5cf"/>
+      <stop offset="75%" stop-color="#7ee787"/>
+      <stop offset="100%" stop-color="#e3b341"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-80%" width="140%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="760" height="215" fill="#0d1117" rx="14"/>
+
+  <!-- main wordmark — glow pass -->
+  <text x="50%" y="108" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="76px" font-weight="bold"
+        fill="url(#g)" opacity="0.45" filter="url(#glow)">vibecheck</text>
+  <!-- main wordmark — crisp pass -->
+  <text x="50%" y="108" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="76px" font-weight="bold"
+        fill="url(#g)">vibecheck</text>
+
+  <!-- tagline -->
+  <text x="50%" y="134" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12.5px" fill="#8b949e" letter-spacing="0.5">detect the AI behind the code</text>
+
+  <!-- separator -->
+  <line x1="61" y1="152" x2="699" y2="152"
+        stroke="#21262d" stroke-width="1"/>
+
+  <circle cx="126.7" cy="175" r="5" fill="#d2a8ff" opacity="0.9"/>
+  <text x="126.7" y="195" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#d2a8ff">Claude</text>
+  <circle cx="253.3" cy="175" r="5" fill="#79c0ff" opacity="0.9"/>
+  <text x="253.3" y="195" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#79c0ff">Gemini</text>
+  <circle cx="380.0" cy="175" r="5" fill="#39c5cf" opacity="0.9"/>
+  <text x="380.0" y="195" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#39c5cf">Copilot</text>
+  <circle cx="506.7" cy="175" r="5" fill="#7ee787" opacity="0.9"/>
+  <text x="506.7" y="195" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#7ee787">GPT</text>
+  <circle cx="633.3" cy="175" r="5" fill="#e3b341" opacity="0.9"/>
+  <text x="633.3" y="195" text-anchor="middle"
+        font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#e3b341">Human</text>
+</svg>
