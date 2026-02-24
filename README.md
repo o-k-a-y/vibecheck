@@ -85,6 +85,9 @@ cargo add vibecheck-core
 ### CLI
 
 ```bash
+# No arguments: opens the TUI browser in the current directory
+vibecheck
+
 # Analyze a single file (pretty output with colors)
 vibecheck src/main.rs
 
@@ -110,16 +113,33 @@ vibecheck src/ --assert-family human
 vibecheck src/ --no-cache
 ```
 
+All commands are also available as explicit subcommands: `vibecheck analyze`, `vibecheck tui`, `vibecheck watch`, `vibecheck history`.
+
 `--assert-family` accepts a comma-separated list of `claude`, `gpt`, `copilot`, `gemini`, or `human`. If any analyzed file's primary attribution is **not** in the list, vibecheck prints a failure summary to stderr and exits with code `1`. This is the flag that makes vibecheck useful in CI.
 
 ### TUI Codebase Navigator
 
 ```bash
-# Interactive file-tree browser with per-directory confidence rollup
+# Open TUI in the current directory (same as running vibecheck with no args)
+vibecheck
+
+# Or point at a specific directory
 vibecheck tui src/
 ```
 
-Browse your entire codebase like a file tree. Confidence scores roll up from symbol → file → directory (weighted by lines of code). Navigate with `j`/`k` or arrow keys, `Enter` to expand/collapse directories, `←` to go to parent, `q` to quit.
+![vibecheck TUI screenshot](https://raw.githubusercontent.com/o-k-a-y/vibecheck/main/.github/assets/tui.svg)
+
+Two-pane browser: file tree with family badges on the left, signal/score/symbol breakdown on the right. Confidence rolls up from symbol → file → directory (weighted by lines of code).
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down |
+| `k` / `↑` | Move up |
+| `Enter` / `→` / `l` | Expand directory |
+| `←` / `h` | Collapse directory or go to parent |
+| `d` / `PageDown` | Scroll detail pane down |
+| `u` / `PageUp` | Scroll detail pane up |
+| `q` / `Ctrl+C` | Quit |
 
 ### Live Watch Mode
 
@@ -128,7 +148,7 @@ Browse your entire codebase like a file tree. Confidence scores roll up from sym
 vibecheck watch src/
 ```
 
-Uses OS file-system events (inotify/kqueue/FSEvents) with a 300 ms debounce. Shows a timestamped update for each changed file.
+Uses OS file-system events (inotify/kqueue/FSEvents) with a 300 ms debounce and a 2 s per-file cooldown to suppress duplicate events from a single save.
 
 ### Git History
 
@@ -222,35 +242,40 @@ All files passed the vibe check.      # exits 0
 use std::path::Path;
 use vibecheck_core::report::ModelFamily;
 
-// Analyze a string
+// Analyze a source string directly (no file I/O)
 let report = vibecheck_core::analyze(source_code);
 println!("Verdict: {} ({:.0}%)",
     report.attribution.primary,
     report.attribution.confidence * 100.0);
 
-// Analyze a file (uses content-addressed cache automatically)
+// Analyze a file — content-addressed cache is consulted automatically
+// Returns std::io::Result<Report>
 let report = vibecheck_core::analyze_file(Path::new("suspect.rs"))?;
 if report.attribution.primary != ModelFamily::Human {
-    println!("Caught one! This code was probably written by {}",
-        report.attribution.primary);
+    println!("Caught one! Probably written by {}", report.attribution.primary);
 }
 
-// Bypass the cache
+// Bypass the cache entirely
 let report = vibecheck_core::analyze_file_no_cache(Path::new("suspect.rs"))?;
 
 // Symbol-level attribution — Report.symbol_reports is populated
+// Returns anyhow::Result<Report>
 let report = vibecheck_core::analyze_file_symbols(Path::new("suspect.rs"))?;
-if let Some(symbols) = report.symbol_reports {
+if let Some(symbols) = &report.symbol_reports {
     for sym in symbols {
-        println!("  {} ({}) → {} ({:.0}%)",
-            sym.metadata.name,
+        println!("  {} {}() → {} ({:.0}%)",
             sym.metadata.kind,
+            sym.metadata.name,
             sym.attribution.primary,
             sym.attribution.confidence * 100.0);
     }
 }
 
-// Directory analysis — Merkle tree skips unchanged subtrees
+// Symbol-level, cache bypassed
+let report = vibecheck_core::analyze_file_symbols_no_cache(Path::new("suspect.rs"))?;
+
+// Directory analysis — Merkle tree skips unchanged subtrees when use_cache=true
+// Returns anyhow::Result<Vec<(PathBuf, Report)>>
 let results = vibecheck_core::analyze_directory(Path::new("src/"), true)?;
 for (path, report) in results {
     println!("{} → {} ({:.0}%)",
@@ -364,18 +389,7 @@ cargo add vibecheck-core --features corpus
 
 ### TUI Codebase Navigator
 
-Interactive terminal UI (`vibecheck tui <path>`) — browse AI likelihood across an entire codebase navigating like a file tree with confidence scores at every level:
-
-```
-vibecheck/                    [Claude 78%]
-  src/                        [Claude 82%]
-    analyzers/                [Claude 75%]
-      ai_signals.rs           [Claude 91%]
-      code_structure.rs       [Claude 71%]
-    pipeline.rs               [Claude 85%]
-```
-
-Confidence rolls up: file → directory (weighted by lines of code). Navigate with `j`/`k`, `Enter` to expand/collapse, `q` to quit.
+Interactive terminal UI — run `vibecheck` (no args) or `vibecheck tui <path>` to browse AI likelihood across an entire codebase as a two-pane file tree. Confidence scores roll up from symbol → file → directory (weighted by lines of code). The right pane shows score bars, every signal, and a per-symbol breakdown. The detail pane is scrollable with `d`/`u` when there are more signals than fit on screen.
 
 ### Historical & Live Trend Tracking
 
@@ -387,7 +401,7 @@ vibecheck watch src/
 vibecheck history src/pipeline.rs --limit 20
 ```
 
-`history` reads blobs directly from the git object store (no checkout needed). `watch` uses OS filesystem events with a 300 ms debounce.
+`history` reads blobs directly from the git object store (no checkout needed). `watch` uses OS filesystem events with a 300 ms debounce and a 2 s per-file cooldown to suppress duplicate events from a single save.
 
 ## What's Coming
 
@@ -439,7 +453,7 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **Merkle hash tree** — SHA-256 of sorted child hashes; unchanged directory subtrees are skipped entirely
 - [x] **Symbol-level attribution** — per-function/method `SymbolReport` with its own `Attribution` + `Signal` list
 - [x] **TUI navigator** — ratatui-based two-pane browser (file tree + detail panel)
-- [x] **Live watch mode** — OS FS events (inotify/kqueue/FSEvents) with 300 ms debounce
+- [x] **Live watch mode** — OS FS events (inotify/kqueue/FSEvents) with 300 ms debounce + 2 s per-file cooldown
 - [x] **Git history replay** — reads blobs from the git object store, no working-tree checkout
 - [x] **Corpus store** — accumulates labeled samples and per-file trend history in SQLite (`--features corpus`)
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)

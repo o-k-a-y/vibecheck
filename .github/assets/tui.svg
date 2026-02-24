@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480" width="900" height="480">
+  <rect width="900" height="480" fill="#161b22" rx="8"/>
+  <circle cx="16" cy="16" r="5" fill="#ff5f57"/>
+  <circle cx="32" cy="16" r="5" fill="#febc2e"/>
+  <circle cx="48" cy="16" r="5" fill="#28c840"/>
+  <line x1="0" y1="32" x2="900" y2="32" stroke="#ffffff" stroke-opacity="0.07" stroke-width="1"/>
+  <rect x="0.5" y="32" width="358" height="428" fill="none" stroke="#30363d" stroke-width="1"/>
+  <rect x="360" y="32" width="540" height="428" fill="none" stroke="#30363d" stroke-width="1"/>
+  <rect x="6" y="32" width="48" height="2" fill="#161b22"/>
+  <text x="8" y="46" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Files </text>
+  <rect x="366" y="32" width="54" height="2" fill="#161b22"/>
+  <text x="368" y="46" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Detail </text>
+  <text x="7" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">  ▾ src/</text>
+  <text x="293" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   85%</text>
+  <text x="7" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">    ▾ analyzers/</text>
+  <text x="293" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   85%</text>
+  <text x="7" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        ai_signals.rs</text>
+  <text x="293" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   70%</text>
+  <text x="7" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        code_structure.rs</text>
+  <text x="293" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   72%</text>
+  <text x="7" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      cache.rs</text>
+  <text x="293" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   81%</text>
+  <rect x="1" y="139" width="356" height="18" fill="#2d333b"/>
+  <text x="7" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">▶     pipeline.rs</text>
+  <text x="293" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   79%</text>
+  <text x="7" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      report.rs</text>
+  <text x="293" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Cl   95%</text>
+  <text x="367" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">vibecheck-core/src/pipeline.rs</text>
+  <text x="598" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude (80%)</text>
+  <text x="367" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Claude     </text>
+  <rect x="460.7" y="79.3" width="126.2" height="10" fill="#d2a8ff" rx="1"/>
+  <text x="627" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 79.6%</text>
+  <text x="367" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  GPT        </text>
+  <rect x="460.7" y="97.8" width="16.2" height="10" fill="#7ee787" rx="1"/>
+  <text x="627" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
+  <text x="367" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Human      </text>
+  <rect x="460.7" y="116.3" width="16.2" height="10" fill="#e3b341" rx="1"/>
+  <text x="627" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
+  <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Copilot    </text>
+  <text x="627" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
+  <text x="367" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
+  <text x="627" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
+  <text x="367" y="189" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Signals (14):</text>
+  <text x="367" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[comments] </text>
+  <text x="461" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
+  <text x="497" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
+  <text x="547" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 6 doc comments — thorough documentation</text>
+  <text x="367" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
+  <text x="475" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
+  <text x="511" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
+  <text x="562" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No TODO/FIXME markers in a substantial file</text>
+  <text x="367" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
+  <text x="475" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+0.8 </text>
+  <text x="511" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
+  <text x="562" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No dead code suppressions</text>
+  <text x="367" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
+  <text x="475" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+0.5 </text>
+  <text x="511" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787" font-weight="bold">GPT </text>
+  <text x="540" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— Zero trailing whitespace — machine-perfect for</text>
+  <text x="367" y="282" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="282" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[errors] </text>
+  <text x="446" y="282" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
+  <text x="482" y="282" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e3b341" font-weight="bold">Human </text>
+  <text x="526" y="282" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 14 .unwrap() calls — pragmatic/quick style</text>
+  <text x="367" y="300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[errors] </text>
+  <text x="446" y="300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.0 </text>
+  <text x="482" y="300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
+  <text x="533" y="300" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 6 uses of ? operator — idiomatic error propagat</text>
+  <text x="367" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
+  <text x="381" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[naming] </text>
+  <text x="446" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.0 </text>
+  <text x="482" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
+  <text x="533" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No single-character variable names</text>
+  <rect x="0" y="460" width="900" height="20" fill="#30363d"/>
+  <text x="8" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ↑↓ </text>
+  <text x="62" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> navigate  </text>
+  <text x="137" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> Enter/→ </text>
+  <text x="212" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> expand  </text>
+  <text x="273" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ← </text>
+  <text x="307" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> collapse  </text>
+  <text x="382" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> d/u </text>
+  <text x="416" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> scroll detail  </text>
+  <text x="525" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> q </text>
+  <text x="545" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> quit</text>
+</svg>
