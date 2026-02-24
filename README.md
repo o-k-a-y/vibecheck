@@ -1,7 +1,7 @@
 # vibecheck
 
 <p align="center">
-  <img src=".github/assets/logo.svg" alt="vibecheck" />
+  <img src="https://raw.githubusercontent.com/o-k-a-y/vibecheck/main/.github/assets/logo.svg" alt="vibecheck" />
 </p>
 
 [![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
@@ -16,7 +16,7 @@
 
 **vibecheck** detects AI-generated code and attributes it to a model family. It sniffs out the telltale "vibes" that different AI models leave in code — the suspiciously perfect formatting, the teaching-voice comments, the conspicuous absence of `TODO: fix this later`.
 
-![vibecheck example output](.github/assets/example.svg)
+![vibecheck example output](https://raw.githubusercontent.com/o-k-a-y/vibecheck/main/.github/assets/example.svg)
 
 ```
    The 5 stages of vibecheck grief:
