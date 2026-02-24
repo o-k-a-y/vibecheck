@@ -52,7 +52,22 @@ pub fn run(path: &Path, no_cache: bool) -> Result<()> {
             for p in &paths {
                 analyze_and_print(p, no_cache);
             }
-            deadline = None;
+            // Drain events that accumulated during analysis. Keep any for
+            // *different* files (user saved a second file while the first was
+            // being analyzed); discard re-fires for paths we just processed.
+            let just_ran: HashSet<&PathBuf> = paths.iter().collect();
+            while let Ok(Ok(event)) = rx.try_recv() {
+                for p in event.paths {
+                    if is_supported(&p) && !just_ran.contains(&p) {
+                        pending.insert(p);
+                    }
+                }
+            }
+            deadline = if pending.is_empty() {
+                None
+            } else {
+                Some(Instant::now() + DEBOUNCE)
+            };
         }
     }
 

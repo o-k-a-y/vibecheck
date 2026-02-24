@@ -401,10 +401,16 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
             "class"  => "class",
             _        => "fn",
         };
-        let name = if sym.metadata.name.len() > 22 {
-            format!("{}…", &sym.metadata.name[..21])
-        } else {
+        // Append () to functions/methods so "name" reads as "name()" not a placeholder.
+        let raw_name = if kind_label == "class" {
             sym.metadata.name.clone()
+        } else {
+            format!("{}()", sym.metadata.name)
+        };
+        let name = if raw_name.len() > 22 {
+            format!("{}…", &raw_name[..21])
+        } else {
+            raw_name
         };
         lines.push(Line::from(vec![
             Span::styled(
@@ -705,8 +711,8 @@ mod tests {
     fn symbol_lines_function_kind_tag() {
         let lines = render_symbol_lines(&[make_sym("run", "function", ModelFamily::Claude, 0.5)]);
         let row = format!("{:?}", lines[2]);
-        assert!(row.contains("\"fn\"") || row.contains("fn"), "row: {row}");
-        assert!(row.contains("run"));
+        assert!(row.contains("fn"), "row: {row}");
+        assert!(row.contains("run()"), "fn symbols should have () suffix, row: {row}");
     }
 
     #[test]
@@ -714,7 +720,7 @@ mod tests {
         let lines = render_symbol_lines(&[make_sym("do_it", "method", ModelFamily::Gpt, 0.5)]);
         let row = format!("{:?}", lines[2]);
         assert!(row.contains("method"), "row: {row}");
-        assert!(row.contains("do_it"));
+        assert!(row.contains("do_it()"), "method symbols should have () suffix, row: {row}");
     }
 
     #[test]
@@ -722,7 +728,8 @@ mod tests {
         let lines = render_symbol_lines(&[make_sym("Foo", "class", ModelFamily::Gpt, 0.5)]);
         let row = format!("{:?}", lines[2]);
         assert!(row.contains("class"), "row: {row}");
-        assert!(row.contains("Foo"));
+        assert!(row.contains("Foo"), "row: {row}");
+        assert!(!row.contains("Foo()"), "class symbols should NOT have () suffix, row: {row}");
     }
 
     #[test]
@@ -730,22 +737,39 @@ mod tests {
         let lines = render_symbol_lines(&[make_sym("x", "trait", ModelFamily::Claude, 0.5)]);
         let row = format!("{:?}", lines[2]);
         assert!(row.contains("fn"), "unknown kind should fall back to fn, row: {row}");
+        assert!(row.contains("x()"), "unknown kind should have () suffix, row: {row}");
+    }
+
+    #[test]
+    fn symbol_lines_name_called_name_is_unambiguous() {
+        // Regression: a method literally named "name" should show as "name()"
+        // not look like a missing-name placeholder.
+        let lines = render_symbol_lines(&[make_sym("name", "method", ModelFamily::Claude, 0.8)]);
+        let row = format!("{:?}", lines[2]);
+        assert!(row.contains("name()"), "row: {row}");
     }
 
     #[test]
     fn symbol_lines_name_fits_within_22_chars_unchanged() {
-        let name = "short_name";
-        let lines = render_symbol_lines(&[make_sym(name, "function", ModelFamily::Claude, 0.5)]);
-        assert!(format!("{:?}", lines[2]).contains(name));
+        // "short_name" + "()" = 12 chars, well within 22
+        let lines = render_symbol_lines(&[make_sym("short_name", "function", ModelFamily::Claude, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains("short_name()"));
     }
 
     #[test]
     fn symbol_lines_name_truncated_when_over_22_chars() {
-        let name = "a_very_long_function_name_exceeding_limit";
-        let lines = render_symbol_lines(&[make_sym(name, "function", ModelFamily::Claude, 0.5)]);
+        // 20-char name + "()" = 22 chars — exactly at the limit, should not truncate
+        let name_20 = "a_twenty_char_name__";
+        assert_eq!(name_20.len(), 20);
+        let lines = render_symbol_lines(&[make_sym(name_20, "function", ModelFamily::Claude, 0.5)]);
+        assert!(format!("{:?}", lines[2]).contains(&format!("{name_20}()")));
+
+        // 21-char name + "()" = 23 chars — should truncate
+        let name_21 = "a_twenty_one_char_nam";
+        assert_eq!(name_21.len(), 21);
+        let lines = render_symbol_lines(&[make_sym(name_21, "function", ModelFamily::Claude, 0.5)]);
         let row = format!("{:?}", lines[2]);
-        assert!(!row.contains(name), "full long name should be truncated");
-        assert!(row.contains('…'), "truncation marker should be present");
+        assert!(row.contains('…'), "23-char display name should be truncated, row: {row}");
     }
 
     #[test]
