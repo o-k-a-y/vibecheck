@@ -101,7 +101,7 @@ fn generate_svg(report: &Report, display_path: &str) -> String {
     x = PAD_X;
     text_bold(&mut svg, x, row_y(row), BOLD_FG, "Verdict:");
     x += "Verdict: ".chars().count() as f64 * CW;
-    text_bold(&mut svg, x, row_y(row), vcolor, &verdict);
+    text_bold(&mut svg, x, row_y(row), &vcolor, &verdict);
     row += 1;
 
     // Lines: N | Signals: N  (dim labels)
@@ -131,7 +131,7 @@ fn generate_svg(report: &Report, display_path: &str) -> String {
         let pct   = format!("{:.1}%", score * 100.0);
 
         text(&mut svg, PAD_X, row_y(row), FG, &label);
-        if bar_w > 0.5 { bar_rect(&mut svg, bx, row_y(row), bar_w, color); }
+        if bar_w > 0.5 { bar_rect(&mut svg, bx, row_y(row), bar_w, &color); }
         let px = bx + BAR_MAX + CW;   // fixed column regardless of bar length
         text(&mut svg, px, row_y(row), FG, &pct);
         row += 1;
@@ -161,7 +161,7 @@ fn generate_svg(report: &Report, display_path: &str) -> String {
         x += wt_str.chars().count() as f64 * CW;
 
         let fam_str = format!("{} ", sig.family.to_string());
-        text_bold(&mut svg, x, row_y(row), fc, &fam_str);
+        text_bold(&mut svg, x, row_y(row), &fc, &fam_str);
         x += fam_str.chars().count() as f64 * CW;
 
         let desc = format!("\u{2014} {}", sig.description);

@@ -23,6 +23,17 @@ impl ModelFamily {
             ModelFamily::Human,
         ]
     }
+
+    /// Short display abbreviation for compact UI contexts (e.g. TUI badges, table cells).
+    pub fn abbrev(self) -> &'static str {
+        match self {
+            ModelFamily::Claude  => "Cl",
+            ModelFamily::Gpt     => "GPT",
+            ModelFamily::Gemini  => "Ge",
+            ModelFamily::Copilot => "Co",
+            ModelFamily::Human   => "Hu",
+        }
+    }
 }
 
 impl std::fmt::Display for ModelFamily {
