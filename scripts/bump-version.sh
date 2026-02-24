@@ -7,11 +7,21 @@
 #   ./scripts/bump-version.sh major   # 0.3.0 → 1.0.0
 #
 # See VERSIONING.md for the policy on when to use each level.
+#
+# Test seams (set these env vars to override defaults in tests):
+#   BUMP_TOML=<path>   — path to Cargo.toml  (default: git root/Cargo.toml)
+#   BUMP_SKIP_BUILD=1  — skip `cargo build`   (default: 0)
 
 set -euo pipefail
 
 LEVEL="${1:-}"
-ROOT_TOML="$(git rev-parse --show-toplevel)/Cargo.toml"
+
+# Allow test injection of the Cargo.toml path so tests don't need a real git
+# repo or the workspace on disk.
+ROOT_TOML="${BUMP_TOML:-$(git rev-parse --show-toplevel)/Cargo.toml}"
+
+# Allow tests to skip the cargo build step (which requires the full workspace).
+SKIP_BUILD="${BUMP_SKIP_BUILD:-0}"
 
 # ---------------------------------------------------------------------------
 # Validate arguments
@@ -77,9 +87,11 @@ echo "Updated $ROOT_TOML"
 # Verify the build still compiles (updates Cargo.lock as a side-effect)
 # ---------------------------------------------------------------------------
 
-echo "Verifying build…"
-cargo build --workspace --quiet
-echo "Build OK"
+if [[ "$SKIP_BUILD" != "1" ]]; then
+    echo "Verifying build…"
+    cargo build --workspace --quiet
+    echo "Build OK"
+fi
 
 # ---------------------------------------------------------------------------
 # Summary
