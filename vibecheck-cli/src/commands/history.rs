@@ -8,6 +8,13 @@ use vibecheck_core::report::ModelFamily;
 const DEFAULT_LIMIT: usize = 20;
 
 pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
+    if path.is_dir() {
+        anyhow::bail!(
+            "`vibecheck history` requires a file path, not a directory.\n\
+             Try: vibecheck history <file>   e.g. vibecheck history src/main.rs"
+        );
+    }
+
     let limit = limit.unwrap_or(DEFAULT_LIMIT);
 
     let repo = Repository::discover(path)
