@@ -576,6 +576,8 @@ vibecheck history src/pipeline.rs --limit 20
   v0.4 - "Trust No Signal You Can't Override"  ✓ shipped
          (heuristics config system, signal IDs, weight overrides,
           vibecheck heuristics command, TUI history panel)
+  v0.5 - "It's Giving Claude" ✓ shipped
+         (canonical color source, full model display names, Codecov)
   v0.6 - "Signals Are Data, Not Code" <- next
          (heuristics catalog: patterns/thresholds as structured definitions,
           per-language and per-model configurability, deduped signal logic)
