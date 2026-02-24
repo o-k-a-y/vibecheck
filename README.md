@@ -576,10 +576,20 @@ vibecheck history src/pipeline.rs --limit 20
   v0.4 - "Trust No Signal You Can't Override"  ✓ shipped
          (heuristics config system, signal IDs, weight overrides,
           vibecheck heuristics command, TUI history panel)
-  v0.5 - "Your Codebase Has a Trend Problem" <- next
-         (persistent trend store, sparklines)
-  v0.6 - "We Trained a Model On This"
+  v0.6 - "Signals Are Data, Not Code" <- next
+         (heuristics catalog: patterns/thresholds as structured definitions,
+          per-language and per-model configurability, deduped signal logic)
+  v0.7 - "Your Codebase Has a Trend Problem"
+         (persistent trend store, sparklines, TUI attribution drift panel)
+  v0.8 - "More Languages, Fewer Excuses"
+         (TypeScript-specific signals, Ruby, Java, expanded Go/Python depth,
+          accuracy benchmarks against known human/AI repos)
+  v0.9 - "We Trained a Model On This"
+         (corpus scraper via git co-author metadata, linfa classifier,
+          hand-tuned weights replaced by trained model, version detection)
   v1.0 - "Skynet But For Code Review"
+         (vibecheck-core 1.0 API stability, WASM plugin interface,
+          IDE integration, published benchmark suite)
   ──────────────────────────────────────────────────────
 ```
 
@@ -602,14 +612,22 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **Merkle hash tree** — incremental directory analysis; unchanged subtrees are skipped entirely
 - [x] **Ignore rules** — `.vibecheck` config file; auto-respects `.gitignore`; `--ignore-file` flag; `IgnoreRules` trait for DI in library consumers
 
-### Phase 3 — Corpus Growth
-- [ ] **Git repo scraper** — acquire labeled corpus from public repos via commit co-author metadata
+### Phase 3 — Configurability
+- [ ] **Heuristics catalog** — patterns and thresholds as structured data, not scattered imperative logic
+- [ ] **Per-language signal config** — tune or disable signals per language in `.vibecheck`
+- [ ] **Trend store + sparklines** — persistent per-file attribution history; drift visible in TUI
+- [ ] **Expanded language support** — TypeScript-specific signals, Ruby, Java, deeper Go/Python coverage
 
 ### Phase 4 — Intelligence
-- [ ] **ML classification** — `linfa`-based model trained on scraped corpus; replaces hand-tuned weights
+- [ ] **Corpus scraper** — acquire labeled samples from public repos via git co-author metadata
+- [ ] **ML classification** — `linfa`-based model trained on corpus; replaces hand-tuned weights
 - [ ] **Version detection** — distinguish Claude 3.5 vs Claude 4, GPT-3.5 vs GPT-4o (corpus permitting)
-- [ ] **Plugin system** — WASM-based external analyzers
 - [ ] **Benchmark suite** — accuracy metrics against known human/AI code datasets
+
+### Phase 5 — Platform
+- [ ] **WASM plugin interface** — external analyzers without recompiling
+- [ ] **IDE integration** — LSP server or VS Code extension
+- [ ] **`vibecheck-core` 1.0** — stable semver API guarantee
 
 ### Already Shipped
 - [x] **6 text-pattern analyzers** — comment style, AI signals, error handling, naming, code structure, idiom usage
