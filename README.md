@@ -5,6 +5,7 @@
 </p>
 
 [![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
+[![codecov](https://codecov.io/gh/o-k-a-y/vibecheck/branch/main/graph/badge.svg)](https://codecov.io/gh/o-k-a-y/vibecheck)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/o-k-a-y/vibecheck/blob/main/LICENSE)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![vibecheck-core on crates.io](https://img.shields.io/crates/v/vibecheck-core.svg?label=vibecheck-core)](https://crates.io/crates/vibecheck-core)
