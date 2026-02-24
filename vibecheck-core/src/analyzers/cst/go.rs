@@ -2,7 +2,7 @@ use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
 use crate::language::Language;
-use crate::report::{ModelFamily, Signal};
+use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
 pub struct GoCstAnalyzer;
 
@@ -73,6 +73,47 @@ impl CstAnalyzer for GoCstAnalyzer {
         }
 
         signals
+    }
+
+    fn extract_symbols<'tree>(
+        &self,
+        tree: &'tree tree_sitter::Tree,
+        source: &[u8],
+    ) -> Vec<(SymbolMetadata, tree_sitter::Node<'tree>)> {
+        let root = tree.root_node();
+        let mut results = Vec::new();
+        let mut stack = vec![root];
+
+        while let Some(node) = stack.pop() {
+            match node.kind() {
+                "function_declaration" | "method_declaration" => {
+                    let kind = if node.kind() == "method_declaration" {
+                        "method"
+                    } else {
+                        "function"
+                    };
+                    if let Some(name) = get_function_name(node, source) {
+                        results.push((
+                            SymbolMetadata {
+                                name: name.to_string(),
+                                kind: kind.to_string(),
+                                start_line: node.start_position().row + 1,
+                                end_line: node.end_position().row + 1,
+                            },
+                            node,
+                        ));
+                    }
+                }
+                _ => {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        stack.push(child);
+                    }
+                }
+            }
+        }
+
+        results
     }
 }
 
@@ -156,7 +197,7 @@ fn count_err_nil_checks(root: Node<'_>, src_bytes: &[u8]) -> usize {
 mod tests {
     use super::*;
     use crate::analyzers::CstAnalyzer;
-    use crate::report::ModelFamily;
+    use crate::report::{ModelFamily, SymbolMetadata};
 
     fn parse_and_run(source: &str) -> Vec<Signal> {
         let analyzer = GoCstAnalyzer;
@@ -164,6 +205,47 @@ mod tests {
         parser.set_language(&analyzer.ts_language()).unwrap();
         let tree = parser.parse(source, None).unwrap();
         analyzer.analyze_tree(&tree, source)
+    }
+
+    fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
+        let analyzer = GoCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer
+            .extract_symbols(&tree, source.as_bytes())
+            .into_iter()
+            .map(|(meta, _)| meta)
+            .collect()
+    }
+
+    #[test]
+    fn extract_top_level_functions() {
+        let source = "package main\nfunc Foo() {}\nfunc Bar() int { return 0 }\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "Foo" && s.kind == "function"),
+            "expected 'Foo' as function; got: {:?}", syms);
+        assert!(syms.iter().any(|s| s.name == "Bar" && s.kind == "function"),
+            "expected 'Bar' as function; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_method_declaration() {
+        let source = "package main\ntype MyType struct{}\nfunc (m *MyType) Run() {}\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "Run" && s.kind == "method"),
+            "expected 'Run' as method; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_symbol_line_numbers() {
+        let source = "package main\nfunc First() {}\nfunc Second() {}\n";
+        let syms = parse_and_extract(source);
+        let first = syms.iter().find(|s| s.name == "First").unwrap();
+        let second = syms.iter().find(|s| s.name == "Second").unwrap();
+        assert_eq!(first.start_line, 2);
+        assert_eq!(second.start_line, 3);
+        assert!(first.end_line >= first.start_line);
     }
 
     #[test]

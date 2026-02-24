@@ -69,10 +69,28 @@ pub struct ReportMetadata {
     pub signal_count: usize,
 }
 
+/// Metadata about a named symbol (function, method, class, etc.) within a file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolMetadata {
+    pub name: String,
+    pub kind: String,       // "function", "method", "class", etc.
+    pub start_line: usize,
+    pub end_line: usize,
+}
+
+/// Analysis report for a single symbol within a file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SymbolReport {
+    pub metadata: SymbolMetadata,
+    pub attribution: Attribution,
+    pub signals: Vec<Signal>,
+}
+
 /// The full analysis report for a single source input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
     pub attribution: Attribution,
     pub signals: Vec<Signal>,
     pub metadata: ReportMetadata,
+    pub symbol_reports: Option<Vec<SymbolReport>>,
 }

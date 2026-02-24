@@ -2,7 +2,7 @@ pub mod cst;
 pub mod text;
 
 use crate::language::Language;
-use crate::report::Signal;
+use crate::report::{Signal, SymbolMetadata};
 
 /// Trait for text-pattern source code analyzers.
 pub trait Analyzer: Send + Sync {
@@ -26,6 +26,20 @@ pub trait CstAnalyzer: Send + Sync {
 
     /// Analyze the parsed CST and return signals.
     fn analyze_tree(&self, tree: &tree_sitter::Tree, source: &str) -> Vec<Signal>;
+
+    /// Extract named top-level symbols (functions, methods, classes, …) from
+    /// the tree.  Returns `(metadata, node)` pairs where `node` covers the
+    /// full symbol definition.
+    ///
+    /// The default implementation returns an empty vec; each language-specific
+    /// analyzer overrides this.
+    fn extract_symbols<'tree>(
+        &self,
+        _tree: &'tree tree_sitter::Tree,
+        _source: &[u8],
+    ) -> Vec<(SymbolMetadata, tree_sitter::Node<'tree>)> {
+        vec![]
+    }
 }
 
 /// Returns the default set of text analyzers.

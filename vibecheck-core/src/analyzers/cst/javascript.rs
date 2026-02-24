@@ -2,7 +2,7 @@ use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
 use crate::language::Language;
-use crate::report::{ModelFamily, Signal};
+use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
 pub struct JavaScriptCstAnalyzer;
 
@@ -82,6 +82,92 @@ impl CstAnalyzer for JavaScriptCstAnalyzer {
 
         signals
     }
+
+    fn extract_symbols<'tree>(
+        &self,
+        tree: &'tree tree_sitter::Tree,
+        source: &[u8],
+    ) -> Vec<(SymbolMetadata, tree_sitter::Node<'tree>)> {
+        let root = tree.root_node();
+        let mut results = Vec::new();
+        let mut stack = vec![root];
+
+        while let Some(node) = stack.pop() {
+            match node.kind() {
+                "function_declaration" | "generator_function_declaration" => {
+                    if let Some(name) = node
+                        .children(&mut node.walk())
+                        .find(|c| c.kind() == "identifier")
+                        .and_then(|c| c.utf8_text(source).ok())
+                    {
+                        results.push((
+                            SymbolMetadata {
+                                name: name.to_string(),
+                                kind: "function".to_string(),
+                                start_line: node.start_position().row + 1,
+                                end_line: node.end_position().row + 1,
+                            },
+                            node,
+                        ));
+                    }
+                }
+                "method_definition" => {
+                    if let Some(name) = node
+                        .children(&mut node.walk())
+                        .find(|c| {
+                            c.kind() == "property_identifier" || c.kind() == "identifier"
+                        })
+                        .and_then(|c| c.utf8_text(source).ok())
+                    {
+                        results.push((
+                            SymbolMetadata {
+                                name: name.to_string(),
+                                kind: "method".to_string(),
+                                start_line: node.start_position().row + 1,
+                                end_line: node.end_position().row + 1,
+                            },
+                            node,
+                        ));
+                    }
+                }
+                "variable_declarator" => {
+                    // Capture `const foo = () => ...` / `const foo = function() ...`
+                    let has_fn = node.children(&mut node.walk()).any(|c| {
+                        matches!(
+                            c.kind(),
+                            "arrow_function"
+                                | "function_expression"
+                                | "generator_function_expression"
+                        )
+                    });
+                    if has_fn {
+                        if let Some(name) = node
+                            .children(&mut node.walk())
+                            .find(|c| c.kind() == "identifier")
+                            .and_then(|c| c.utf8_text(source).ok())
+                        {
+                            results.push((
+                                SymbolMetadata {
+                                    name: name.to_string(),
+                                    kind: "function".to_string(),
+                                    start_line: node.start_position().row + 1,
+                                    end_line: node.end_position().row + 1,
+                                },
+                                node,
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                stack.push(child);
+            }
+        }
+
+        results
+    }
 }
 
 /// Count nodes of a specific kind throughout the tree.
@@ -128,7 +214,7 @@ fn count_then_calls(root: Node<'_>, src_bytes: &[u8]) -> usize {
 mod tests {
     use super::*;
     use crate::analyzers::CstAnalyzer;
-    use crate::report::ModelFamily;
+    use crate::report::{ModelFamily, SymbolMetadata};
 
     fn parse_and_run(source: &str) -> Vec<Signal> {
         let analyzer = JavaScriptCstAnalyzer;
@@ -136,6 +222,63 @@ mod tests {
         parser.set_language(&analyzer.ts_language()).unwrap();
         let tree = parser.parse(source, None).unwrap();
         analyzer.analyze_tree(&tree, source)
+    }
+
+    fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
+        let analyzer = JavaScriptCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer
+            .extract_symbols(&tree, source.as_bytes())
+            .into_iter()
+            .map(|(meta, _)| meta)
+            .collect()
+    }
+
+    #[test]
+    fn extract_function_declaration() {
+        let source = "function greet(name) { return name; }\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "greet" && s.kind == "function"),
+            "expected 'greet' as function; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_arrow_function_const() {
+        let source = "const add = (a, b) => a + b;\nconst double = x => x * 2;\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "add" && s.kind == "function"),
+            "expected 'add' as function; got: {:?}", syms);
+        assert!(syms.iter().any(|s| s.name == "double" && s.kind == "function"),
+            "expected 'double' as function; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_class_methods() {
+        let source = "class Greeter {\n  sayHello() { return 'hi'; }\n  sayBye() { return 'bye'; }\n}\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "sayHello" && s.kind == "method"),
+            "expected 'sayHello' as method; got: {:?}", syms);
+        assert!(syms.iter().any(|s| s.name == "sayBye" && s.kind == "method"),
+            "expected 'sayBye' as method; got: {:?}", syms);
+    }
+
+    #[test]
+    fn non_function_const_not_extracted() {
+        let source = "const VALUE = 42;\nconst NAME = 'hello';\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.is_empty(), "non-function consts should not be extracted; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_symbol_line_numbers() {
+        let source = "function first() {}\nfunction second() {}\n";
+        let syms = parse_and_extract(source);
+        let first = syms.iter().find(|s| s.name == "first").unwrap();
+        let second = syms.iter().find(|s| s.name == "second").unwrap();
+        assert_eq!(first.start_line, 1);
+        assert_eq!(second.start_line, 2);
     }
 
     #[test]

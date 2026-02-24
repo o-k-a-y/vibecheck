@@ -68,7 +68,7 @@ vibecheck runs your source code through two layers of analysis:
 
 Each signal has a **weight** (positive = evidence for, negative = evidence against) and points to a **model family**. The pipeline aggregates all signals into a probability distribution.
 
-Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of file contents) so unchanged files are never re-analyzed.
+Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of file contents) so unchanged files are never re-analyzed. A **Merkle hash tree** extends this to directory level — unchanged subdirectories are skipped entirely, making repeated directory scans near-instant.
 
 ## Installation
 
@@ -91,6 +91,9 @@ vibecheck src/main.rs
 # Analyze a directory (supports .rs, .py, .js, .ts, .go)
 vibecheck src/
 
+# Symbol-level attribution — breaks down each function/method individually
+vibecheck --symbols src/main.rs
+
 # Plain text output
 vibecheck src/lib.rs --format text
 
@@ -108,6 +111,36 @@ vibecheck src/ --no-cache
 ```
 
 `--assert-family` accepts a comma-separated list of `claude`, `gpt`, `copilot`, `gemini`, or `human`. If any analyzed file's primary attribution is **not** in the list, vibecheck prints a failure summary to stderr and exits with code `1`. This is the flag that makes vibecheck useful in CI.
+
+### TUI Codebase Navigator
+
+```bash
+# Interactive file-tree browser with per-directory confidence rollup
+vibecheck tui src/
+```
+
+Browse your entire codebase like a file tree. Confidence scores roll up from symbol → file → directory (weighted by lines of code). Navigate with `j`/`k` or arrow keys, `Enter` to expand/collapse directories, `←` to go to parent, `q` to quit.
+
+### Live Watch Mode
+
+```bash
+# Re-analyze on every file save, print deltas to stdout
+vibecheck watch src/
+```
+
+Uses OS file-system events (inotify/kqueue/FSEvents) with a 300 ms debounce. Shows a timestamped update for each changed file.
+
+### Git History
+
+```bash
+# Replay git history for a file and show how attribution changed over commits
+vibecheck history src/pipeline.rs
+
+# Limit to the last N commits that touched the file (default: 20)
+vibecheck history src/pipeline.rs --limit 10
+```
+
+Reads blobs directly from the git object store (no working-tree checkout). Prints a table: `COMMIT | DATE | FAMILY | CONFIDENCE | CHANGE`.
 
 ### Example Output
 
@@ -204,6 +237,27 @@ if report.attribution.primary != ModelFamily::Human {
 
 // Bypass the cache
 let report = vibecheck_core::analyze_file_no_cache(Path::new("suspect.rs"))?;
+
+// Symbol-level attribution — Report.symbol_reports is populated
+let report = vibecheck_core::analyze_file_symbols(Path::new("suspect.rs"))?;
+if let Some(symbols) = report.symbol_reports {
+    for sym in symbols {
+        println!("  {} ({}) → {} ({:.0}%)",
+            sym.metadata.name,
+            sym.metadata.kind,
+            sym.attribution.primary,
+            sym.attribution.confidence * 100.0);
+    }
+}
+
+// Directory analysis — Merkle tree skips unchanged subtrees
+let results = vibecheck_core::analyze_directory(Path::new("src/"), true)?;
+for (path, report) in results {
+    println!("{} → {} ({:.0}%)",
+        path.display(),
+        report.attribution.primary,
+        report.attribution.confidence * 100.0);
+}
 ```
 
 ### GitHub Action / CI Integration
@@ -235,62 +289,36 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 ## Architecture
 
-### Current (Phase 1) — Workspace + CST Engine
+### Current — Multi-Layer Analysis + Incremental Cache
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │          vibecheck-core              │
-                    │                                     │
-  source code ───►  │  SHA-256 → redb cache lookup        │
-  (.rs/.py/etc.)    │         │ (hit: return cached)      │
-                    │         ▼ (miss: analyze)           │
-                    │  TextAnalyzers[]  CstAnalyzers[]    │
-                    │   (6 pattern)    (tree-sitter)      │
-                    │         └─────────┬──────────┘      │
-                    │                Signals              │
-                    │                   │                 │
-                    │          Aggregate + Normalize      │
-                    │                   │                 │
-                    │               Report ──► cache.put  │
-                    └───────────────────┼─────────────────┘
+                    ┌───────────────────────────────────────┐
+                    │           vibecheck-core              │
+                    │                                       │
+  directory ──────► │  Merkle tree walk                     │
+  (.rs/.py/etc.)    │    │ unchanged subtree? skip entirely │
+                    │    ▼ changed file: SHA-256 lookup     │
+                    │  redb cache (3 tables)                │
+                    │    file_cache  │  hit → Report        │
+                    │    sym_cache   │  hit → SymbolReports │
+                    │    dir_cache   │  hit → DirNode hash  │
+                    │                ▼ miss: analyze        │
+                    │  TextAnalyzers[]   CstAnalyzers[]     │
+                    │   (6 pattern)    (tree-sitter)        │
+                    │        └──────────┬──────────┘        │
+                    │                Signals                │
+                    │                   │                   │
+                    │          Aggregate + Normalize        │
+                    │                   │                   │
+                    │     Report ──────────────► cache.put  │
+                    │     SymbolReport[] ───────► sym_cache │
+                    └───────────────────┼───────────────────┘
                                         │
                                vibecheck-cli
-                           (--format, --assert-family,
-                            --no-cache, walkdir)
-```
-
-### Target (v2) — Trend Tracking + ML
-
-> **Not yet implemented** — planned for v0.2–v1.0
-
-```
-                    ┌─────────────────────────────────────┐
-                    │          vibecheck-core              │
-                    │                                     │
-  source code ───►  │  tree-sitter CST (multi-language)   │
-  (.rs/.py/etc.)    │         │                           │
-                    │  CstAnalyzers[]  TextAnalyzers[]    │
-                    │       └─────────┬───────────┘       │
-                    │              Signals                │
-                    │                 │                   │
-                    │   ┌─────────────┴────────────────┐  │
-                    │   │  Aggregate · Normalize · ML  │  │
-                    │   └─────────────┬────────────────┘  │
-                    │                 │                   │
-                    │   ┌─────────────┴────────────┐      │
-                    │   │  Report + SymbolReport   │      │
-                    │   └─────────────┬────────────┘      │
-                    └─────────────────┼───────────────────┘
-                                      │
-                      ┌───────────────┼──────────────────┐
-                      │               │                  │
-               ┌──────┴──────┐  ┌─────┴──────┐   ┌───────┴───────┐
-               │vibecheck-cli│  │  external  │   │ Trend Store   │
-               │             │  │  tools /   │   │ (SQLite/redb) │
-               │ TUI browser │  │  importers │   │               │
-               │ watch mode  │  │  (library) │   │ git history   │
-               │ git history │  │            │   │ + live watch  │
-               └─────────────┘  └────────────┘   └───────────────┘
+                     ┌─────────────────┼──────────────────┐
+                     │                 │                  │
+              analyze / --symbols   tui <path>      watch / history
+              (file + dir)         (ratatui TUI)    (notify / git2)
 ```
 
 **Crate split:**
@@ -334,43 +362,32 @@ To enable the corpus store:
 cargo add vibecheck-core --features corpus
 ```
 
-### Planned: TUI Codebase Navigator
+### TUI Codebase Navigator
 
-> **Not yet implemented** — planned for v0.2
-
-An interactive terminal UI (`vibecheck tui <path>`) that lets you browse AI likelihood across an entire codebase — navigating like a file tree but seeing confidence scores and trend sparklines at every level:
+Interactive terminal UI (`vibecheck tui <path>`) — browse AI likelihood across an entire codebase navigating like a file tree with confidence scores at every level:
 
 ```
-vibecheck/                    [Claude 78%]  ▁▂▃▄▅▇  (30-day trend)
-  src/                        [Claude 82%]  ▁▃▅▇█
-    analyzers/                [Claude 75%]  ▁▂▃▄▅
-      ai_signals.rs           [Claude 91%]  ▄▅▆▇█
-        AiSignalsAnalyzer     [Claude 91%]
-          Analyzer::analyze   [Claude 88%]  ▃▅▇
-      code_structure.rs       [Claude 71%]  ▁▂▃▃▄
-    pipeline.rs               [Claude 85%]  ▁▄▇▇█
-      Pipeline::run           [Claude 88%]  ▂▄▆█
-      Pipeline::aggregate     [Claude 95%]  ▅▇██
+vibecheck/                    [Claude 78%]
+  src/                        [Claude 82%]
+    analyzers/                [Claude 75%]
+      ai_signals.rs           [Claude 91%]
+      code_structure.rs       [Claude 71%]
+    pipeline.rs               [Claude 85%]
 ```
 
-Confidence rolls up: symbol → file → directory (weighted by lines of code).
+Confidence rolls up: file → directory (weighted by lines of code). Navigate with `j`/`k`, `Enter` to expand/collapse, `q` to quit.
 
-### Planned: Historical & Live Trend Tracking
-
-> **Not yet implemented** — planned for v0.2
+### Historical & Live Trend Tracking
 
 ```bash
-# Watch a file live — re-analyze on save, stream deltas
+# Watch a directory live — re-analyze on save, print deltas
 vibecheck watch src/
 
-# Walk git history and build a trend
-vibecheck history src/pipeline.rs --since 2025-01-01
-
-# Both at once in the TUI
-vibecheck tui src/ --watch
+# Walk git history for a file and show attribution changes across commits
+vibecheck history src/pipeline.rs --limit 20
 ```
 
-Historical mode replays git log. Watch mode appends as you code. Both write to the same trend store so you get a continuous picture from "when the repo started" to "right now".
+`history` reads blobs directly from the git object store (no checkout needed). `watch` uses OS filesystem events with a 300 ms debounce.
 
 ## What's Coming
 
@@ -378,9 +395,12 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
   THE GRAND PLAN (revised)
   ──────────────────────────────────────────────────────
   v0.1 - "It Works On My Machine"          ✓ shipped
-  v0.2 - "Infrastructure That Doesn't Lie"   <- next
-  v0.3 - "We Can Smell Python Too Now"
-  v0.4 - "Your Codebase Has a Trend Problem"
+  v0.2 - "Infrastructure That Doesn't Lie" ✓ shipped
+         (Merkle cache, symbol-level, TUI,
+          watch mode, git history)
+  v0.3 - "Your Codebase Has a Trend Problem" <- next
+         (persistent trend store, sparklines)
+  v0.4 - "We Trained a Model On This"
   v1.0 - "Skynet But For Code Review"
   ──────────────────────────────────────────────────────
 ```
@@ -396,13 +416,14 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 - [x] **JSON output** — pipe results to other tools
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 
-### Phase 2 — Visible Product
-- [ ] **Historical trend tracking** — `vibecheck history <path>` replays git log
-- [ ] **Live watch mode** — `vibecheck watch <path>` re-analyzes on file saves
-- [ ] **TUI navigator** — ratatui-based codebase browser with confidence bars + sparklines
+### Phase 2 — Visible Product ✅
+- [x] **Historical trend tracking** — `vibecheck history <path>` replays git log
+- [x] **Live watch mode** — `vibecheck watch <path>` re-analyzes on file saves
+- [x] **TUI navigator** — ratatui-based codebase browser with confidence bars
+- [x] **Symbol-level attribution** — `vibecheck --symbols <file>` breaks down each function/method
+- [x] **Merkle hash tree** — incremental directory analysis; unchanged subtrees are skipped entirely
 
 ### Phase 3 — Corpus Growth
-- [ ] **Merkle hash tree** — incremental directory analysis; only re-analyze changed subtrees
 - [ ] **Git repo scraper** — acquire labeled corpus from public repos via commit co-author metadata
 
 ### Phase 4 — Intelligence
@@ -415,6 +436,11 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 - [x] **6 text-pattern analyzers** — comment style, AI signals, error handling, naming, code structure, idiom usage
 - [x] **tree-sitter CST analyzers** — Rust (5), Python (3), JavaScript (3), Go (3)
 - [x] **Content-addressed cache** — redb backend, SHA-256 keyed, instant on cache hit
+- [x] **Merkle hash tree** — SHA-256 of sorted child hashes; unchanged directory subtrees are skipped entirely
+- [x] **Symbol-level attribution** — per-function/method `SymbolReport` with its own `Attribution` + `Signal` list
+- [x] **TUI navigator** — ratatui-based two-pane browser (file tree + detail panel)
+- [x] **Live watch mode** — OS FS events (inotify/kqueue/FSEvents) with 300 ms debounce
+- [x] **Git history replay** — reads blobs from the git object store, no working-tree checkout
 - [x] **Corpus store** — accumulates labeled samples and per-file trend history in SQLite (`--features corpus`)
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 - [x] **JSON output** — pipe results to other tools
@@ -449,12 +475,12 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
   └─────────────────────────────────────────────────┘
 ```
 
-**Current limitations (v0.1):**
+**Current limitations:**
 - **Heuristic-based** — no ML model; weights are hand-tuned, not learned from a corpus
 - **Not adversarial-resistant** — deliberately obfuscated AI code will fool it
 - **Model family overlap** — GPT and Claude share many patterns; attribution between them is fuzzy
-- **File-level only** — can't detect mixed human/AI authorship within a single file; symbol-level coming in a future release
-- **No trend tracking** — point-in-time only; historical and live trend tracking coming in a future release
+- **Symbol-level is file-cached** — `--symbols` results are cached per file hash; mixed authorship within a file is detected but symbol boundaries depend on tree-sitter parse quality
+- **Watch/history are read-only** — no persistent trend store yet; trend deltas are printed to stdout only
 
 ## Contributing
 

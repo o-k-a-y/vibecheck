@@ -4,7 +4,7 @@ use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
 use crate::language::Language;
-use crate::report::{ModelFamily, Signal};
+use crate::report::{ModelFamily, Signal, SymbolMetadata};
 
 pub struct RustCstAnalyzer;
 
@@ -119,6 +119,55 @@ impl CstAnalyzer for RustCstAnalyzer {
         }
 
         signals
+    }
+
+    fn extract_symbols<'tree>(
+        &self,
+        tree: &'tree tree_sitter::Tree,
+        source: &[u8],
+    ) -> Vec<(SymbolMetadata, tree_sitter::Node<'tree>)> {
+        let root = tree.root_node();
+        let mut results = Vec::new();
+        let mut stack = vec![(root, false)]; // (node, inside_impl)
+
+        while let Some((node, inside_impl)) = stack.pop() {
+            match node.kind() {
+                "function_item" => {
+                    let kind = if inside_impl { "method" } else { "function" };
+                    if let Some(name) = node
+                        .children(&mut node.walk())
+                        .find(|c| c.kind() == "identifier")
+                        .and_then(|c| c.utf8_text(source).ok())
+                    {
+                        results.push((
+                            SymbolMetadata {
+                                name: name.to_string(),
+                                kind: kind.to_string(),
+                                start_line: node.start_position().row + 1,
+                                end_line: node.end_position().row + 1,
+                            },
+                            node,
+                        ));
+                    }
+                    // Don't recurse — skip nested function items.
+                    continue;
+                }
+                "impl_item" => {
+                    let mut cursor = node.walk();
+                    for child in node.children(&mut cursor) {
+                        stack.push((child, true));
+                    }
+                    continue;
+                }
+                _ => {}
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                stack.push((child, inside_impl));
+            }
+        }
+
+        results
     }
 }
 
@@ -294,7 +343,7 @@ fn imports_are_sorted(root: Node<'_>, src_bytes: &[u8]) -> bool {
 mod tests {
     use super::*;
     use crate::analyzers::CstAnalyzer;
-    use crate::report::ModelFamily;
+    use crate::report::{ModelFamily, SymbolMetadata};
 
     fn parse_and_run(source: &str) -> Vec<Signal> {
         let analyzer = RustCstAnalyzer;
@@ -302,6 +351,66 @@ mod tests {
         parser.set_language(&analyzer.ts_language()).unwrap();
         let tree = parser.parse(source, None).unwrap();
         analyzer.analyze_tree(&tree, source)
+    }
+
+    fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
+        let analyzer = RustCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer
+            .extract_symbols(&tree, source.as_bytes())
+            .into_iter()
+            .map(|(meta, _)| meta)
+            .collect()
+    }
+
+    #[test]
+    fn extract_free_functions() {
+        let source = "fn foo() {}\nfn bar(x: i32) -> i32 { x }\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "foo" && s.kind == "function"));
+        assert!(syms.iter().any(|s| s.name == "bar" && s.kind == "function"));
+    }
+
+    #[test]
+    fn extract_methods_from_impl() {
+        let source = r#"
+struct Foo;
+impl Foo {
+    fn new() -> Self { Foo }
+    pub fn process(&self) -> i32 { 42 }
+}
+"#;
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "new" && s.kind == "method"),
+            "expected 'new' as method; got: {:?}", syms);
+        assert!(syms.iter().any(|s| s.name == "process" && s.kind == "method"),
+            "expected 'process' as method; got: {:?}", syms);
+        // The struct name itself is not a symbol we extract.
+        assert!(!syms.iter().any(|s| s.name == "Foo" && s.kind == "function"));
+    }
+
+    #[test]
+    fn nested_functions_not_extracted() {
+        let source = "fn outer() { fn inner() {} }\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "outer"),
+            "expected 'outer'; got: {:?}", syms);
+        assert!(!syms.iter().any(|s| s.name == "inner"),
+            "inner should not appear; got: {:?}", syms);
+    }
+
+    #[test]
+    fn extract_symbol_line_numbers() {
+        let source = "fn first() {}\nfn second() {}\n";
+        let syms = parse_and_extract(source);
+        let first = syms.iter().find(|s| s.name == "first").unwrap();
+        let second = syms.iter().find(|s| s.name == "second").unwrap();
+        assert_eq!(first.start_line, 1);
+        assert_eq!(second.start_line, 2);
+        assert!(first.end_line >= first.start_line);
+        assert!(second.end_line >= second.start_line);
     }
 
     #[test]
