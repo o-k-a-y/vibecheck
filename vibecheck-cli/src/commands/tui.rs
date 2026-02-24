@@ -397,22 +397,8 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
         let bar_len = (sym.attribution.confidence * 16.0) as usize;
         let bar = "█".repeat(bar_len);
         let color = family_color(sym.attribution.primary);
-        let kind_label = match sym.metadata.kind.as_str() {
-            "method" => "method",
-            "class"  => "class",
-            _        => "fn",
-        };
-        // Append () to functions/methods so "name" reads as "name()" not a placeholder.
-        let raw_name = if kind_label == "class" {
-            sym.metadata.name.clone()
-        } else {
-            format!("{}()", sym.metadata.name)
-        };
-        let name = if raw_name.len() > 22 {
-            format!("{}…", &raw_name[..21])
-        } else {
-            raw_name
-        };
+        let kind_label = sym.metadata.kind_label();
+        let name = sym.metadata.display_name(22);
         lines.push(Line::from(vec![
             Span::styled(
                 format!("  {:<8}", kind_label),
