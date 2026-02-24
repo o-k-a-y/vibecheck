@@ -1,0 +1,12 @@
+# .cargo/config.toml
+#
+# Project-level Cargo configuration.
+# Checked in so that `cargo llvm-cov` writes profraw files to a stable path
+# that cargo-llvm-cov can discover, enabling VSCode Coverage Gutters to
+# display inline line coverage without any extra flags.
+
+[env]
+# Stable profraw path for cargo-llvm-cov / llvm-cov.
+# `force = false` means a LLVM_PROFILE_FILE already set in the environment
+# (e.g. by CI) takes precedence over this default.
+LLVM_PROFILE_FILE = { value = "target/llvm-cov-%p-%m.profraw", force = false }
