@@ -49,6 +49,8 @@ struct App {
     detail: Option<Report>,
     /// Vertical scroll offset for the detail pane.
     detail_scroll: u16,
+    /// Horizontal scroll offset for the detail pane.
+    detail_scroll_x: u16,
 }
 
 impl App {
@@ -63,6 +65,7 @@ impl App {
             list_state,
             detail: None,
             detail_scroll: 0,
+            detail_scroll_x: 0,
         }
     }
 
@@ -80,6 +83,7 @@ impl App {
             list_state,
             detail,
             detail_scroll: 0,
+            detail_scroll_x: 0,
         }
     }
 
@@ -142,6 +146,7 @@ impl App {
             .filter(|e| !e.is_dir)
             .and_then(|e| vibecheck_core::analyze_file_symbols(&e.path).ok());
         self.detail_scroll = 0;
+        self.detail_scroll_x = 0;
     }
 
     fn scroll_detail_down(&mut self, amount: u16) {
@@ -150,6 +155,14 @@ impl App {
 
     fn scroll_detail_up(&mut self, amount: u16) {
         self.detail_scroll = self.detail_scroll.saturating_sub(amount);
+    }
+
+    fn scroll_detail_right(&mut self, amount: u16) {
+        self.detail_scroll_x = self.detail_scroll_x.saturating_add(amount);
+    }
+
+    fn scroll_detail_left(&mut self, amount: u16) {
+        self.detail_scroll_x = self.detail_scroll_x.saturating_sub(amount);
     }
 }
 
@@ -324,6 +337,27 @@ fn family_abbrev(family: ModelFamily) -> &'static str {
     }
 }
 
+/// Truncate `s` to at most `max_chars` characters, appending `…` if cut.
+fn truncate_to(s: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+    let mut chars = s.chars();
+    let mut out = String::new();
+    for _ in 0..max_chars {
+        match chars.next() {
+            Some(c) => out.push(c),
+            None => return out,
+        }
+    }
+    if chars.next().is_some() {
+        // There are more characters — truncate and append ellipsis.
+        out.pop(); // remove last char to make room
+        out.push('…');
+    }
+    out
+}
+
 fn render(frame: &mut Frame, app: &mut App) {
     let outer = Layout::default()
         .direction(Direction::Vertical)
@@ -358,10 +392,23 @@ fn render_tree(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
             );
             let color = family_color(entry.family);
 
+            // Compute name column width dynamically so the badge never wraps.
+            // area.width includes the block borders (1 char each side = 2 total) and
+            // the highlight symbol "▶ " (2 display columns) — subtract both so the
+            // selected item's badge is never pushed off the right edge.
+            let prefix_len = indent.len() + prefix.len();
+            let overhead = 2  // block borders (left + right)
+                + 2           // highlight_symbol "▶ " display columns
+                + prefix_len
+                + badge.len()
+                + 2;          // separator spaces between name and badge
+            let name_width = (area.width as usize).saturating_sub(overhead);
+            let display_name = truncate_to(&entry.name, name_width);
+
             let line = Line::from(vec![
                 Span::raw(format!("{indent}{prefix}")),
                 Span::styled(
-                    format!("{:<30}", &entry.name),
+                    format!("{:<width$}  ", display_name, width = name_width),
                     if entry.is_dir {
                         Style::default().add_modifier(Modifier::BOLD)
                     } else {
@@ -418,6 +465,7 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
 
 fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let scroll = app.detail_scroll;
+    let scroll_x = app.detail_scroll_x;
     let block = Block::default().borders(Borders::ALL).title(" Detail ");
 
     let Some(ref report) = app.detail else {
@@ -512,7 +560,7 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     all_lines.extend(signal_lines);
     all_lines.extend(sym_lines);
 
-    frame.render_widget(Paragraph::new(all_lines).scroll((scroll, 0)), inner);
+    frame.render_widget(Paragraph::new(all_lines).scroll((scroll, scroll_x)), inner);
 }
 
 fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
@@ -525,6 +573,8 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
         Span::raw("collapse  "),
         Span::styled(" d/u ", Style::default().fg(Color::Cyan)),
         Span::raw("scroll detail  "),
+        Span::styled("⇧←/⇧→ ", Style::default().fg(Color::Cyan)),
+        Span::raw("scroll right pane  "),
         Span::styled(" q ", Style::default().fg(Color::Cyan)),
         Span::raw("quit"),
     ]))
@@ -592,6 +642,12 @@ fn event_loop<B: ratatui::backend::Backend>(
                 KeyCode::Up   | KeyCode::Char('k') => app.move_up(),
                 KeyCode::PageDown | KeyCode::Char('d') => app.scroll_detail_down(5),
                 KeyCode::PageUp   | KeyCode::Char('u') => app.scroll_detail_up(5),
+                KeyCode::Right if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                    app.scroll_detail_right(4);
+                }
+                KeyCode::Left if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                    app.scroll_detail_left(4);
+                }
                 KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
                     app.toggle_collapse();
                 }
