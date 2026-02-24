@@ -178,8 +178,7 @@ fn generate_svg(report: &Report, display_path: &str) -> String {
 // ---------------------------------------------------------------------------
 
 fn fam_svg_abbrev(f: vibecheck_core::report::ModelFamily) -> &'static str {
-    use vibecheck_core::report::ModelFamily::*;
-    match f { Claude => "Cl", Gpt => "Gpt", Gemini => "Ge", Copilot => "Co", Human => "Hu" }
+    f.abbrev()
 }
 
 fn generate_tui_svg() -> Option<String> {
@@ -283,7 +282,7 @@ fn generate_tui_svg() -> Option<String> {
              r.attribution.primary.svg_color(),
              fam_svg_abbrev(r.attribution.primary))
         } else {
-            (85u32, ModelFamily::Claude.svg_color(), "Cl")
+            (85u32, ModelFamily::Claude.svg_color(), ModelFamily::Claude.abbrev())
         };
         let badge   = format!("{abbrev}  {conf_pct:>3}%");
         let badge_x = LEFT_W - PAD - badge.len() as f64 * CW;

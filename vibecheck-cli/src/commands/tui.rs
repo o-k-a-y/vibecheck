@@ -431,13 +431,7 @@ fn family_color(family: ModelFamily) -> Color {
 }
 
 fn family_abbrev(family: ModelFamily) -> &'static str {
-    match family {
-        ModelFamily::Claude => "Cl",
-        ModelFamily::Gpt => "Gpt",
-        ModelFamily::Gemini => "Ge",
-        ModelFamily::Copilot => "Co",
-        ModelFamily::Human => "Hu",
-    }
+    family.abbrev()
 }
 
 /// Truncate `s` to at most `max_chars` characters, appending `…` if cut.
