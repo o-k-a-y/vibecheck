@@ -1,23 +1,23 @@
 [package]
 name        = "vibecheck-cli"
-version     = "0.1.3"
-edition.workspace = true
-license.workspace = true
+version.workspace   = true
+edition.workspace   = true
+license.workspace   = true
+readme.workspace    = true
 description = "CLI tool to detect AI-generated code and attribute it to a model family"
 repository  = "https://github.com/o-k-a-y/vibecheck"
 keywords    = ["ai", "code-analysis", "cli", "llm", "detection"]
 categories  = ["command-line-utilities", "development-tools"]
-readme      = "../README.md"
 
 [[bin]]
 name = "vibecheck"
 path = "src/main.rs"
 
 [build-dependencies]
-vibecheck-core = { path = "../vibecheck-core", version = "0.1.3" }
+vibecheck-core.workspace = true
 
 [dependencies]
-vibecheck-core = { path = "../vibecheck-core", version = "0.1.3" }
+vibecheck-core.workspace = true
 serde_json.workspace = true
 clap       = { version = "4", features = ["derive"] }
 walkdir    = "2"
