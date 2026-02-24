@@ -135,7 +135,7 @@ vibecheck tui src/
 
 ![vibecheck TUI screenshot](https://raw.githubusercontent.com/o-k-a-y/vibecheck/main/.github/assets/tui.svg)
 
-Two-pane browser: file tree with family badges on the left, signal/score/symbol breakdown on the right. Confidence rolls up from symbol → file → directory (weighted by lines of code).
+Two-pane browser: file tree with family badges on the left, signal/score/symbol breakdown on the right. Press `h` on any file to open a git history panel showing per-commit AI attribution (loaded in the background). Confidence rolls up from symbol → file → directory (weighted by lines of code).
 
 | Key | Action |
 |-----|--------|
@@ -547,7 +547,7 @@ cargo add vibecheck-core --features corpus
 
 ### TUI Codebase Navigator
 
-Interactive terminal UI — run `vibecheck` (no args) or `vibecheck tui <path>` to browse AI likelihood across an entire codebase as a two-pane file tree. Confidence scores roll up from symbol → file → directory (weighted by lines of code). The right pane shows score bars, every signal, and a per-symbol breakdown. The detail pane is scrollable with `d`/`u` when there are more signals than fit on screen.
+Interactive terminal UI — run `vibecheck` (no args) or `vibecheck tui <path>` to browse AI likelihood across an entire codebase. File tree with family badges on the left; score bars, signals, and per-symbol breakdown on the right. Press `h` on any file to open a git history panel (background-loaded, per-commit attribution). Confidence rolls up from symbol → file → directory (weighted by lines of code). The detail pane scrolls vertically with `d`/`u` and horizontally with `⇧←`/`⇧→`.
 
 ### Historical & Live Trend Tracking
 
@@ -616,7 +616,7 @@ vibecheck history src/pipeline.rs --limit 20
 - [x] **Content-addressed cache** — redb backend, SHA-256 keyed, instant on cache hit
 - [x] **Merkle hash tree** — SHA-256 of sorted child hashes; unchanged directory subtrees are skipped entirely
 - [x] **Symbol-level attribution** — per-function/method `SymbolReport` with its own `Attribution` + `Signal` list
-- [x] **TUI navigator** — ratatui-based two-pane browser (file tree + detail panel)
+- [x] **TUI navigator** — ratatui-based browser (file tree + detail panel + git history panel)
 - [x] **Live watch mode** — OS FS events (inotify/kqueue/FSEvents) with 300 ms debounce + 2 s per-file cooldown
 - [x] **Git history replay** — reads blobs from the git object store, no working-tree checkout
 - [x] **Corpus store** — accumulates labeled samples and per-file trend history in SQLite (`--features corpus`)
