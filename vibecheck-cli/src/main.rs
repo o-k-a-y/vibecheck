@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use walkdir::WalkDir;
 
-use vibecheck::output::OutputFormat;
-use vibecheck::report::{ModelFamily, Report};
+use vibecheck_core::output::OutputFormat;
+use vibecheck_core::report::{ModelFamily, Report};
 
 mod output;
 
@@ -101,9 +101,9 @@ fn main() -> Result<()> {
     }
 
     let analyze_fn: fn(&std::path::Path) -> std::io::Result<Report> = if cli.no_cache {
-        vibecheck::analyze_file_no_cache
+        vibecheck_core::analyze_file_no_cache
     } else {
-        vibecheck::analyze_file
+        vibecheck_core::analyze_file
     };
 
     let reports: Vec<Report> = files
@@ -150,6 +150,8 @@ fn main() -> Result<()> {
                 );
             }
             std::process::exit(1);
+        } else {
+            eprintln!("\nAll files passed the vibe check.");
         }
     }
 

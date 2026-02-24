@@ -13,10 +13,10 @@ name = "vibecheck"
 path = "src/main.rs"
 
 [build-dependencies]
-vibecheck = { path = "../vibecheck", version = "0.1" }
+vibecheck-core = { path = "../vibecheck-core", version = "0.1" }
 
 [dependencies]
-vibecheck = { path = "../vibecheck", version = "0.1" }
+vibecheck-core = { path = "../vibecheck-core", version = "0.1" }
 serde_json.workspace = true
 clap    = { version = "4", features = ["derive"] }
 walkdir = "2"

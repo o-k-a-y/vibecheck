@@ -1,5 +1,5 @@
 use colored::Colorize;
-use vibecheck::report::Report;
+use vibecheck_core::report::Report;
 
 /// Format a report with terminal colors.
 pub fn format_pretty(report: &Report) -> String {
@@ -67,4 +67,4 @@ pub fn format_pretty(report: &Report) -> String {
     out
 }
 
-pub use vibecheck::output::{format_json, format_text};
+pub use vibecheck_core::output::{format_json, format_text};

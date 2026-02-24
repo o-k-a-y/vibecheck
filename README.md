@@ -15,14 +15,14 @@
 ```
 
 [![CI](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml/badge.svg)](https://github.com/o-k-a-y/vibecheck/actions/workflows/vibecheck.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/o-k-a-y/vibecheck/blob/main/LICENSE)
 [![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
 [![vibecheck: Claude 96%](https://img.shields.io/badge/vibecheck-Claude%2096%25-a855f7)](https://github.com/o-k-a-y/vibecheck)
 
 > *"I don't always write Rust, but when I do, every function has a doc comment and zero `.unwrap()` calls."*
 > *— The Most Interesting LLM in the World*
 
-**vibecheck** is a Rust crate that detects AI-generated code and attributes it to a model family. It sniffs out the telltale "vibes" that different AI models leave in code — the suspiciously perfect formatting, the teaching-voice comments, the conspicuous absence of `TODO: fix this later`.
+**vibecheck** detects AI-generated code and attributes it to a model family. It sniffs out the telltale "vibes" that different AI models leave in code — the suspiciously perfect formatting, the teaching-voice comments, the conspicuous absence of `TODO: fix this later`.
 
 ![vibecheck example output](.github/assets/example.svg)
 
@@ -85,7 +85,7 @@ Results are stored in a **content-addressed cache** (redb, keyed by SHA-256 of f
 cargo install vibecheck-cli
 
 # Add the library to your project
-cargo add vibecheck
+cargo add vibecheck-core
 ```
 
 ## Usage
@@ -155,19 +155,19 @@ Signals:
 vibecheck was written by an AI. Does it know?
 
 ```
-$ vibecheck vibecheck/src/ --format text
+$ vibecheck vibecheck-core/src/ --format text
 
-vibecheck/src/report.rs          → Claude (96%)   # 👀
-vibecheck/src/cache.rs           → Claude (96%)
-vibecheck/src/language.rs        → Claude (93%)
-vibecheck/src/analyzers/cst/python.rs → Claude (85%)
-vibecheck/src/pipeline.rs        → Claude (74%)   # two .unwrap()s cost it
+vibecheck-core/src/report.rs          → Claude (96%)   # 👀
+vibecheck-core/src/cache.rs           → Claude (96%)
+vibecheck-core/src/language.rs        → Claude (93%)
+vibecheck-core/src/analyzers/cst/python.rs → Claude (85%)
+vibecheck-core/src/pipeline.rs        → Claude (74%)   # two .unwrap()s cost it
 ```
 
 Every file in the codebase is correctly attributed to Claude. The confidence ranges from 74% to 96% depending on how "perfect" the individual file is.
 
 ```
-$ vibecheck vibecheck/src/ --assert-family claude --no-cache
+$ vibecheck vibecheck-core/src/ --assert-family claude --no-cache
 
 All files passed the vibe check.      # exits 0
 ```
@@ -195,23 +195,23 @@ All files passed the vibe check.      # exits 0
 
 ```rust
 use std::path::Path;
-use vibecheck::report::ModelFamily;
+use vibecheck_core::report::ModelFamily;
 
 // Analyze a string
-let report = vibecheck::analyze(source_code);
+let report = vibecheck_core::analyze(source_code);
 println!("Verdict: {} ({:.0}%)",
     report.attribution.primary,
     report.attribution.confidence * 100.0);
 
 // Analyze a file (uses content-addressed cache automatically)
-let report = vibecheck::analyze_file(Path::new("suspect.rs"))?;
+let report = vibecheck_core::analyze_file(Path::new("suspect.rs"))?;
 if report.attribution.primary != ModelFamily::Human {
     println!("Caught one! This code was probably written by {}",
         report.attribution.primary);
 }
 
 // Bypass the cache
-let report = vibecheck::analyze_file_no_cache(Path::new("suspect.rs"))?;
+let report = vibecheck_core::analyze_file_no_cache(Path::new("suspect.rs"))?;
 ```
 
 ### GitHub Action / CI Integration
@@ -222,7 +222,7 @@ A ready-to-use workflow lives at `.github/workflows/vibecheck.yml`. It triggers 
 
 ```yaml
 - name: Vibecheck source code
-  run: cargo run --release -p vibecheck-cli -- vibecheck/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
+  run: cargo run --release -p vibecheck-cli -- vibecheck-core/src/ --format text --assert-family claude,gpt,copilot,gemini --no-cache
 ```
 
 **Use case 2: enforce that all code is human-written** (block AI slop from landing)
@@ -247,7 +247,7 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 ```
                     ┌─────────────────────────────────────┐
-                    │            vibecheck                │
+                    │          vibecheck-core              │
                     │                                     │
   source code ───►  │  SHA-256 → redb cache lookup        │
   (.rs/.py/etc.)    │         │ (hit: return cached)      │
@@ -269,9 +269,11 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 ### Target (v2) — Trend Tracking + ML
 
+> **Not yet implemented** — planned for v0.2–v1.0
+
 ```
                     ┌─────────────────────────────────────┐
-                    │            vibecheck                │
+                    │          vibecheck-core              │
                     │                                     │
   source code ───►  │  tree-sitter CST (multi-language)   │
   (.rs/.py/etc.)    │         │                           │
@@ -303,10 +305,10 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 | Crate | Contents | Who uses it |
 |-------|----------|-------------|
-| `vibecheck` | Analysis engine, CST analyzers, cache, corpus store | any tool that imports it |
-| `vibecheck-cli` | CLI binary, TUI (ratatui), watch mode, git history replay | end users |
+| `vibecheck-core` | Analysis engine, CST analyzers, cache, corpus store | any tool that imports it |
+| `vibecheck-cli` | CLI binary | end users |
 
-`vibecheck` has no CLI or TUI dependencies — it is a clean library crate that any tool can import to get AI authorship analysis, symbol-level reports, and trend data.
+`vibecheck-core` has no CLI dependencies — it is a clean library crate that any tool can import.
 
 ## Model Family Profiles
 
@@ -320,11 +322,9 @@ How vibecheck tells them apart:
 
 ## Feature Flags
 
-The codebase is split into two crates. `vibecheck` is a clean library with no CLI dependencies:
-
 | Crate | Feature | Default | What it enables |
 |-------|---------|---------|-----------------|
-| `vibecheck` | `corpus` | No | SQLite corpus + trend store (`rusqlite`) |
+| `vibecheck-core` | `corpus` | No | SQLite corpus + trend store (`rusqlite`) |
 | `vibecheck-cli` | — | — | CLI binary; always has `clap`, `walkdir`, `colored`, `anyhow` |
 
 ### The `corpus` feature
@@ -333,29 +333,18 @@ The corpus store is separate from the content-addressed redb cache. They serve d
 
 - **redb cache** (always on) — performance. If a file's SHA-256 hash hasn't changed, return the cached `Report` instantly without re-running any analyzers.
 - **corpus store** (opt-in) — data collection. Every result is written to SQLite in two tables:
-  - `corpus_entries` — one deduplicated row per unique file hash, recording its attribution and confidence. This builds a labeled dataset of (file → AI family) pairs that will feed the Phase 4 ML classifier.
-  - `trend_entries` — a timestamped row on every analysis run (no deduplication). This lets you plot how a file's attribution drifts over time — e.g. as you edit it, or as the heuristics improve.
+  - `corpus_entries` — one deduplicated row per unique file hash, recording its attribution and confidence.
+  - `trend_entries` — a timestamped row on every analysis run (no deduplication). This lets you plot how a file's attribution drifts over time as you edit it or as the heuristics improve.
 
 To enable the corpus store:
 
 ```bash
-cargo add vibecheck --features corpus
-```
-
-## What's Coming
-
-```
-  THE GRAND PLAN (revised)
-  ──────────────────────────────────────────────────────
-  v0.1 - "It Works On My Machine"          ✓ shipped
-  v0.2 - "Infrastructure That Doesn't Lie"   <- next
-  v0.3 - "We Can Smell Python Too Now"
-  v0.4 - "Your Codebase Has a Trend Problem"
-  v1.0 - "Skynet But For Code Review"
-  ──────────────────────────────────────────────────────
+cargo add vibecheck-core --features corpus
 ```
 
 ### Planned: TUI Codebase Navigator
+
+> **Not yet implemented** — planned for v0.2
 
 An interactive terminal UI (`vibecheck tui <path>`) that lets you browse AI likelihood across an entire codebase — navigating like a file tree but seeing confidence scores and trend sparklines at every level:
 
@@ -376,6 +365,8 @@ Confidence rolls up: symbol → file → directory (weighted by lines of code).
 
 ### Planned: Historical & Live Trend Tracking
 
+> **Not yet implemented** — planned for v0.2
+
 ```bash
 # Watch a file live — re-analyze on save, stream deltas
 vibecheck watch src/
@@ -389,19 +380,34 @@ vibecheck tui src/ --watch
 
 Historical mode replays git log. Watch mode appends as you code. Both write to the same trend store so you get a continuous picture from "when the repo started" to "right now".
 
+## What's Coming
+
+```
+  THE GRAND PLAN (revised)
+  ──────────────────────────────────────────────────────
+  v0.1 - "It Works On My Machine"          ✓ shipped
+  v0.2 - "Infrastructure That Doesn't Lie"   <- next
+  v0.3 - "We Can Smell Python Too Now"
+  v0.4 - "Your Codebase Has a Trend Problem"
+  v1.0 - "Skynet But For Code Review"
+  ──────────────────────────────────────────────────────
+```
+
 ## Roadmap
 
 ### Phase 1 — Infrastructure ✅
-- [x] **Crate split** — `vibecheck` (library) + `vibecheck-cli` (binary)
+- [x] **Crate split** — `vibecheck-core` (library) + `vibecheck-cli` (binary)
 - [x] **Content-addressed cache** — SHA-256 per file; skip re-analysis of unchanged files (redb)
 - [x] **tree-sitter CST analysis** — Rust (5 signals), Python (3 signals), JavaScript (3 signals), Go (3 signals)
-- [x] **Corpus store** — SQLite-backed labeled dataset + trend log, feature-gated (`--features corpus`); feeds the Phase 4 ML classifier
+- [x] **Corpus store** — SQLite-backed labeled dataset + trend log, feature-gated (`--features corpus`)
+- [x] **Library API** — `vibecheck-core` is a clean library crate with no CLI dependencies
+- [x] **JSON output** — pipe results to other tools
+- [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 
 ### Phase 2 — Visible Product
 - [ ] **Historical trend tracking** — `vibecheck history <path>` replays git log
 - [ ] **Live watch mode** — `vibecheck watch <path>` re-analyzes on file saves
 - [ ] **TUI navigator** — ratatui-based codebase browser with confidence bars + sparklines
-- [ ] **Importable library API** — clean `vibecheck` surface for external tools to consume reports and trend data
 
 ### Phase 3 — Corpus Growth
 - [ ] **Merkle hash tree** — incremental directory analysis; only re-analyze changed subtrees
@@ -410,7 +416,7 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 ### Phase 4 — Intelligence
 - [ ] **ML classification** — `linfa`-based model trained on scraped corpus; replaces hand-tuned weights
 - [ ] **Version detection** — distinguish Claude 3.5 vs Claude 4, GPT-3.5 vs GPT-4o (corpus permitting)
-- [ ] **Plugin system** — WASM-based external analyzers; static feature-flag plugins first
+- [ ] **Plugin system** — WASM-based external analyzers
 - [ ] **Benchmark suite** — accuracy metrics against known human/AI code datasets
 
 ### Already Shipped
@@ -420,7 +426,7 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
 - [x] **Corpus store** — accumulates labeled samples and per-file trend history in SQLite (`--features corpus`)
 - [x] **GitHub Action** — run vibecheck in CI, fail PRs based on AI attribution (`--assert-family`)
 - [x] **JSON output** — pipe results to other tools
-- [x] **Library API** — `vibecheck` is a clean library crate with no CLI dependencies
+- [x] **Library API** — `vibecheck-core` is a clean library crate with no CLI dependencies
 
 ## Limitations
 
@@ -451,12 +457,12 @@ Historical mode replays git log. Watch mode appends as you code. Both write to t
   └─────────────────────────────────────────────────┘
 ```
 
-**Current limitations (Phase 1):**
+**Current limitations (v0.1):**
 - **Heuristic-based** — no ML model; weights are hand-tuned, not learned from a corpus
 - **Not adversarial-resistant** — deliberately obfuscated AI code will fool it
 - **Model family overlap** — GPT and Claude share many patterns; attribution between them is fuzzy
-- **File-level only** — can't detect mixed human/AI authorship within a single file; symbol-level coming in Phase 2
-- **No trend tracking** — point-in-time only; historical and live trend tracking coming in Phase 2
+- **File-level only** — can't detect mixed human/AI authorship within a single file; symbol-level coming in a future release
+- **No trend tracking** — point-in-time only; historical and live trend tracking coming in a future release
 
 ## Contributing
 
@@ -466,7 +472,7 @@ Contributions welcome! Some high-impact areas:
 2. **Weight tuning** — help calibrate signal weights against real-world code
 3. **More CST signals** — extend the existing JS/Go/Rust/Python CST analyzers or add a new language (implement `CstAnalyzer` and register in `default_cst_analyzers()`)
 4. **Test corpus** — curate labeled examples of human vs AI code for training and benchmarking
-5. **New text analyzers** — implement the `Analyzer` trait (`analyze(&str) -> Vec<Signal>`) and register in `default_analyzers()`; new CST analyzers implement `CstAnalyzer` and register in `default_cst_analyzers()`
+5. **New text analyzers** — implement the `Analyzer` trait (`analyze(&str) -> Vec<Signal>`) and register in `default_analyzers()`
 
 ## License
 
@@ -479,7 +485,7 @@ MIT
   of the irony of writing a tool to detect itself.
 
   ┌──────────────────────────────────────────────────┐
-  │  $ vibecheck vibecheck                           │
+  │  $ vibecheck vibecheck-core                      │
   │                                                  │
   │  Verdict: Claude (81%)                           │
   │                                                  │

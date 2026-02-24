@@ -1,5 +1,5 @@
 [workspace]
-members = ["vibecheck", "vibecheck-cli"]
+members = ["vibecheck-core", "vibecheck-cli"]
 resolver = "2"
 
 [workspace.package]
