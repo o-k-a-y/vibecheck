@@ -285,7 +285,7 @@ pub fn analyze_file_symbols_no_cache(file_path: &Path) -> anyhow::Result<Report>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ignore_rules::AllowAll;
+    use crate::ignore_rules::{AllowAll, PatternIgnore};
     use std::io::Write;
 
     fn sample_rust_source(n_lines: usize) -> String {
@@ -359,5 +359,82 @@ mod tests {
         writeln!(f, "fn hello() {{}}\nfn world() {{}}\n{}", sample_rust_source(40)).unwrap();
         let report = analyze_file_symbols_no_cache(f.path()).unwrap();
         assert!(report.metadata.lines_of_code > 0);
+    }
+
+    #[test]
+    fn analyze_file_cache_hit_returns_consistent_result() {
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, "{}", sample_rust_source(40)).unwrap();
+        let path = f.path().to_path_buf();
+        let r1 = analyze_file(&path).unwrap();
+        // Second call — same content hash, should serve from cache.
+        let r2 = analyze_file(&path).unwrap();
+        assert_eq!(r1.attribution.primary, r2.attribution.primary);
+        assert_eq!(r2.metadata.file_path, Some(path));
+    }
+
+    #[test]
+    fn analyze_file_symbols_works() {
+        let mut f = tempfile::NamedTempFile::with_suffix(".rs").unwrap();
+        writeln!(f, "fn hello() {{}}\nfn world() {{}}\n{}", sample_rust_source(40)).unwrap();
+        let report = analyze_file_symbols(f.path()).unwrap();
+        assert!(report.symbol_reports.is_some());
+        assert!(report.metadata.lines_of_code > 0);
+    }
+
+    #[test]
+    fn analyze_file_symbols_cache_hit_returns_consistent_result() {
+        let mut f = tempfile::NamedTempFile::with_suffix(".rs").unwrap();
+        writeln!(f, "fn hello() {{}}\nfn world() {{}}\n{}", sample_rust_source(40)).unwrap();
+        let path = f.path().to_path_buf();
+        let r1 = analyze_file_symbols(&path).unwrap();
+        // Second call — both base report and symbol list should be cached.
+        let r2 = analyze_file_symbols(&path).unwrap();
+        assert_eq!(
+            r1.symbol_reports.as_ref().map(|s| s.len()),
+            r2.symbol_reports.as_ref().map(|s| s.len()),
+        );
+    }
+
+    #[test]
+    fn analyze_directory_public_wrapper_finds_rust_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("main.rs"), sample_rust_source(40)).unwrap();
+        let results = analyze_directory(dir.path(), false).unwrap();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn analyze_directory_with_cache_second_run_uses_dir_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("lib.rs"), sample_rust_source(40)).unwrap();
+        // First run populates the dir cache.
+        let r1 = analyze_directory_with(dir.path(), true, &AllowAll).unwrap();
+        // Second run — dir hash unchanged, exercises collect_cached_reports.
+        let r2 = analyze_directory_with(dir.path(), true, &AllowAll).unwrap();
+        assert_eq!(r1.len(), r2.len());
+    }
+
+    #[test]
+    fn analyze_directory_with_cache_ignores_pattern_matched_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let vendor = dir.path().join("vendor");
+        std::fs::create_dir(&vendor).unwrap();
+        std::fs::write(vendor.join("lib.rs"), sample_rust_source(40)).unwrap();
+        // First run: populates dir cache (with the file absent due to ignore).
+        let r1 = analyze_directory_with(dir.path(), true, &PatternIgnore(vec!["vendor".into()])).unwrap();
+        // Second run: dir hash unchanged, collect_cached_reports also respects ignore.
+        let r2 = analyze_directory_with(dir.path(), true, &PatternIgnore(vec!["vendor".into()])).unwrap();
+        assert!(r1.is_empty());
+        assert!(r2.is_empty());
+    }
+
+    #[test]
+    fn analyze_directory_with_ignores_pattern_matched_file() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("generated.rs"), sample_rust_source(40)).unwrap();
+        let results =
+            analyze_directory_with(dir.path(), false, &PatternIgnore(vec!["generated".into()])).unwrap();
+        assert!(results.is_empty());
     }
 }
