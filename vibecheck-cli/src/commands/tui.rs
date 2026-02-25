@@ -666,20 +666,22 @@ fn render_detail(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) 
         ])
     };
 
-    // Score bars.
+    // Score bars (skip when no meaningful data).
     let mut score_lines: Vec<Line> = Vec::new();
-    let mut sorted_scores: Vec<_> = report.attribution.scores.iter().collect();
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
-    for (family, &score) in &sorted_scores {
-        let bar_len = (score * 24.0) as usize;
-        let bar = "█".repeat(bar_len);
-        let empty = "░".repeat(24 - bar_len);
-        score_lines.push(Line::from(vec![
-            Span::raw(format!("  {:<10}", family.to_string())),
-            Span::styled(bar, Style::default().fg(family_color(**family))),
-            Span::styled(empty, Style::default().fg(Color::DarkGray)),
-            Span::raw(format!(" {:>5.1}%", score * 100.0)),
-        ]));
+    if report.attribution.has_sufficient_data() {
+        let mut sorted_scores: Vec<_> = report.attribution.scores.iter().collect();
+        sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
+        for (family, &score) in &sorted_scores {
+            let bar_len = (score * 24.0) as usize;
+            let bar = "█".repeat(bar_len);
+            let empty = "░".repeat(24 - bar_len);
+            score_lines.push(Line::from(vec![
+                Span::raw(format!("  {:<10}", family.to_string())),
+                Span::styled(bar, Style::default().fg(family_color(**family))),
+                Span::styled(empty, Style::default().fg(Color::DarkGray)),
+                Span::raw(format!(" {:>5.1}%", score * 100.0)),
+            ]));
+        }
     }
 
     // Signals (all — scrolling handles overflow).
