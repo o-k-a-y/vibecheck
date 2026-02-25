@@ -12,11 +12,11 @@
 [![vibecheck-cli on crates.io](https://img.shields.io/crates/v/vibecheck-cli.svg?label=vibecheck-cli)](https://crates.io/crates/vibecheck-cli)
 <!-- vibecheck:badges-start -->
 
-[![Claude 48%](https://img.shields.io/badge/Claude-48%25-d2a8ff)](https://github.com/o-k-a-y/vibecheck)
-[![Human 24%](https://img.shields.io/badge/Human-24%25-e3b341)](https://github.com/o-k-a-y/vibecheck)
-[![Gemini 18%](https://img.shields.io/badge/Gemini-18%25-79c0ff)](https://github.com/o-k-a-y/vibecheck)
+[![Claude 39%](https://img.shields.io/badge/Claude-39%25-d2a8ff)](https://github.com/o-k-a-y/vibecheck)
+[![Human 30%](https://img.shields.io/badge/Human-30%25-e3b341)](https://github.com/o-k-a-y/vibecheck)
+[![Gemini 21%](https://img.shields.io/badge/Gemini-21%25-79c0ff)](https://github.com/o-k-a-y/vibecheck)
 [![GPT 9%](https://img.shields.io/badge/GPT-9%25-7ee787)](https://github.com/o-k-a-y/vibecheck)
-[![Copilot 0%](https://img.shields.io/badge/Copilot-0%25-39c5cf)](https://github.com/o-k-a-y/vibecheck)
+[![Copilot 1%](https://img.shields.io/badge/Copilot-1%25-39c5cf)](https://github.com/o-k-a-y/vibecheck)
 <!-- vibecheck:badges-end -->
 
 > *"I don't always write Rust, but when I do, every function has a doc comment and zero `.unwrap()` calls."*

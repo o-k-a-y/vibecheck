@@ -105,7 +105,7 @@ pub fn run(
         };
         files
             .iter()
-            .map(|f| symbol_fn(f).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string())))
+            .map(|f| symbol_fn(f).map_err(|e| std::io::Error::other(e.to_string())))
             .collect::<std::io::Result<Vec<_>>>()
             .context("failed to analyze files")?
     } else {

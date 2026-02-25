@@ -58,80 +58,72 @@ fn human_go() {
     assert_fixture("lru_cache/human.go", ModelFamily::Human);
 }
 
-// ── GPT fixtures (progressive — un-ignore as signal quality improves) ──
+// ── GPT fixtures ──────────────────────────────────────────────────────
 
 #[test]
-#[ignore]
+
 fn gpt_rust() {
     assert_fixture("lru_cache/gpt.rs", ModelFamily::Gpt);
 }
 
 #[test]
-#[ignore]
+
 fn gpt_python() {
     assert_fixture("lru_cache/gpt.py", ModelFamily::Gpt);
 }
 
 #[test]
-#[ignore]
 fn gpt_javascript() {
     assert_fixture("lru_cache/gpt.js", ModelFamily::Gpt);
 }
 
 #[test]
-#[ignore]
 fn gpt_go() {
     assert_fixture("lru_cache/gpt.go", ModelFamily::Gpt);
 }
 
-// ── Gemini fixtures (progressive) ──────────────────────────────────────
+// ── Gemini fixtures ───────────────────────────────────────────────────
 
 #[test]
-#[ignore]
+
 fn gemini_rust() {
     assert_fixture("lru_cache/gemini.rs", ModelFamily::Gemini);
 }
 
 #[test]
-#[ignore]
 fn gemini_python() {
     assert_fixture("lru_cache/gemini.py", ModelFamily::Gemini);
 }
 
 #[test]
-#[ignore]
 fn gemini_javascript() {
     assert_fixture("lru_cache/gemini.js", ModelFamily::Gemini);
 }
 
 #[test]
-#[ignore]
 fn gemini_go() {
     assert_fixture("lru_cache/gemini.go", ModelFamily::Gemini);
 }
 
-// ── Copilot fixtures (progressive) ─────────────────────────────────────
+// ── Copilot fixtures ──────────────────────────────────────────────────
 
 #[test]
-#[ignore]
+
 fn copilot_rust() {
     assert_fixture("lru_cache/copilot.rs", ModelFamily::Copilot);
 }
 
 #[test]
-#[ignore]
 fn copilot_python() {
     assert_fixture("lru_cache/copilot.py", ModelFamily::Copilot);
 }
 
 #[test]
-#[ignore]
 fn copilot_javascript() {
     assert_fixture("lru_cache/copilot.js", ModelFamily::Copilot);
 }
 
 #[test]
-#[ignore]
 fn copilot_go() {
     assert_fixture("lru_cache/copilot.go", ModelFamily::Copilot);
 }

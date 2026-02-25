@@ -500,7 +500,7 @@ impl Analyzer for ErrorHandlingAnalyzer {
                 ModelFamily::Human,
                 1.5,
             ));
-        } else if unwrap_count >= 1 && unwrap_count <= 3 {
+        } else if (1..=3).contains(&unwrap_count) {
             signals.push(Signal::new(
                 signal_ids::RUST_ERRORS_FEW_UNWRAPS,
                 self.name(),

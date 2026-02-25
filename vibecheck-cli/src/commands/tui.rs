@@ -857,7 +857,7 @@ fn render_help_overlay(frame: &mut Frame) {
                 format!(" {key:<key_col$}"),
                 Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             ),
-            Span::raw(format!("{desc}")),
+            Span::raw(desc.to_string()),
         ]));
     }
     content.push(Line::raw(""));

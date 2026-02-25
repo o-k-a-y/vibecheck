@@ -37,8 +37,8 @@ pub fn run(path: &Path, limit: Option<usize>) -> Result<()> {
     };
     println!("Attribution history for {}\n", label);
     println!(
-        "{:<10}  {:<12}  {:<8}  {:<6}  {}",
-        "COMMIT", "DATE", "FAMILY", "CONF", "CHANGE"
+        "{:<10}  {:<12}  {:<8}  {:<6}  CHANGE",
+        "COMMIT", "DATE", "FAMILY", "CONF"
     );
     println!("{}", "─".repeat(62));
 

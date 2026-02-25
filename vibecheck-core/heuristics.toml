@@ -4,7 +4,7 @@ language    = "rust"
 analyzer    = "errors"
 description = "Zero .unwrap() calls in a large file"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "rust.errors.many_unwraps"
@@ -44,7 +44,7 @@ language    = "rust"
 analyzer    = "errors"
 description = "Match expressions prefer exhaustive patterns over wildcards"
 family      = "claude"
-weight      = 1.0
+weight      = 0.5
 
 [[signal]]
 id          = "rust.errors.panic_calls"
@@ -76,7 +76,7 @@ language    = "python"
 analyzer    = "errors"
 description = "No try/except blocks in a substantial file"
 family      = "claude"
-weight      = 0.8
+weight      = 0.3
 
 [[signal]]
 id          = "python.errors.raise_from"
@@ -164,7 +164,7 @@ language    = "rust"
 analyzer    = "ai_signals"
 description = "No TODO/FIXME markers in a substantial file"
 family      = "claude"
-weight      = 0.8
+weight      = 0.3
 
 [[signal]]
 id          = "rust.ai_signals.no_dead_code"
@@ -172,7 +172,7 @@ language    = "rust"
 analyzer    = "ai_signals"
 description = "No dead code suppressions (#[allow(dead_code)])"
 family      = "claude"
-weight      = 0.5
+weight      = 0.2
 
 [[signal]]
 id          = "rust.ai_signals.all_fns_documented"
@@ -212,7 +212,7 @@ language    = "python"
 analyzer    = "ai_signals"
 description = "No TODO/FIXME markers in a substantial file"
 family      = "claude"
-weight      = 0.8
+weight      = 0.3
 
 [[signal]]
 id          = "python.ai_signals.no_trailing_ws"
@@ -236,7 +236,7 @@ language    = "python"
 analyzer    = "ai_signals"
 description = "No noqa/type: ignore suppressions"
 family      = "claude"
-weight      = 0.5
+weight      = 0.2
 
 [[signal]]
 id          = "python.ai_signals.commented_out_code"
@@ -260,7 +260,7 @@ language    = "js"
 analyzer    = "ai_signals"
 description = "No TODO/FIXME markers in a substantial file"
 family      = "claude"
-weight      = 0.8
+weight      = 0.3
 
 [[signal]]
 id          = "js.ai_signals.no_trailing_ws"
@@ -316,7 +316,7 @@ language    = "go"
 analyzer    = "ai_signals"
 description = "No TODO/FIXME markers in a substantial file"
 family      = "claude"
-weight      = 0.8
+weight      = 0.3
 
 [[signal]]
 id          = "go.ai_signals.no_trailing_ws"
@@ -500,7 +500,7 @@ language    = "rust"
 analyzer    = "comments"
 description = "High comment density (>15%)"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "rust.comments.low_density"
@@ -548,7 +548,7 @@ language    = "python"
 analyzer    = "comments"
 description = "High comment density (>15%)"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "python.comments.low_density"
@@ -596,7 +596,7 @@ language    = "js"
 analyzer    = "comments"
 description = "High comment density (>15%)"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "js.comments.low_density"
@@ -644,7 +644,7 @@ language    = "go"
 analyzer    = "comments"
 description = "High comment density (>15%)"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "go.comments.low_density"
@@ -716,7 +716,7 @@ language    = "rust"
 analyzer    = "naming"
 description = "No single-character variable names"
 family      = "claude"
-weight      = 1.0
+weight      = 0.3
 
 [[signal]]
 id          = "rust.naming.underscore_bindings"
@@ -772,7 +772,7 @@ language    = "python"
 analyzer    = "naming"
 description = "No single-character names"
 family      = "claude"
-weight      = 1.0
+weight      = 0.3
 
 [[signal]]
 id          = "js.naming.very_descriptive"
@@ -812,7 +812,7 @@ language    = "js"
 analyzer    = "naming"
 description = "No single-character names"
 family      = "claude"
-weight      = 1.0
+weight      = 0.3
 
 [[signal]]
 id          = "go.naming.very_descriptive"
@@ -852,7 +852,7 @@ language    = "go"
 analyzer    = "naming"
 description = "No single-character names"
 family      = "claude"
-weight      = 1.0
+weight      = 0.3
 
 [[signal]]
 id          = "rust.idioms.iterator_chains"
@@ -900,7 +900,7 @@ language    = "rust"
 analyzer    = "idioms"
 description = "3+ if-let/while-let patterns"
 family      = "claude"
-weight      = 0.8
+weight      = 0.4
 
 [[signal]]
 id          = "rust.idioms.format_macro"
@@ -940,7 +940,7 @@ language    = "python"
 analyzer    = "idioms"
 description = "All function definitions have return type annotations"
 family      = "claude"
-weight      = 1.5
+weight      = 0.8
 
 [[signal]]
 id          = "python.idioms.context_managers"
@@ -1070,141 +1070,433 @@ description = "1+ iota constants — idiomatic Go enumeration"
 family      = "copilot"
 weight      = 0.8
 
-[[signal]]
-id          = "rust_cst.complexity.low"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "Low avg cyclomatic complexity (≤2.0) — simple, linear functions"
-family      = "claude"
-weight      = 1.5
+# ─── Rust CST (metric-based) ───────────────────────────────────────────
 
 [[signal]]
-id          = "rust_cst.complexity.high"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "High avg cyclomatic complexity (≥5.0) — complex branching"
-family      = "human"
-weight      = 1.5
+id            = "rust_cst.complexity.low"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Low avg cyclomatic complexity ({value:.1}) — simple, linear functions"
+family        = "claude"
+weight        = 0.5
+metric        = "avg_complexity"
+op            = "<="
+threshold     = 2.0
 
 [[signal]]
-id          = "rust_cst.doc_coverage.high"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "≥90% doc comment coverage on pub functions"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.complexity.medium"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Medium avg cyclomatic complexity ({value:.1})"
+family        = "gpt"
+weight        = 1.0
+metric        = "avg_complexity"
+op            = ">="
+threshold     = 2.5
+threshold_max = 4.0
 
 [[signal]]
-id          = "rust_cst.entropy.high"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "High identifier entropy (≥4.0) — diverse, descriptive names"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.complexity.high"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "High avg cyclomatic complexity ({value:.1}) — complex branching"
+family        = "human"
+weight        = 1.5
+metric        = "avg_complexity"
+op            = ">="
+threshold     = 5.0
 
 [[signal]]
-id          = "rust_cst.entropy.low"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "Low identifier entropy (<3.0) — repetitive or terse names"
-family      = "human"
-weight      = 1.0
+id            = "rust_cst.doc_coverage.high"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Doc comment coverage {pct:.1}% on pub functions"
+family        = "claude"
+weight        = 1.5
+metric        = "doc_coverage_ratio"
+op            = ">="
+threshold     = 0.9
 
 [[signal]]
-id          = "rust_cst.nesting.low"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "Low avg nesting depth (≤3.0) — flat, readable structure"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.doc_coverage.low"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Low doc comment coverage ({pct:.1}%) on pub functions"
+family        = "copilot"
+weight        = 1.0
+metric        = "doc_coverage_ratio"
+op            = "<="
+threshold     = 0.2
 
 [[signal]]
-id          = "rust_cst.imports.sorted"
-language    = "rust_cst"
-analyzer    = "rust_cst"
-description = "use declarations are alphabetically sorted"
-family      = "claude"
-weight      = 0.5
+id            = "rust_cst.entropy.high"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "High identifier entropy ({value:.2}) — diverse, descriptive names"
+family        = "claude"
+weight        = 0.8
+metric        = "identifier_entropy"
+op            = ">="
+threshold     = 4.0
 
 [[signal]]
-id          = "python_cst.doc_coverage.high"
-language    = "python_cst"
-analyzer    = "python_cst"
-description = "≥85% docstring coverage — thorough documentation"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.entropy.low"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Low identifier entropy ({value:.2}) — repetitive or terse names"
+family        = "human"
+weight        = 1.0
+metric        = "identifier_entropy"
+op            = "<"
+threshold     = 3.0
 
 [[signal]]
-id          = "python_cst.type_annotations.high"
-language    = "python_cst"
-analyzer    = "python_cst"
-description = "≥80% type annotation coverage on parameters"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.nesting.low"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Low avg nesting depth ({value:.1}) — flat, readable structure"
+family        = "claude"
+weight        = 0.5
+metric        = "avg_nesting_depth"
+op            = "<="
+threshold     = 3.0
 
 [[signal]]
-id          = "python_cst.fstrings.only"
-language    = "python_cst"
-analyzer    = "python_cst"
-description = "f-strings present, no %-formatting — modern Python idiom"
-family      = "claude"
-weight      = 1.0
+id            = "rust_cst.nesting.medium"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Medium avg nesting depth ({value:.1})"
+family        = "copilot"
+weight        = 1.0
+metric        = "avg_nesting_depth"
+op            = ">="
+threshold     = 3.0
+threshold_max = 5.0
 
 [[signal]]
-id          = "js_cst.arrow_fns.high_ratio"
-language    = "js_cst"
-analyzer    = "js_cst"
-description = "≥70% arrow functions — modern JavaScript style"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.imports.sorted"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "use declarations are alphabetically sorted"
+family        = "claude"
+weight        = 0.3
+metric        = "imports_sorted"
+op            = ">="
+threshold     = 1.0
 
 [[signal]]
-id          = "js_cst.async.await_only"
-language    = "js_cst"
-analyzer    = "js_cst"
-description = "2+ await expressions, no .then() — modern async style"
-family      = "claude"
-weight      = 1.5
+id            = "rust_cst.inline_comments.high"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "High inline comment ratio ({pct:.1}%) in function bodies"
+family        = "gpt"
+weight        = 1.5
+metric        = "inline_comment_ratio"
+op            = ">="
+threshold     = 0.3
 
 [[signal]]
-id          = "js_cst.async.then_only"
-language    = "js_cst"
-analyzer    = "js_cst"
-description = "2+ .then() chains — promise chain style"
-family      = "human"
-weight      = 1.0
+id            = "rust_cst.fn_length.short"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Short avg function length ({value:.1} lines)"
+family        = "gemini"
+weight        = 1.0
+metric        = "avg_fn_length"
+op            = "<="
+threshold     = 15.0
 
 [[signal]]
-id          = "js_cst.optional_chaining.high"
-language    = "js_cst"
-analyzer    = "js_cst"
-description = "3+ optional chaining usages (?.) — defensive modern style"
-family      = "claude"
-weight      = 1.0
+id            = "rust_cst.fn_length.long"
+language      = "rust_cst"
+analyzer      = "cst"
+description   = "Long avg function length ({value:.1} lines)"
+family        = "gpt"
+weight        = 1.0
+metric        = "avg_fn_length"
+op            = ">="
+threshold     = 30.0
+
+# ─── Python CST (metric-based) ────────────────────────────────────────
 
 [[signal]]
-id          = "go_cst.doc_coverage.high"
-language    = "go_cst"
-analyzer    = "go_cst"
-description = "≥80% Godoc coverage on exported functions"
-family      = "claude"
-weight      = 1.5
+id            = "python_cst.doc_coverage.high"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "Docstring coverage {pct:.1}% — thorough documentation"
+family        = "claude"
+weight        = 1.5
+metric        = "doc_coverage_ratio"
+op            = ">="
+threshold     = 0.85
 
 [[signal]]
-id          = "go_cst.goroutines.present"
-language    = "go_cst"
-analyzer    = "go_cst"
-description = "2+ goroutines — concurrent design"
-family      = "claude"
-weight      = 1.0
+id            = "python_cst.doc_coverage.low"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "Low docstring coverage ({pct:.1}%)"
+family        = "copilot"
+weight        = 1.0
+metric        = "doc_coverage_ratio"
+op            = "<="
+threshold     = 0.2
 
 [[signal]]
-id          = "go_cst.errors.nil_checks"
-language    = "go_cst"
-analyzer    = "go_cst"
-description = "3+ err != nil checks — thorough error handling"
-family      = "claude"
-weight      = 1.5
+id            = "python_cst.type_annotations.high"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "Type annotation coverage {pct:.1}% on parameters — modern Python style"
+family        = "claude"
+weight        = 0.8
+metric        = "type_annotation_ratio"
+op            = ">="
+threshold     = 0.8
+
+[[signal]]
+id            = "python_cst.type_annotations.low"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "Low type annotation coverage ({pct:.1}%)"
+family        = "copilot"
+weight        = 1.0
+metric        = "type_annotation_ratio"
+op            = "<="
+threshold     = 0.2
+
+[[signal]]
+id            = "python_cst.fstrings.only"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "f-strings present, no %-formatting — modern Python idiom"
+family        = "claude"
+weight        = 0.5
+metric        = "fstring_ratio"
+op            = ">="
+threshold     = 1.0
+
+[[signal]]
+id            = "python_cst.old_style_strings"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "No f-strings — older Python string formatting"
+family        = "human"
+weight        = 1.0
+metric        = "fstring_ratio"
+op            = "<="
+threshold     = 0.0
+
+[[signal]]
+id            = "python_cst.inline_comments.high"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "High inline comment ratio ({pct:.1}%) in function bodies"
+family        = "gpt"
+weight        = 1.5
+metric        = "inline_comment_ratio"
+op            = ">="
+threshold     = 0.3
+
+[[signal]]
+id            = "python_cst.fn_length.short"
+language      = "python_cst"
+analyzer      = "cst"
+description   = "Short avg function length ({value:.1} lines)"
+family        = "gemini"
+weight        = 1.0
+metric        = "avg_fn_length"
+op            = "<="
+threshold     = 12.0
+
+# ─── JavaScript CST (metric-based) ────────────────────────────────────
+
+[[signal]]
+id            = "js_cst.arrow_fns.high_ratio"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "{pct:.1}% arrow functions — modern JavaScript style"
+family        = "claude"
+weight        = 1.5
+metric        = "arrow_fn_ratio"
+op            = ">="
+threshold     = 0.7
+
+[[signal]]
+id            = "js_cst.arrow_fns.low_ratio"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "Low arrow function ratio ({pct:.1}%)"
+family        = "copilot"
+weight        = 1.0
+metric        = "arrow_fn_ratio"
+op            = "<="
+threshold     = 0.3
+
+[[signal]]
+id            = "js_cst.async.await_only"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "await expressions, no .then() — modern async style"
+family        = "claude"
+weight        = 1.5
+metric        = "await_only"
+op            = ">="
+threshold     = 1.0
+
+[[signal]]
+id            = "js_cst.async.then_only"
+language      = "js_cst"
+analyzer      = "cst"
+description   = ".then() chains — promise chain style"
+family        = "human"
+weight        = 1.0
+metric        = "then_only"
+op            = ">="
+threshold     = 1.0
+
+[[signal]]
+id            = "js_cst.mixed_async"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "Mixed async/await and .then() patterns"
+family        = "copilot"
+weight        = 1.0
+metric        = "has_mixed_async"
+op            = ">="
+threshold     = 1.0
+
+[[signal]]
+id            = "js_cst.optional_chaining.high"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "{value:.0} optional chaining usages (?.) — defensive modern style"
+family        = "claude"
+weight        = 0.3
+metric        = "optional_chain_count"
+op            = ">="
+threshold     = 3.0
+
+[[signal]]
+id            = "js_cst.inline_comments.high"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "High inline comment ratio ({pct:.1}%) in function bodies"
+family        = "gpt"
+weight        = 1.5
+metric        = "inline_comment_ratio"
+op            = ">="
+threshold     = 0.3
+
+[[signal]]
+id            = "js_cst.fn_length.short"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "Short avg function length ({value:.1} lines)"
+family        = "gemini"
+weight        = 1.0
+metric        = "avg_fn_length"
+op            = "<="
+threshold     = 12.0
+
+[[signal]]
+id            = "js_cst.template_literals.none"
+language      = "js_cst"
+analyzer      = "cst"
+description   = "No template literals — older string concatenation style"
+family        = "human"
+weight        = 1.0
+metric        = "template_literal_ratio"
+op            = "<="
+threshold     = 0.0
+
+# ─── Go CST (metric-based) ────────────────────────────────────────────
+
+[[signal]]
+id            = "go_cst.doc_coverage.high"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "Godoc coverage {pct:.1}% on exported functions"
+family        = "claude"
+weight        = 1.5
+metric        = "doc_coverage_ratio"
+op            = ">="
+threshold     = 0.8
+
+[[signal]]
+id            = "go_cst.doc_coverage.low"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "Low Godoc coverage ({pct:.1}%) on exported functions"
+family        = "copilot"
+weight        = 1.0
+metric        = "doc_coverage_ratio"
+op            = "<="
+threshold     = 0.2
+
+[[signal]]
+id            = "go_cst.goroutines.present"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "{value:.0} goroutines — concurrent design"
+family        = "claude"
+weight        = 0.3
+metric        = "goroutine_count"
+op            = ">="
+threshold     = 2.0
+
+[[signal]]
+id            = "go_cst.errors.nil_checks"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "{value:.0} err != nil checks — thorough error handling"
+family        = "claude"
+weight        = 1.5
+metric        = "err_nil_check_count"
+op            = ">="
+threshold     = 3.0
+
+[[signal]]
+id            = "go_cst.errors.no_nil_checks"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "Few err != nil checks (ratio {value:.2})"
+family        = "copilot"
+weight        = 1.0
+metric        = "err_nil_check_ratio"
+op            = "<="
+threshold     = 0.5
+
+[[signal]]
+id            = "go_cst.inline_comments.high"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "High inline comment ratio ({pct:.1}%) in function bodies"
+family        = "gpt"
+weight        = 1.5
+metric        = "inline_comment_ratio"
+op            = ">="
+threshold     = 0.3
+
+[[signal]]
+id            = "go_cst.fn_length.short"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "Short avg function length ({value:.1} lines)"
+family        = "gemini"
+weight        = 1.0
+metric        = "avg_fn_length"
+op            = "<="
+threshold     = 15.0
+
+[[signal]]
+id            = "go_cst.named_returns"
+language      = "go_cst"
+analyzer      = "cst"
+description   = "{value:.0} named return parameters"
+family        = "gpt"
+weight        = 1.0
+metric        = "named_return_count"
+op            = ">="
+threshold     = 2.0
 
 [[signal]]
 id          = "rust.comments.step_numbered"

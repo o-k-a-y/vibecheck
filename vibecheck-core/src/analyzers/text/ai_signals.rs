@@ -471,7 +471,7 @@ impl AiSignalsAnalyzer {
             let curr = w[1].trim();
             prev.starts_with("// ") && !prev.starts_with("// nolint")
                 && (curr.starts_with("func ") || curr.starts_with("type "))
-                && curr.chars().nth(if curr.starts_with("func ") { 5 } else { 5 })
+                && curr.chars().nth(5)
                     .map(|c| c.is_uppercase()).unwrap_or(false)
         }).count();
         if exported_fn >= 3 && doc_before_exported == exported_fn {
