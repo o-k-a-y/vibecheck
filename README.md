@@ -308,17 +308,18 @@ vibecheck was written by an AI. Does it know?
 ```
 $ vibecheck vibecheck-core/src/ --format text
 
-vibecheck-core/src/report.rs          → Claude (96%)   # 👀
-vibecheck-core/src/cache.rs           → Claude (96%)
-vibecheck-core/src/language.rs        → Claude (93%)
-vibecheck-core/src/analyzers/cst/python.rs → Claude (85%)
-vibecheck-core/src/pipeline.rs        → Claude (74%)   # two .unwrap()s cost it
+vibecheck-core/src/store.rs            → Claude (70%)   # highest confidence
+vibecheck-core/src/pipeline.rs         → Claude (68%)
+vibecheck-core/src/colors.rs           → Claude (60%)
+vibecheck-core/src/heuristics.rs       → Claude (58%)
+vibecheck-core/src/analyzers/cst/go.rs → Human  (41%)   # tree-sitter code: short vars, .unwrap()
+vibecheck-core/src/project_tools.rs    → Gemini (36%)   # struct-heavy config detection
 ```
 
-Every file in the codebase is correctly attributed to Claude. The confidence ranges from 74% to 96% depending on how "perfect" the individual file is.
+20 of 25 source files correctly attributed to Claude (34–70% confidence). The CST analyzer files — full of single-character tree-sitter cursor variables and pragmatic `.unwrap()` calls — read as Human, which is honestly fair. One config-detection module reads as Gemini (compact struct-heavy style).
 
 ```
-$ vibecheck vibecheck-core/src/ --assert-family claude --no-cache
+$ vibecheck vibecheck-core/src/ --assert-family claude,human,gemini --no-cache
 
 All files passed the vibe check.      # exits 0
 ```
@@ -339,7 +340,7 @@ All files passed the vibe check.      # exits 0
             └────────────────────────┘
 
   "I'm in this photo and I don't like it"
-            — this crate's source code, literally
+            — this crate's source code, probably
 ```
 
 ### Library API
