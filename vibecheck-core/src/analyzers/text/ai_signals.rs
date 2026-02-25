@@ -22,12 +22,12 @@ mod tests {
 
     #[test]
     fn no_todo_in_large_file_is_claude() {
-        // 35 lines, no TODO/FIXME → Claude signal weight 1.5
+        // 35 lines, no TODO/FIXME → Claude signal weight 0.8
         let source = (0..35).map(|i| format!("let x{i} = {i};")).collect::<Vec<_>>().join("\n");
         let signals = run(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
-            "expected no-TODO Claude signal (weight 1.5)"
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8),
+            "expected no-TODO Claude signal (weight 0.8)"
         );
     }
 
@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn commented_out_code_is_human() {
-        // 2+ commented-out code lines → Human signal weight 2.5
+        // 2+ commented-out code lines → Human signal weight 2.0
         let mut lines: Vec<&str> = vec![
             "// let old_value = compute();",
             "// let result = old_value * 2;",
@@ -55,8 +55,8 @@ mod tests {
         let source = lines.join("\n");
         let signals = run(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 2.5),
-            "expected commented-out code Human signal (weight 2.5)"
+            signals.iter().any(|s| s.family == ModelFamily::Human && s.weight == 2.0),
+            "expected commented-out code Human signal (weight 2.0)"
         );
     }
 
@@ -121,6 +121,7 @@ impl AiSignalsAnalyzer {
         no_todo_id: &str,
         no_trailing_ws_id: &str,
         no_placeholder_id: &str,
+        triple_backtick_id: &str,
         source: &str,
     ) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -141,7 +142,7 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 "No TODO/FIXME markers in a substantial file",
                 ModelFamily::Claude,
-                1.5,
+                0.8,
             ));
         }
 
@@ -172,8 +173,26 @@ impl AiSignalsAnalyzer {
                 no_placeholder_id,
                 "ai_signals",
                 "No placeholder values — polished code",
-                ModelFamily::Claude,
-                0.5,
+                ModelFamily::Gpt,
+                0.3,
+            ));
+        }
+
+        // GPT: markdown triple-backtick in code comments
+        let backtick_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                (t.starts_with("//") || t.starts_with('#')) && t.contains("```")
+            })
+            .count();
+        if backtick_count >= 1 {
+            signals.push(Signal::new(
+                triple_backtick_id,
+                "ai_signals",
+                format!("{backtick_count} triple-backtick(s) in comments — markdown artifact"),
+                ModelFamily::Gpt,
+                1.5,
             ));
         }
 
@@ -185,6 +204,7 @@ impl AiSignalsAnalyzer {
             signal_ids::PYTHON_AI_SIGNALS_NO_TODO,
             signal_ids::PYTHON_AI_SIGNALS_NO_TRAILING_WS,
             signal_ids::PYTHON_AI_SIGNALS_NO_PLACEHOLDER,
+            signal_ids::PYTHON_AI_SIGNALS_TRIPLE_BACKTICK,
             source,
         );
         let lines: Vec<&str> = source.lines().collect();
@@ -204,7 +224,7 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 "No linter suppressions (noqa/type: ignore)",
                 ModelFamily::Claude,
-                0.8,
+                0.5,
             ));
         }
 
@@ -226,7 +246,7 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 format!("{commented_code} lines of commented-out code"),
                 ModelFamily::Human,
-                2.5,
+                2.0,
             ));
         }
 
@@ -254,6 +274,24 @@ impl AiSignalsAnalyzer {
             ));
         }
 
+        // Human: pragma/lint overrides present
+        let pragma_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.contains("# type: ignore") || t.contains("# noqa") || t.contains("# pylint: disable")
+            })
+            .count();
+        if pragma_count >= 1 {
+            signals.push(Signal::new(
+                signal_ids::PYTHON_AI_SIGNALS_PRAGMA,
+                "ai_signals",
+                format!("{pragma_count} pragma/lint override(s)"),
+                ModelFamily::Human,
+                1.5,
+            ));
+        }
+
         signals
     }
 
@@ -262,6 +300,7 @@ impl AiSignalsAnalyzer {
             signal_ids::JS_AI_SIGNALS_NO_TODO,
             signal_ids::JS_AI_SIGNALS_NO_TRAILING_WS,
             signal_ids::JS_AI_SIGNALS_NO_PLACEHOLDER,
+            signal_ids::JS_AI_SIGNALS_TRIPLE_BACKTICK,
             source,
         );
         let lines: Vec<&str> = source.lines().collect();
@@ -283,7 +322,7 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 "No linter/type suppressions (eslint-disable/@ts-ignore)",
                 ModelFamily::Claude,
-                0.8,
+                0.5,
             ));
         }
 
@@ -306,7 +345,18 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 format!("{commented_code} lines of commented-out code"),
                 ModelFamily::Human,
-                2.5,
+                2.0,
+            ));
+        }
+
+        // Pragma/lint override directives (Human indicator)
+        if suppression_count >= 1 {
+            signals.push(Signal::new(
+                signal_ids::JS_AI_SIGNALS_PRAGMA,
+                "ai_signals",
+                format!("{suppression_count} linter/type pragma directives"),
+                ModelFamily::Human,
+                1.5,
             ));
         }
 
@@ -351,6 +401,7 @@ impl AiSignalsAnalyzer {
             signal_ids::GO_AI_SIGNALS_NO_TODO,
             signal_ids::GO_AI_SIGNALS_NO_TRAILING_WS,
             signal_ids::GO_AI_SIGNALS_NO_PLACEHOLDER,
+            signal_ids::GO_AI_SIGNALS_TRIPLE_BACKTICK,
             source,
         );
         let lines: Vec<&str> = source.lines().collect();
@@ -367,7 +418,18 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 "No nolint suppressions — clean linter compliance",
                 ModelFamily::Claude,
-                0.8,
+                0.5,
+            ));
+        }
+
+        // Pragma/lint override directives (Human indicator)
+        if suppression_count >= 1 {
+            signals.push(Signal::new(
+                signal_ids::GO_AI_SIGNALS_PRAGMA,
+                "ai_signals",
+                format!("{suppression_count} nolint pragma directives"),
+                ModelFamily::Human,
+                1.5,
             ));
         }
 
@@ -390,7 +452,7 @@ impl AiSignalsAnalyzer {
                 "ai_signals",
                 format!("{commented_code} lines of commented-out code"),
                 ModelFamily::Human,
-                2.5,
+                2.0,
             ));
         }
 
@@ -463,7 +525,7 @@ impl Analyzer for AiSignalsAnalyzer {
                 self.name(),
                 "No TODO/FIXME markers in a substantial file",
                 ModelFamily::Claude,
-                1.5,
+                0.8,
             ));
         }
 
@@ -478,7 +540,7 @@ impl Analyzer for AiSignalsAnalyzer {
                 self.name(),
                 "No dead code suppressions",
                 ModelFamily::Claude,
-                0.8,
+                0.5,
             ));
         }
 
@@ -533,7 +595,28 @@ impl Analyzer for AiSignalsAnalyzer {
                 self.name(),
                 format!("{commented_code} lines of commented-out code"),
                 ModelFamily::Human,
-                2.5,
+                2.0,
+            ));
+        }
+
+        // Pragma/lint override directives (Human indicator)
+        let rust_pragma_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with("#[allow(")
+                    || t.starts_with("#[cfg(")
+                    || t.contains("#![allow(")
+                    || t.contains("// SAFETY:")
+            })
+            .count();
+        if rust_pragma_count >= 2 {
+            signals.push(Signal::new(
+                signal_ids::RUST_AI_SIGNALS_PRAGMA,
+                self.name(),
+                format!("{rust_pragma_count} allow/cfg pragma directives"),
+                ModelFamily::Human,
+                1.5,
             ));
         }
 
@@ -550,8 +633,8 @@ impl Analyzer for AiSignalsAnalyzer {
                 signal_ids::RUST_AI_SIGNALS_NO_PLACEHOLDER,
                 self.name(),
                 "No placeholder values — polished code",
-                ModelFamily::Claude,
-                0.5,
+                ModelFamily::Gpt,
+                0.3,
             ));
         }
 

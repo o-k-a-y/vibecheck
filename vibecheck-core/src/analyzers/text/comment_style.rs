@@ -50,8 +50,8 @@ mod tests {
         let source = "// note that this is correct\n// this ensures safety\n// this allows reuse\nlet x = 1;";
         let signals = run(source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 2.0),
-            "expected teaching voice Claude signal (weight 2.0)"
+            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.5),
+            "expected teaching voice Claude signal (weight 1.5)"
         );
     }
 
@@ -124,7 +124,136 @@ mod tests {
 }
 
 impl CommentStyleAnalyzer {
+    /// New comment signals shared across languages.
+    ///
+    /// Takes precomputed comment lines (as lowercase strings) and raw lines.
+    fn detect_extra_signals(
+        name: &str,
+        comment_lines_lower: &[String],
+        total_lines: usize,
+        comment_count: usize,
+        step_id: &str,
+        heres_id: &str,
+        bullet_id: &str,
+        minimal_id: &str,
+        external_id: &str,
+        verbose_id: &str,
+    ) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        let density = if total_lines > 0 { comment_count as f64 / total_lines as f64 } else { 0.0 };
+
+        // GPT: step-numbered comments ("step 1", "step 2", etc.)
+        let step_count = comment_lines_lower
+            .iter()
+            .filter(|l| {
+                // Match "step N" or "Step N:" patterns
+                l.contains("step 1") || l.contains("step 2") || l.contains("step 3")
+                    || l.contains("step 4") || l.contains("step 5")
+                    || l.contains("1.") || l.contains("2.") || l.contains("3.")
+            })
+            .count();
+        if step_count >= 3 {
+            signals.push(Signal::new(
+                step_id, name,
+                format!("{step_count} step-numbered comments"),
+                ModelFamily::Gpt, 1.5,
+            ));
+        }
+
+        // GPT: "here's" / "let's" phrases
+        let heres_count = comment_lines_lower
+            .iter()
+            .filter(|l| {
+                l.contains("here's") || l.contains("let's") || l.contains("here is") || l.contains("let us")
+            })
+            .count();
+        if heres_count >= 3 {
+            signals.push(Signal::new(
+                heres_id, name,
+                format!("{heres_count} here's/let's phrases in comments"),
+                ModelFamily::Gpt, 1.0,
+            ));
+        }
+
+        // Gemini: bullet-point comments ("// - item" or "# - item")
+        let bullet_count = comment_lines_lower
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                // After stripping the comment prefix, check for "- "
+                let after = if t.starts_with("//") {
+                    t.trim_start_matches("//").trim()
+                } else if t.starts_with('#') {
+                    t.trim_start_matches('#').trim()
+                } else {
+                    t
+                };
+                after.starts_with("- ")
+            })
+            .count();
+        if bullet_count >= 3 {
+            signals.push(Signal::new(
+                bullet_id, name,
+                format!("{bullet_count} bullet-point comments"),
+                ModelFamily::Gemini, 1.0,
+            ));
+        }
+
+        // Copilot: minimal comments (<1% density in file >30 lines)
+        if density < 0.01 && total_lines > 30 {
+            signals.push(Signal::new(
+                minimal_id, name,
+                "Extremely low comment density (<1%)",
+                ModelFamily::Copilot, 1.5,
+            ));
+        }
+
+        // Human: external references (JIRA-123, #456, @person)
+        let ext_ref_count = comment_lines_lower
+            .iter()
+            .filter(|l| {
+                // Ticket refs: ABC-123, #123, @username
+                let has_ticket = l.char_indices().any(|(i, c)| {
+                    if c == '-' && i > 1 {
+                        let before = &l[..i];
+                        let after = &l[i + c.len_utf8()..];
+                        before.chars().rev().take(2).all(|c| c.is_ascii_uppercase())
+                            && after.chars().take(1).all(|c| c.is_ascii_digit())
+                    } else {
+                        false
+                    }
+                });
+                let has_issue = l.contains('#') && l.chars().skip_while(|&c| c != '#').skip(1).take(2).all(|c| c.is_ascii_digit());
+                let has_mention = l.contains('@') && l.chars().skip_while(|&c| c != '@').skip(1).take(1).all(|c| c.is_alphabetic());
+                has_ticket || has_issue || has_mention
+            })
+            .count();
+        if ext_ref_count >= 2 {
+            signals.push(Signal::new(
+                external_id, name,
+                format!("{ext_ref_count} ticket/issue references in comments"),
+                ModelFamily::Human, 2.0,
+            ));
+        }
+
+        // GPT: verbose obvious (comment-to-code ratio >0.8 in simple code)
+        let code_lines = total_lines.saturating_sub(comment_count);
+        if code_lines > 0 && total_lines > 20 {
+            let ratio = comment_count as f64 / code_lines as f64;
+            if ratio > 0.8 {
+                signals.push(Signal::new(
+                    verbose_id, name,
+                    format!("High comment-to-code ratio ({:.1})", ratio),
+                    ModelFamily::Gpt, 1.2,
+                ));
+            }
+        }
+
+        signals
+    }
+
     /// Comment signals that apply regardless of language (slash-comment languages).
+    #[allow(clippy::too_many_arguments)]
     fn analyze_slash_comments(
         name: &str,
         high_density_id: &str,
@@ -132,6 +261,12 @@ impl CommentStyleAnalyzer {
         teaching_id: &str,
         explanatory_id: &str,
         terse_id: &str,
+        step_id: &str,
+        heres_id: &str,
+        bullet_id: &str,
+        minimal_id: &str,
+        external_id: &str,
+        verbose_id: &str,
         source: &str,
     ) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -185,7 +320,7 @@ impl CommentStyleAnalyzer {
                 name,
                 format!("{teaching_count} comments with teaching/explanatory voice"),
                 ModelFamily::Claude,
-                2.0,
+                1.5,
             ));
         } else if teaching_count >= 1 {
             signals.push(Signal::new(
@@ -215,6 +350,12 @@ impl CommentStyleAnalyzer {
                 2.0,
             ));
         }
+
+        let comment_lower: Vec<String> = comment_lines.iter().map(|l| l.to_lowercase()).collect();
+        signals.extend(Self::detect_extra_signals(
+            name, &comment_lower, total_lines, comment_count,
+            step_id, heres_id, bullet_id, minimal_id, external_id, verbose_id,
+        ));
 
         signals
     }
@@ -271,7 +412,7 @@ impl CommentStyleAnalyzer {
                 "comments",
                 format!("{teaching_count} comments with teaching/explanatory voice"),
                 ModelFamily::Claude,
-                2.0,
+                1.5,
             ));
         } else if teaching_count >= 1 {
             signals.push(Signal::new(
@@ -320,6 +461,17 @@ impl CommentStyleAnalyzer {
             ));
         }
 
+        let comment_lower: Vec<String> = comment_lines.iter().map(|l| l.to_lowercase()).collect();
+        signals.extend(Self::detect_extra_signals(
+            "comments", &comment_lower, total_lines, comment_count,
+            signal_ids::PYTHON_COMMENTS_STEP_NUMBERED,
+            signal_ids::PYTHON_COMMENTS_HERES_LETS,
+            signal_ids::PYTHON_COMMENTS_BULLET_STYLE,
+            signal_ids::PYTHON_COMMENTS_MINIMAL,
+            signal_ids::PYTHON_COMMENTS_EXTERNAL_REFS,
+            signal_ids::PYTHON_COMMENTS_VERBOSE_OBVIOUS,
+        ));
+
         signals
     }
 
@@ -331,6 +483,12 @@ impl CommentStyleAnalyzer {
             signal_ids::JS_COMMENTS_TEACHING_VOICE,
             signal_ids::JS_COMMENTS_SOME_EXPLANATORY,
             signal_ids::JS_COMMENTS_TERSE_MARKERS,
+            signal_ids::JS_COMMENTS_STEP_NUMBERED,
+            signal_ids::JS_COMMENTS_HERES_LETS,
+            signal_ids::JS_COMMENTS_BULLET_STYLE,
+            signal_ids::JS_COMMENTS_MINIMAL,
+            signal_ids::JS_COMMENTS_EXTERNAL_REFS,
+            signal_ids::JS_COMMENTS_VERBOSE_OBVIOUS,
             source,
         );
         let lines: Vec<&str> = source.lines().collect();
@@ -359,6 +517,12 @@ impl CommentStyleAnalyzer {
             signal_ids::GO_COMMENTS_TEACHING_VOICE,
             signal_ids::GO_COMMENTS_SOME_EXPLANATORY,
             signal_ids::GO_COMMENTS_TERSE_MARKERS,
+            signal_ids::GO_COMMENTS_STEP_NUMBERED,
+            signal_ids::GO_COMMENTS_HERES_LETS,
+            signal_ids::GO_COMMENTS_BULLET_STYLE,
+            signal_ids::GO_COMMENTS_MINIMAL,
+            signal_ids::GO_COMMENTS_EXTERNAL_REFS,
+            signal_ids::GO_COMMENTS_VERBOSE_OBVIOUS,
             source,
         )
     }
@@ -424,7 +588,7 @@ impl Analyzer for CommentStyleAnalyzer {
                 self.name(),
                 format!("{teaching_count} comments with teaching/explanatory voice"),
                 ModelFamily::Claude,
-                2.0,
+                1.5,
             ));
         } else if teaching_count >= 1 {
             signals.push(Signal::new(
@@ -469,6 +633,17 @@ impl Analyzer for CommentStyleAnalyzer {
                 2.0,
             ));
         }
+
+        let comment_lower: Vec<String> = comment_lines.iter().map(|l| l.to_lowercase()).collect();
+        signals.extend(Self::detect_extra_signals(
+            self.name(), &comment_lower, total_lines, comment_count,
+            signal_ids::RUST_COMMENTS_STEP_NUMBERED,
+            signal_ids::RUST_COMMENTS_HERES_LETS,
+            signal_ids::RUST_COMMENTS_BULLET_STYLE,
+            signal_ids::RUST_COMMENTS_MINIMAL,
+            signal_ids::RUST_COMMENTS_EXTERNAL_REFS,
+            signal_ids::RUST_COMMENTS_VERBOSE_OBVIOUS,
+        ));
 
         signals
     }

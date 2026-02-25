@@ -184,9 +184,12 @@ impl NamingAnalyzer {
         source_name: &str,
         very_descriptive_id: &str,
         descriptive_id: &str,
+        medium_descriptive_id: &str,
         short_names_id: &str,
         many_single_char_id: &str,
         no_single_char_id: &str,
+        mixed_conventions_id: &str,
+        domain_abbreviations_id: &str,
         names: &[String],
     ) -> Vec<Signal> {
         let mut signals = Vec::new();
@@ -210,6 +213,14 @@ impl NamingAnalyzer {
                 source_name,
                 format!("Descriptive names (avg {avg_len:.1} chars)"),
                 ModelFamily::Gpt,
+                1.0,
+            ));
+        } else if avg_len >= 5.0 {
+            signals.push(Signal::new(
+                medium_descriptive_id,
+                source_name,
+                format!("Medium-length names (avg {avg_len:.1} chars)"),
+                ModelFamily::Gemini,
                 1.0,
             ));
         } else if avg_len < 4.0 {
@@ -241,6 +252,55 @@ impl NamingAnalyzer {
             ));
         }
 
+        // Mixed naming conventions (both camelCase and snake_case)
+        let camel_count = names
+            .iter()
+            .filter(|n| n.len() > 2 && n.chars().any(|c| c.is_uppercase()) && !n.contains('_'))
+            .count();
+        let snake_count = names
+            .iter()
+            .filter(|n| {
+                n.contains('_')
+                    && n.chars()
+                        .all(|c| c.is_lowercase() || c == '_' || c.is_numeric())
+            })
+            .count();
+        if camel_count >= 2 && snake_count >= 2 {
+            signals.push(Signal::new(
+                mixed_conventions_id,
+                source_name,
+                format!("{camel_count} camelCase + {snake_count} snake_case identifiers"),
+                ModelFamily::Copilot,
+                1.5,
+            ));
+        }
+
+        // Domain abbreviations
+        const ABBREVIATIONS: &[&str] = &[
+            "txn", "cfg", "ctx", "req", "resp", "db", "msg", "buf", "idx", "len", "err", "fmt",
+            "cb", "ptr", "num", "tmp", "src", "dst", "prev", "cur",
+        ];
+        let abbrev_count = names
+            .iter()
+            .filter(|n| {
+                let lower = n.to_lowercase();
+                ABBREVIATIONS.iter().any(|&a| {
+                    lower == a
+                        || lower.starts_with(&format!("{a}_"))
+                        || lower.ends_with(&format!("_{a}"))
+                })
+            })
+            .count();
+        if abbrev_count >= 3 {
+            signals.push(Signal::new(
+                domain_abbreviations_id,
+                source_name,
+                format!("{abbrev_count} domain abbreviations (txn, cfg, ctx, etc.)"),
+                ModelFamily::Human,
+                1.0,
+            ));
+        }
+
         signals
     }
 
@@ -254,9 +314,12 @@ impl NamingAnalyzer {
             "naming",
             signal_ids::PYTHON_NAMING_VERY_DESCRIPTIVE,
             signal_ids::PYTHON_NAMING_DESCRIPTIVE,
+            signal_ids::PYTHON_NAMING_MEDIUM_DESCRIPTIVE,
             signal_ids::PYTHON_NAMING_SHORT_NAMES,
             signal_ids::PYTHON_NAMING_MANY_SINGLE_CHAR,
             signal_ids::PYTHON_NAMING_NO_SINGLE_CHAR,
+            signal_ids::PYTHON_NAMING_MIXED_CONVENTIONS,
+            signal_ids::PYTHON_NAMING_DOMAIN_ABBREVIATIONS,
             &names,
         )
     }
@@ -296,9 +359,12 @@ impl NamingAnalyzer {
             "naming",
             signal_ids::JS_NAMING_VERY_DESCRIPTIVE,
             signal_ids::JS_NAMING_DESCRIPTIVE,
+            signal_ids::JS_NAMING_MEDIUM_DESCRIPTIVE,
             signal_ids::JS_NAMING_SHORT_NAMES,
             signal_ids::JS_NAMING_MANY_SINGLE_CHAR,
             signal_ids::JS_NAMING_NO_SINGLE_CHAR,
+            signal_ids::JS_NAMING_MIXED_CONVENTIONS,
+            signal_ids::JS_NAMING_DOMAIN_ABBREVIATIONS,
             &names,
         )
     }
@@ -346,9 +412,12 @@ impl NamingAnalyzer {
             "naming",
             signal_ids::GO_NAMING_VERY_DESCRIPTIVE,
             signal_ids::GO_NAMING_DESCRIPTIVE,
+            signal_ids::GO_NAMING_MEDIUM_DESCRIPTIVE,
             signal_ids::GO_NAMING_SHORT_NAMES,
             signal_ids::GO_NAMING_MANY_SINGLE_CHAR,
             signal_ids::GO_NAMING_NO_SINGLE_CHAR,
+            signal_ids::GO_NAMING_MIXED_CONVENTIONS,
+            signal_ids::GO_NAMING_DOMAIN_ABBREVIATIONS,
             &names,
         )
     }
@@ -417,6 +486,14 @@ impl Analyzer for NamingAnalyzer {
                 self.name(),
                 format!("Descriptive variable names (avg {:.1} chars)", avg_len),
                 ModelFamily::Gpt,
+                1.0,
+            ));
+        } else if avg_len >= 5.0 {
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_MEDIUM_DESCRIPTIVE,
+                self.name(),
+                format!("Medium-length variable names (avg {:.1} chars)", avg_len),
+                ModelFamily::Gemini,
                 1.0,
             ));
         } else if avg_len < 4.0 {
@@ -492,6 +569,60 @@ impl Analyzer for NamingAnalyzer {
                     avg_fn_len
                 ),
                 ModelFamily::Claude,
+                1.0,
+            ));
+        }
+
+        // Mixed naming conventions (both camelCase and snake_case in same file)
+        let all_names: Vec<String> = let_names
+            .iter()
+            .chain(fn_names.iter())
+            .map(|n| n.to_string())
+            .collect();
+        let camel_count = all_names
+            .iter()
+            .filter(|n| n.len() > 2 && n.chars().any(|c| c.is_uppercase()) && !n.contains('_'))
+            .count();
+        let snake_count = all_names
+            .iter()
+            .filter(|n| {
+                n.contains('_')
+                    && n.chars()
+                        .all(|c| c.is_lowercase() || c == '_' || c.is_numeric())
+            })
+            .count();
+        if camel_count >= 2 && snake_count >= 2 {
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_MIXED_CONVENTIONS,
+                self.name(),
+                format!("{camel_count} camelCase + {snake_count} snake_case identifiers"),
+                ModelFamily::Copilot,
+                1.5,
+            ));
+        }
+
+        // Domain abbreviations
+        const ABBREVIATIONS: &[&str] = &[
+            "txn", "cfg", "ctx", "req", "resp", "db", "msg", "buf", "idx", "len", "err", "fmt",
+            "cb", "ptr", "num", "tmp", "src", "dst", "prev", "cur",
+        ];
+        let abbrev_count = all_names
+            .iter()
+            .filter(|n| {
+                let lower = n.to_lowercase();
+                ABBREVIATIONS.iter().any(|&a| {
+                    lower == a
+                        || lower.starts_with(&format!("{a}_"))
+                        || lower.ends_with(&format!("_{a}"))
+                })
+            })
+            .count();
+        if abbrev_count >= 3 {
+            signals.push(Signal::new(
+                signal_ids::RUST_NAMING_DOMAIN_ABBREVIATIONS,
+                self.name(),
+                format!("{abbrev_count} domain abbreviations (txn, cfg, ctx, etc.)"),
+                ModelFamily::Human,
                 1.0,
             ));
         }

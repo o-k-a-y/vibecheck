@@ -425,7 +425,7 @@ fn aggregate_dir(dir: &Path, reports: &BTreeMap<&Path, &Report>) -> (ModelFamily
 
     let (best_name, best_score) = family_scores
         .iter()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap().then_with(|| a.0.cmp(b.0)))
         .map(|(k, v)| (k.clone(), *v / total_weight))
         .unwrap_or_else(|| ("human".to_string(), 0.5));
 
@@ -524,12 +524,14 @@ fn render_tree(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
             } else {
                 "  "
             };
-            let badge = format!(
-                "{} {:>3.0}%",
-                family_abbrev(entry.family),
-                entry.confidence * 100.0
-            );
-            let color = family_color(entry.family);
+            let (badge, color) = if entry.confidence > 0.0 {
+                (
+                    format!("{} {:>3.0}%", family_abbrev(entry.family), entry.confidence * 100.0),
+                    family_color(entry.family),
+                )
+            } else {
+                ("  N/A".to_string(), Color::DarkGray)
+            };
 
             // Compute name column width dynamically so the badge never wraps.
             // area.width includes the block borders (1 char each side = 2 total) and
@@ -639,24 +641,35 @@ fn render_detail(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) 
         .map(|p| p.display().to_string())
         .unwrap_or_default();
 
-    let header_color = family_color(report.attribution.primary);
-    let header = Line::from(vec![
-        Span::styled(&path_str, Style::default().add_modifier(Modifier::BOLD)),
-        Span::raw("  "),
-        Span::styled(
-            format!(
-                "{} ({:.0}%)",
-                report.attribution.primary,
-                report.attribution.confidence * 100.0
+    let header = if report.attribution.has_sufficient_data() {
+        let header_color = family_color(report.attribution.primary);
+        Line::from(vec![
+            Span::styled(&path_str, Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("  "),
+            Span::styled(
+                format!(
+                    "{} ({:.0}%)",
+                    report.attribution.primary,
+                    report.attribution.confidence * 100.0
+                ),
+                Style::default().fg(header_color).add_modifier(Modifier::BOLD),
             ),
-            Style::default().fg(header_color).add_modifier(Modifier::BOLD),
-        ),
-    ]);
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(&path_str, Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("  "),
+            Span::styled(
+                "Insufficient data",
+                Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+            ),
+        ])
+    };
 
     // Score bars.
     let mut score_lines: Vec<Line> = Vec::new();
     let mut sorted_scores: Vec<_> = report.attribution.scores.iter().collect();
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
     for (family, &score) in &sorted_scores {
         let bar_len = (score * 24.0) as usize;
         let bar = "█".repeat(bar_len);

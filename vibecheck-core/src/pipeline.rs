@@ -164,15 +164,17 @@ impl Pipeline {
                 *v /= total;
             }
         } else {
-            let uniform = 1.0 / ModelFamily::all().len() as f64;
-            for v in shifted.values_mut() {
-                *v = uniform;
-            }
+            // No signal data — leave all scores at 0.0, confidence 0.0
+            return Attribution {
+                primary: ModelFamily::Human,
+                confidence: 0.0,
+                scores: shifted,
+            };
         }
 
         let (primary, confidence) = shifted
             .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())))
             .map(|(&k, &v)| (k, v))
             .unwrap();
 
@@ -248,5 +250,15 @@ mod tests {
         assert!(names.contains(&"Foo"), "expected 'Foo' class; got: {:?}", names);
         assert!(names.contains(&"bar"), "expected 'bar' method; got: {:?}", names);
         assert!(names.contains(&"baz"), "expected 'baz' function; got: {:?}", names);
+    }
+
+    #[test]
+    fn aggregate_empty_signals_returns_zero_confidence() {
+        let pipeline = Pipeline::with_defaults();
+        let attr = pipeline.aggregate(&[]);
+        assert_eq!(attr.confidence, 0.0);
+        assert!(!attr.has_sufficient_data());
+        let total: f64 = attr.scores.values().sum();
+        assert_eq!(total, 0.0, "scores should all be 0.0 when no signals");
     }
 }

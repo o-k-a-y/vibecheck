@@ -15,32 +15,33 @@
   <text x="7" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">    ▾ analyzers/</text>
   <text x="264" y="80" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   85%</text>
   <text x="7" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        ai_signals.rs</text>
-  <text x="264" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   58%</text>
+  <text x="264" y="99" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   44%</text>
   <text x="7" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">        code_structure.rs</text>
-  <text x="264" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   72%</text>
+  <text x="264" y="117" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   54%</text>
   <text x="7" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      cache.rs</text>
-  <text x="264" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   81%</text>
+  <text x="264" y="136" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   40%</text>
   <rect x="1" y="139" width="356" height="18" fill="#2d333b"/>
   <text x="7" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">▶     pipeline.rs</text>
-  <text x="264" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   79%</text>
+  <text x="264" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   62%</text>
   <text x="7" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      report.rs</text>
-  <text x="264" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   86%</text>
+  <text x="264" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   50%</text>
   <text x="367" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">vibecheck-core/src/pipeline.rs</text>
-  <text x="598" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude (80%)</text>
+  <text x="598" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude (63%)</text>
   <text x="367" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Claude     </text>
-  <rect x="460.7" y="79.3" width="126.2" height="10" fill="#d2a8ff" rx="1"/>
-  <text x="627" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 79.6%</text>
-  <text x="367" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  GPT        </text>
-  <rect x="460.7" y="97.8" width="16.2" height="10" fill="#7ee787" rx="1"/>
-  <text x="627" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
+  <rect x="460.7" y="79.3" width="99.4" height="10" fill="#d2a8ff" rx="1"/>
+  <text x="627" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 62.7%</text>
+  <text x="367" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
+  <rect x="460.7" y="97.8" width="25.7" height="10" fill="#79c0ff" rx="1"/>
+  <text x="627" y="108" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 16.2%</text>
   <text x="367" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Human      </text>
-  <rect x="460.7" y="116.3" width="16.2" height="10" fill="#e3b341" rx="1"/>
-  <text x="627" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
-  <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Copilot    </text>
-  <text x="627" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
-  <text x="367" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
+  <rect x="460.7" y="116.3" width="16.8" height="10" fill="#e3b341" rx="1"/>
+  <text x="627" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.6%</text>
+  <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  GPT        </text>
+  <rect x="460.7" y="134.8" width="16.8" height="10" fill="#7ee787" rx="1"/>
+  <text x="627" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.6%</text>
+  <text x="367" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Copilot    </text>
   <text x="627" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
-  <text x="367" y="189" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Signals (14):</text>
+  <text x="367" y="189" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Signals (15):</text>
   <text x="367" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
   <text x="381" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[comments] </text>
   <text x="461" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
@@ -48,12 +49,12 @@
   <text x="547" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— 12 doc comments — thorough documentation</text>
   <text x="367" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
   <text x="381" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
-  <text x="475" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.5 </text>
+  <text x="475" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+0.8 </text>
   <text x="511" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
   <text x="562" y="226" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No TODO/FIXME markers in a substantial file</text>
   <text x="367" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
   <text x="381" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[ai_signals] </text>
-  <text x="475" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+0.8 </text>
+  <text x="475" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+0.5 </text>
   <text x="511" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
   <text x="562" y="245" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No dead code suppressions</text>
   <text x="367" y="263" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
@@ -74,8 +75,8 @@
   <text x="367" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
   <text x="381" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3" opacity="0.5">[naming] </text>
   <text x="446" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#7ee787">+1.0 </text>
-  <text x="482" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
-  <text x="533" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No single-character variable names</text>
+  <text x="482" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#79c0ff" font-weight="bold">Gemini </text>
+  <text x="533" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— Medium-length variable names (avg 6.6 chars)</text>
   <rect x="0" y="460" width="900" height="20" fill="#30363d"/>
   <text x="8" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ? </text>
   <text x="28" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> help  </text>
