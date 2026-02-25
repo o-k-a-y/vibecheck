@@ -169,7 +169,7 @@ impl IdiomUsageAnalyzer {
                 signal_ids::JS_IDIOMS_CONST_DECLARATIONS,
                 "idioms",
                 format!("{const_count} const declarations — immutability-first approach"),
-                ModelFamily::Claude,
+                ModelFamily::Copilot,
                 1.0,
             ));
         }
@@ -204,7 +204,7 @@ impl IdiomUsageAnalyzer {
                 signal_ids::JS_IDIOMS_DESTRUCTURING,
                 "idioms",
                 format!("{destructure_count} destructuring assignments — idiomatic ES6+"),
-                ModelFamily::Claude,
+                ModelFamily::Gemini,
                 0.8,
             ));
         }
@@ -222,7 +222,7 @@ impl IdiomUsageAnalyzer {
                 signal_ids::JS_IDIOMS_ASYNC_AWAIT,
                 "idioms",
                 format!("{async_count} async/await usages — modern asynchronous style"),
-                ModelFamily::Claude,
+                ModelFamily::Gemini,
                 0.8,
             ));
         }
@@ -278,7 +278,7 @@ impl IdiomUsageAnalyzer {
                 signal_ids::GO_IDIOMS_DEFER_STMTS,
                 "idioms",
                 format!("{defer_count} defer statements — idiomatic resource cleanup"),
-                ModelFamily::Claude,
+                ModelFamily::Gemini,
                 0.8,
             ));
         }
@@ -309,7 +309,7 @@ impl IdiomUsageAnalyzer {
                 signal_ids::GO_IDIOMS_IOTA_CONSTANTS,
                 "idioms",
                 format!("{iota_count} iota constant(s) — idiomatic Go enumeration"),
-                ModelFamily::Claude,
+                ModelFamily::Copilot,
                 0.8,
             ));
         }
@@ -669,15 +669,15 @@ mod tests {
     }
 
     #[test]
-    fn javascript_const_declarations_is_claude() {
+    fn javascript_const_declarations_is_copilot() {
         let source: Vec<String> = (0..12)
             .map(|i| format!("const value{i} = {i};"))
             .collect();
         let source = source.join("\n");
         let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("const")),
-            "expected const declarations Claude signal"
+            signals.iter().any(|s| s.family == ModelFamily::Copilot && s.description.contains("const")),
+            "expected const declarations Copilot signal"
         );
     }
 
@@ -695,7 +695,7 @@ mod tests {
     }
 
     #[test]
-    fn javascript_destructuring_is_claude() {
+    fn javascript_destructuring_is_gemini() {
         let source: Vec<String> = (0..12).map(|i| {
             if i % 2 == 0 {
                 format!("const {{ prop{i} }} = obj{i};")
@@ -706,21 +706,21 @@ mod tests {
         let source = source.join("\n");
         let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("destructuring")),
-            "expected destructuring Claude signal"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini && s.description.contains("destructuring")),
+            "expected destructuring Gemini signal"
         );
     }
 
     #[test]
-    fn javascript_async_await_is_claude() {
+    fn javascript_async_await_is_gemini() {
         let source: Vec<String> = (0..10)
             .map(|i| format!("async function step{i}() {{ const r = await fetch{i}(); return r; }}"))
             .collect();
         let source = source.join("\n");
         let signals = IdiomUsageAnalyzer.analyze_javascript(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("async")),
-            "expected async/await Claude signal"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini && s.description.contains("async")),
+            "expected async/await Gemini signal"
         );
     }
 
@@ -742,7 +742,7 @@ mod tests {
     }
 
     #[test]
-    fn go_defer_stmts_is_claude() {
+    fn go_defer_stmts_is_gemini() {
         let mut lines: Vec<String> = vec![
             "defer f.Close()".into(),
             "defer mu.Unlock()".into(),
@@ -751,8 +751,8 @@ mod tests {
         let source = lines.join("\n");
         let signals = IdiomUsageAnalyzer.analyze_go(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.description.contains("defer")),
-            "expected defer statements Claude signal"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini && s.description.contains("defer")),
+            "expected defer statements Gemini signal"
         );
     }
 

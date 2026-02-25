@@ -15,7 +15,7 @@ mod tests {
     }
 
     #[test]
-    fn sorted_imports_is_claude() {
+    fn sorted_imports_is_gpt() {
         let source = "\
 use std::collections::HashMap;\n\
 use std::fmt;\n\
@@ -23,9 +23,9 @@ use std::path::PathBuf;\n\
 let x = 1;\nlet y = 2;\nlet z = 3;\nlet a = 4;\nlet b = 5;\nlet c = 6;\nlet d = 7;";
         let signals = run(source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 1.0
+            signals.iter().any(|s| s.family == ModelFamily::Gpt && s.weight == 0.5
                 && s.description.contains("sorted")),
-            "expected sorted imports Claude signal (weight 1.0)"
+            "expected sorted imports Gpt signal (weight 0.5)"
         );
     }
 
@@ -51,7 +51,7 @@ let u = 0;";
     }
 
     #[test]
-    fn low_annotation_ratio_is_claude() {
+    fn low_annotation_ratio_is_gemini() {
         // <20% annotated with 5+ let bindings
         let source = "\
 let value_one = 1;\n\
@@ -64,14 +64,14 @@ let x: i32 = 0;\n\
 let y = 0;\nlet z = 0;\nlet a = 0;";
         let signals = run(source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8
+            signals.iter().any(|s| s.family == ModelFamily::Gemini && s.weight == 0.8
                 && s.description.contains("inference")),
-            "expected low annotation ratio Claude signal (weight 0.8)"
+            "expected low annotation ratio Gemini signal (weight 0.8)"
         );
     }
 
     #[test]
-    fn all_lines_under_100_chars_is_claude() {
+    fn all_lines_under_100_chars_is_gemini() {
         // 10+ non-empty lines, all ≤ 100 chars
         let source = (0..12)
             .map(|i| format!("let value_{i} = {i};"))
@@ -79,9 +79,9 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
             .join("\n");
         let signals = run(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude && s.weight == 0.8
+            signals.iter().any(|s| s.family == ModelFamily::Gemini && s.weight == 0.4
                 && s.description.contains("100")),
-            "expected all-lines-under-100 Claude signal (weight 0.8)"
+            "expected all-lines-under-100 Gemini signal (weight 0.4)"
         );
     }
 
@@ -90,17 +90,17 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
     }
 
     #[test]
-    fn python_short_lines_is_claude() {
+    fn python_short_lines_is_gemini() {
         let source = make_lines(12, "");
         let signals = CodeStructureAnalyzer.analyze_python(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude),
-            "expected Claude signal for short Python lines"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini),
+            "expected Gemini signal for short Python lines"
         );
     }
 
     #[test]
-    fn python_sorted_imports_is_claude() {
+    fn python_sorted_imports_is_gpt() {
         let mut lines: Vec<String> = vec![
             "import abc".into(),
             "import collections".into(),
@@ -110,33 +110,94 @@ let y = 0;\nlet z = 0;\nlet a = 0;";
         let source = lines.join("\n");
         let signals = CodeStructureAnalyzer.analyze_python(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude),
-            "expected Claude signal for sorted Python imports"
+            signals.iter().any(|s| s.family == ModelFamily::Gpt),
+            "expected Gpt signal for sorted Python imports"
         );
     }
 
     #[test]
-    fn javascript_short_lines_is_claude() {
+    fn javascript_short_lines_is_gemini() {
         let source = make_lines(12, "const ");
         let signals = CodeStructureAnalyzer.analyze_javascript(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude),
-            "expected Claude signal for short JS lines"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini),
+            "expected Gemini signal for short JS lines"
         );
     }
 
     #[test]
-    fn go_short_lines_is_claude() {
+    fn go_short_lines_is_gemini() {
         let source = make_lines(12, "var ");
         let signals = CodeStructureAnalyzer.analyze_go(&source);
         assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude),
-            "expected Claude signal for short Go lines"
+            signals.iter().any(|s| s.family == ModelFamily::Gemini),
+            "expected Gemini signal for short Go lines"
         );
     }
 }
 
 impl CodeStructureAnalyzer {
+    /// Detect function length metrics and emit compact_fns / very_short_fns signals.
+    fn detect_fn_length_signals(
+        fn_start_lines: &[usize],
+        total_lines: usize,
+        compact_fns_id: &str,
+        very_short_fns_id: &str,
+    ) -> Vec<Signal> {
+        let mut signals = Vec::new();
+        if fn_start_lines.len() < 2 {
+            return signals;
+        }
+        // Estimate function lengths from gaps between start lines
+        let mut lengths: Vec<usize> = fn_start_lines
+            .windows(2)
+            .map(|w| w[1] - w[0])
+            .collect();
+        // Last function goes to end of file
+        if let Some(&last) = fn_start_lines.last() {
+            lengths.push(total_lines.saturating_sub(last));
+        }
+        let avg_len: f64 = lengths.iter().sum::<usize>() as f64 / lengths.len() as f64;
+        if avg_len >= 10.0 && avg_len <= 20.0 {
+            signals.push(Signal::new(
+                compact_fns_id,
+                "structure",
+                format!("Compact functions (avg {avg_len:.0} lines)"),
+                ModelFamily::Gemini,
+                1.0,
+            ));
+        } else if avg_len < 10.0 {
+            signals.push(Signal::new(
+                very_short_fns_id,
+                "structure",
+                format!("Very short functions (avg {avg_len:.0} lines)"),
+                ModelFamily::Copilot,
+                1.2,
+            ));
+        }
+        signals
+    }
+
+    /// Detect mixed indentation (tabs + spaces) as format_inconsistent.
+    fn detect_format_inconsistent(
+        lines: &[&str],
+        format_inconsistent_id: &str,
+    ) -> Option<Signal> {
+        let has_tab_indent = lines.iter().any(|l| l.starts_with('\t'));
+        let has_space_indent = lines.iter().any(|l| l.starts_with("  "));
+        if has_tab_indent && has_space_indent {
+            Some(Signal::new(
+                format_inconsistent_id,
+                "structure",
+                "Mixed tabs and spaces indentation",
+                ModelFamily::Copilot,
+                1.2,
+            ))
+        } else {
+            None
+        }
+    }
+
     fn analyze_python_impl(source: &str) -> Vec<Signal> {
         let mut signals = Vec::new();
         let lines: Vec<&str> = source.lines().collect();
@@ -158,8 +219,8 @@ impl CodeStructureAnalyzer {
                     signal_ids::PYTHON_STRUCTURE_SORTED_IMPORTS,
                     "structure",
                     "Import statements are alphabetically sorted",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gpt,
+                    0.5,
                 ));
             }
         }
@@ -184,8 +245,8 @@ impl CodeStructureAnalyzer {
                     signal_ids::PYTHON_STRUCTURE_CONSISTENT_BLANK_LINES,
                     "structure",
                     "Perfectly consistent blank line spacing",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gemini,
+                    0.5,
                 ));
             }
         }
@@ -203,10 +264,50 @@ impl CodeStructureAnalyzer {
                     signal_ids::PYTHON_STRUCTURE_LINES_UNDER_88,
                     "structure",
                     "All lines under 88 chars — PEP 8 / Black-style discipline",
-                    ModelFamily::Claude,
-                    0.8,
+                    ModelFamily::Gemini,
+                    0.4,
                 ));
             }
+        }
+
+        // Ternary/conditional expressions (inline if-else)
+        let ternary_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with('#') && t.contains(" if ") && t.contains(" else ")
+            })
+            .count();
+        if ternary_count >= 3 {
+            signals.push(Signal::new(
+                signal_ids::PYTHON_STRUCTURE_TERNARY_HEAVY,
+                "structure",
+                format!("{ternary_count} inline conditional expressions"),
+                ModelFamily::Gemini,
+                1.2,
+            ));
+        }
+
+        // Function length metrics
+        let fn_starts: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| {
+                let t = l.trim();
+                t.starts_with("def ") || t.starts_with("async def ")
+            })
+            .map(|(i, _)| i)
+            .collect();
+        signals.extend(Self::detect_fn_length_signals(
+            &fn_starts,
+            total_lines,
+            signal_ids::PYTHON_STRUCTURE_COMPACT_FNS,
+            signal_ids::PYTHON_STRUCTURE_VERY_SHORT_FNS,
+        ));
+
+        // Format inconsistency
+        if let Some(s) = Self::detect_format_inconsistent(&lines, signal_ids::PYTHON_STRUCTURE_FORMAT_INCONSISTENT) {
+            signals.push(s);
         }
 
         signals
@@ -233,8 +334,8 @@ impl CodeStructureAnalyzer {
                     signal_ids::JS_STRUCTURE_SORTED_IMPORTS,
                     "structure",
                     "Import statements are alphabetically sorted",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gpt,
+                    0.5,
                 ));
             }
         }
@@ -257,8 +358,8 @@ impl CodeStructureAnalyzer {
                 signal_ids::JS_STRUCTURE_CONSISTENT_BLANK_LINES,
                 "structure",
                 "Perfectly consistent blank line spacing",
-                ModelFamily::Claude,
-                1.0,
+                ModelFamily::Gemini,
+                0.5,
             ));
         }
 
@@ -275,8 +376,8 @@ impl CodeStructureAnalyzer {
                     signal_ids::JS_STRUCTURE_LINES_UNDER_100,
                     "structure",
                     "All lines under 100 chars — disciplined formatting",
-                    ModelFamily::Claude,
-                    0.8,
+                    ModelFamily::Gemini,
+                    0.4,
                 ));
             } else if over_100 >= 5 {
                 signals.push(Signal::new(
@@ -287,6 +388,46 @@ impl CodeStructureAnalyzer {
                     1.0,
                 ));
             }
+        }
+
+        // Ternary expressions (? :)
+        let ternary_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("//") && t.contains(" ? ") && t.contains(" : ")
+            })
+            .count();
+        if ternary_count >= 3 {
+            signals.push(Signal::new(
+                signal_ids::JS_STRUCTURE_TERNARY_HEAVY,
+                "structure",
+                format!("{ternary_count} ternary expressions"),
+                ModelFamily::Gemini,
+                1.2,
+            ));
+        }
+
+        // Function length metrics
+        let fn_starts: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| {
+                let t = l.trim();
+                t.starts_with("function ") || t.contains("=> {") || t.contains("=> (")
+            })
+            .map(|(i, _)| i)
+            .collect();
+        signals.extend(Self::detect_fn_length_signals(
+            &fn_starts,
+            total_lines,
+            signal_ids::JS_STRUCTURE_COMPACT_FNS,
+            signal_ids::JS_STRUCTURE_VERY_SHORT_FNS,
+        ));
+
+        // Format inconsistency
+        if let Some(s) = Self::detect_format_inconsistent(&lines, signal_ids::JS_STRUCTURE_FORMAT_INCONSISTENT) {
+            signals.push(s);
         }
 
         signals
@@ -316,8 +457,8 @@ impl CodeStructureAnalyzer {
                     signal_ids::GO_STRUCTURE_SORTED_IMPORTS,
                     "structure",
                     "Import strings are sorted — goimports-style",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gpt,
+                    0.5,
                 ));
             }
         }
@@ -340,8 +481,8 @@ impl CodeStructureAnalyzer {
                 signal_ids::GO_STRUCTURE_CONSISTENT_BLANK_LINES,
                 "structure",
                 "Perfectly consistent blank line spacing",
-                ModelFamily::Claude,
-                1.0,
+                ModelFamily::Gemini,
+                0.5,
             ));
         }
 
@@ -358,10 +499,48 @@ impl CodeStructureAnalyzer {
                     signal_ids::GO_STRUCTURE_LINES_UNDER_120,
                     "structure",
                     "All lines under 120 chars — gofmt-style discipline",
-                    ModelFamily::Claude,
-                    0.8,
+                    ModelFamily::Gemini,
+                    0.4,
                 ));
             }
+        }
+
+        // Ternary-like: Go has no ternary, but detect map-based switch or if-assign patterns
+        // Count single-line if-assign patterns as a proxy
+        let inline_if_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with("if ") && t.contains(" := ") && t.ends_with('{')
+            })
+            .count();
+        if inline_if_count >= 3 {
+            signals.push(Signal::new(
+                signal_ids::GO_STRUCTURE_TERNARY_HEAVY,
+                "structure",
+                format!("{inline_if_count} inline if-assign expressions"),
+                ModelFamily::Gemini,
+                1.2,
+            ));
+        }
+
+        // Function length metrics
+        let fn_starts: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.trim().starts_with("func "))
+            .map(|(i, _)| i)
+            .collect();
+        signals.extend(Self::detect_fn_length_signals(
+            &fn_starts,
+            total_lines,
+            signal_ids::GO_STRUCTURE_COMPACT_FNS,
+            signal_ids::GO_STRUCTURE_VERY_SHORT_FNS,
+        ));
+
+        // Format inconsistency (Go uses tabs by default via gofmt)
+        if let Some(s) = Self::detect_format_inconsistent(&lines, signal_ids::GO_STRUCTURE_FORMAT_INCONSISTENT) {
+            signals.push(s);
         }
 
         signals
@@ -422,7 +601,7 @@ impl Analyzer for CodeStructureAnalyzer {
                     signal_ids::RUST_STRUCTURE_LOW_TYPE_ANNOTATION,
                     self.name(),
                     "Relies on type inference — minimal annotations",
-                    ModelFamily::Claude,
+                    ModelFamily::Gemini,
                     0.8,
                 ));
             }
@@ -441,8 +620,8 @@ impl Analyzer for CodeStructureAnalyzer {
                     signal_ids::RUST_STRUCTURE_SORTED_IMPORTS,
                     self.name(),
                     "Import statements are alphabetically sorted",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gpt,
+                    0.5,
                 ));
             }
         }
@@ -467,8 +646,8 @@ impl Analyzer for CodeStructureAnalyzer {
                     signal_ids::RUST_STRUCTURE_CONSISTENT_BLANK_LINES,
                     self.name(),
                     "Perfectly consistent blank line spacing",
-                    ModelFamily::Claude,
-                    1.0,
+                    ModelFamily::Gemini,
+                    0.5,
                 ));
             }
         }
@@ -487,8 +666,8 @@ impl Analyzer for CodeStructureAnalyzer {
                     signal_ids::RUST_STRUCTURE_LINES_UNDER_100,
                     self.name(),
                     "All lines under 100 chars — disciplined formatting",
-                    ModelFamily::Claude,
-                    0.8,
+                    ModelFamily::Gemini,
+                    0.4,
                 ));
             } else if over_100 >= 5 {
                 signals.push(Signal::new(
@@ -499,6 +678,47 @@ impl Analyzer for CodeStructureAnalyzer {
                     1.0,
                 ));
             }
+        }
+
+        // Ternary-like: match arms or if-let on single lines
+        let match_arm_count = lines
+            .iter()
+            .filter(|l| {
+                let t = l.trim();
+                t.contains(" => ") && !t.starts_with("//")
+            })
+            .count();
+        if match_arm_count >= 5 {
+            signals.push(Signal::new(
+                signal_ids::RUST_STRUCTURE_TERNARY_HEAVY,
+                self.name(),
+                format!("{match_arm_count} match arms — pattern-heavy style"),
+                ModelFamily::Gemini,
+                1.2,
+            ));
+        }
+
+        // Function length metrics
+        let fn_starts: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| {
+                let t = l.trim();
+                t.starts_with("fn ") || t.starts_with("pub fn ") || t.starts_with("pub(crate) fn ")
+                    || t.starts_with("async fn ") || t.starts_with("pub async fn ")
+            })
+            .map(|(i, _)| i)
+            .collect();
+        signals.extend(Self::detect_fn_length_signals(
+            &fn_starts,
+            total_lines,
+            signal_ids::RUST_STRUCTURE_COMPACT_FNS,
+            signal_ids::RUST_STRUCTURE_VERY_SHORT_FNS,
+        ));
+
+        // Format inconsistency
+        if let Some(s) = Self::detect_format_inconsistent(&lines, signal_ids::RUST_STRUCTURE_FORMAT_INCONSISTENT) {
+            signals.push(s);
         }
 
         // Derive macro usage (AI loves deriving everything)
@@ -521,7 +741,7 @@ impl Analyzer for CodeStructureAnalyzer {
                         "Heavy derive usage (avg {:.1} traits per derive)",
                         avg_derives
                     ),
-                    ModelFamily::Claude,
+                    ModelFamily::Gpt,
                     1.0,
                 ));
             }

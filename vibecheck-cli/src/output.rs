@@ -13,17 +13,25 @@ pub fn format_pretty(report: &Report, theme: &dyn ColorTheme) -> String {
         out.push_str(&format!("{} {}\n", "File:".bold(), path.display()));
     }
 
-    let verdict_color = theme.terminal_color(report.attribution.primary);
-    let verdict_str = format!(
-        "{} ({:.0}% confidence)",
-        report.attribution.primary,
-        report.attribution.confidence * 100.0
-    );
-    out.push_str(&format!(
-        "{} {}\n",
-        "Verdict:".bold(),
-        verdict_str.color(verdict_color).bold()
-    ));
+    if report.attribution.has_sufficient_data() {
+        let verdict_color = theme.terminal_color(report.attribution.primary);
+        let verdict_str = format!(
+            "{} ({:.0}% confidence)",
+            report.attribution.primary,
+            report.attribution.confidence * 100.0
+        );
+        out.push_str(&format!(
+            "{} {}\n",
+            "Verdict:".bold(),
+            verdict_str.color(verdict_color).bold()
+        ));
+    } else {
+        out.push_str(&format!(
+            "{} {}\n",
+            "Verdict:".bold(),
+            "Insufficient data".dimmed()
+        ));
+    }
     out.push_str(&format!(
         "{} {} | {} {}\n",
         "Lines:".dimmed(),

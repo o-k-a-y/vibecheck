@@ -148,67 +148,67 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     h!("go.errors.panic_calls", HeuristicLanguage::Go, "errors", "2+ panic() calls — non-recoverable or human shortcut",   ModelFamily::Human,  1.5),
 
     // ── rust · ai_signals ────────────────────────────────────────────────
-    h!("rust.ai_signals.no_todo", HeuristicLanguage::Rust, "ai_signals", "No TODO/FIXME markers in a substantial file",         ModelFamily::Claude, 1.5),
-    h!("rust.ai_signals.no_dead_code", HeuristicLanguage::Rust, "ai_signals", "No dead code suppressions (#[allow(dead_code)])",     ModelFamily::Claude, 0.8),
+    h!("rust.ai_signals.no_todo", HeuristicLanguage::Rust, "ai_signals", "No TODO/FIXME markers in a substantial file",         ModelFamily::Claude, 0.8),
+    h!("rust.ai_signals.no_dead_code", HeuristicLanguage::Rust, "ai_signals", "No dead code suppressions (#[allow(dead_code)])",     ModelFamily::Claude, 0.5),
     h!("rust.ai_signals.all_fns_documented", HeuristicLanguage::Rust, "ai_signals", "Every function has a doc comment — suspiciously thorough", ModelFamily::Claude, 2.0),
     h!("rust.ai_signals.no_trailing_ws", HeuristicLanguage::Rust, "ai_signals", "Zero trailing whitespace — machine-perfect formatting", ModelFamily::Gpt,   0.5),
-    h!("rust.ai_signals.commented_out_code", HeuristicLanguage::Rust, "ai_signals", "2+ lines of commented-out code",                      ModelFamily::Human,  2.5),
-    h!("rust.ai_signals.no_placeholder", HeuristicLanguage::Rust, "ai_signals", "No placeholder values — polished code",               ModelFamily::Claude, 0.5),
+    h!("rust.ai_signals.commented_out_code", HeuristicLanguage::Rust, "ai_signals", "2+ lines of commented-out code",                      ModelFamily::Human,  2.0),
+    h!("rust.ai_signals.no_placeholder", HeuristicLanguage::Rust, "ai_signals", "No placeholder values — polished code",               ModelFamily::Gpt,    0.3),
 
     // ── python · ai_signals ──────────────────────────────────────────────
-    h!("python.ai_signals.no_todo", HeuristicLanguage::Python, "ai_signals", "No TODO/FIXME markers in a substantial file",             ModelFamily::Claude, 1.5),
+    h!("python.ai_signals.no_todo", HeuristicLanguage::Python, "ai_signals", "No TODO/FIXME markers in a substantial file",             ModelFamily::Claude, 0.8),
     h!("python.ai_signals.no_trailing_ws", HeuristicLanguage::Python, "ai_signals", "Zero trailing whitespace — machine-perfect formatting",   ModelFamily::Gpt,   0.5),
-    h!("python.ai_signals.no_placeholder", HeuristicLanguage::Python, "ai_signals", "No placeholder values — polished code",                  ModelFamily::Claude, 0.5),
-    h!("python.ai_signals.no_linter_suppression", HeuristicLanguage::Python, "ai_signals", "No noqa/type: ignore suppressions",                      ModelFamily::Claude, 0.8),
-    h!("python.ai_signals.commented_out_code", HeuristicLanguage::Python, "ai_signals", "2+ lines of commented-out code",                        ModelFamily::Human,  2.5),
+    h!("python.ai_signals.no_placeholder", HeuristicLanguage::Python, "ai_signals", "No placeholder values — polished code",                  ModelFamily::Gpt,    0.3),
+    h!("python.ai_signals.no_linter_suppression", HeuristicLanguage::Python, "ai_signals", "No noqa/type: ignore suppressions",                      ModelFamily::Claude, 0.5),
+    h!("python.ai_signals.commented_out_code", HeuristicLanguage::Python, "ai_signals", "2+ lines of commented-out code",                        ModelFamily::Human,  2.0),
     h!("python.ai_signals.all_fns_documented", HeuristicLanguage::Python, "ai_signals", "Every function has a docstring — suspiciously thorough", ModelFamily::Claude, 2.0),
 
     // ── js · ai_signals ──────────────────────────────────────────────────
-    h!("js.ai_signals.no_todo", HeuristicLanguage::Js, "ai_signals", "No TODO/FIXME markers in a substantial file",              ModelFamily::Claude, 1.5),
+    h!("js.ai_signals.no_todo", HeuristicLanguage::Js, "ai_signals", "No TODO/FIXME markers in a substantial file",              ModelFamily::Claude, 0.8),
     h!("js.ai_signals.no_trailing_ws", HeuristicLanguage::Js, "ai_signals", "Zero trailing whitespace — machine-perfect formatting",    ModelFamily::Gpt,   0.5),
-    h!("js.ai_signals.no_placeholder", HeuristicLanguage::Js, "ai_signals", "No placeholder values — polished code",                   ModelFamily::Claude, 0.5),
-    h!("js.ai_signals.no_linter_suppression", HeuristicLanguage::Js, "ai_signals", "No eslint-disable / @ts-ignore suppressions",             ModelFamily::Claude, 0.8),
-    h!("js.ai_signals.commented_out_code", HeuristicLanguage::Js, "ai_signals", "2+ lines of commented-out code",                         ModelFamily::Human,  2.5),
+    h!("js.ai_signals.no_placeholder", HeuristicLanguage::Js, "ai_signals", "No placeholder values — polished code",                   ModelFamily::Gpt,    0.3),
+    h!("js.ai_signals.no_linter_suppression", HeuristicLanguage::Js, "ai_signals", "No eslint-disable / @ts-ignore suppressions",             ModelFamily::Claude, 0.5),
+    h!("js.ai_signals.commented_out_code", HeuristicLanguage::Js, "ai_signals", "2+ lines of commented-out code",                         ModelFamily::Human,  2.0),
     h!("js.ai_signals.jsdoc_blocks", HeuristicLanguage::Js, "ai_signals", "3+ JSDoc comment blocks — thorough documentation",       ModelFamily::Claude, 1.5),
     h!("js.ai_signals.console_log", HeuristicLanguage::Js, "ai_signals", "3+ console.log calls — likely debugging artifacts",      ModelFamily::Human,  2.0),
 
     // ── go · ai_signals ──────────────────────────────────────────────────
-    h!("go.ai_signals.no_todo", HeuristicLanguage::Go, "ai_signals", "No TODO/FIXME markers in a substantial file",              ModelFamily::Claude, 1.5),
+    h!("go.ai_signals.no_todo", HeuristicLanguage::Go, "ai_signals", "No TODO/FIXME markers in a substantial file",              ModelFamily::Claude, 0.8),
     h!("go.ai_signals.no_trailing_ws", HeuristicLanguage::Go, "ai_signals", "Zero trailing whitespace — machine-perfect formatting",    ModelFamily::Gpt,   0.5),
-    h!("go.ai_signals.no_placeholder", HeuristicLanguage::Go, "ai_signals", "No placeholder values — polished code",                   ModelFamily::Claude, 0.5),
-    h!("go.ai_signals.no_nolint", HeuristicLanguage::Go, "ai_signals", "No nolint suppressions — clean linter compliance",        ModelFamily::Claude, 0.8),
-    h!("go.ai_signals.commented_out_code", HeuristicLanguage::Go, "ai_signals", "2+ lines of commented-out code",                         ModelFamily::Human,  2.5),
+    h!("go.ai_signals.no_placeholder", HeuristicLanguage::Go, "ai_signals", "No placeholder values — polished code",                   ModelFamily::Gpt,    0.3),
+    h!("go.ai_signals.no_nolint", HeuristicLanguage::Go, "ai_signals", "No nolint suppressions — clean linter compliance",        ModelFamily::Claude, 0.5),
+    h!("go.ai_signals.commented_out_code", HeuristicLanguage::Go, "ai_signals", "2+ lines of commented-out code",                         ModelFamily::Human,  2.0),
     h!("go.ai_signals.all_exported_documented", HeuristicLanguage::Go, "ai_signals","All exported identifiers have doc comments",               ModelFamily::Claude, 2.0),
 
     // ── rust · structure ─────────────────────────────────────────────────
-    h!("rust.structure.high_type_annotation", HeuristicLanguage::Rust, "structure", "High type annotation ratio on let bindings",           ModelFamily::Gpt,   1.0),
-    h!("rust.structure.low_type_annotation", HeuristicLanguage::Rust, "structure", "Relies on type inference — minimal annotations",       ModelFamily::Claude, 0.8),
-    h!("rust.structure.sorted_imports", HeuristicLanguage::Rust, "structure", "Import statements are alphabetically sorted",          ModelFamily::Claude, 1.0),
-    h!("rust.structure.consistent_blank_lines", HeuristicLanguage::Rust, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Claude, 1.0),
-    h!("rust.structure.lines_under_100", HeuristicLanguage::Rust, "structure", "All lines ≤100 chars — disciplined formatting",        ModelFamily::Claude, 0.8),
+    h!("rust.structure.high_type_annotation", HeuristicLanguage::Rust, "structure", "High type annotation ratio on let bindings",           ModelFamily::Gpt,    1.0),
+    h!("rust.structure.low_type_annotation", HeuristicLanguage::Rust, "structure", "Relies on type inference — minimal annotations",       ModelFamily::Gemini, 0.8),
+    h!("rust.structure.sorted_imports", HeuristicLanguage::Rust, "structure", "Import statements are alphabetically sorted",          ModelFamily::Gpt,    0.5),
+    h!("rust.structure.consistent_blank_lines", HeuristicLanguage::Rust, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Gemini, 0.5),
+    h!("rust.structure.lines_under_100", HeuristicLanguage::Rust, "structure", "All lines ≤100 chars — disciplined formatting",        ModelFamily::Gemini, 0.4),
     h!("rust.structure.many_long_lines", HeuristicLanguage::Rust, "structure", "5+ lines over 100 chars",                              ModelFamily::Human,  1.0),
-    h!("rust.structure.heavy_derive", HeuristicLanguage::Rust, "structure", "Heavy derive usage (avg ≥4 traits per derive)",        ModelFamily::Claude, 1.0),
+    h!("rust.structure.heavy_derive", HeuristicLanguage::Rust, "structure", "Heavy derive usage (avg ≥4 traits per derive)",        ModelFamily::Gpt, 1.0),
 
     // ── python · structure ───────────────────────────────────────────────
-    h!("python.structure.sorted_imports", HeuristicLanguage::Python, "structure", "Import statements are alphabetically sorted",          ModelFamily::Claude, 1.0),
-    h!("python.structure.consistent_blank_lines", HeuristicLanguage::Python, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Claude, 1.0),
-    h!("python.structure.lines_under_88", HeuristicLanguage::Python, "structure", "All lines ≤88 chars — PEP 8 / Black-style discipline", ModelFamily::Claude, 0.8),
+    h!("python.structure.sorted_imports", HeuristicLanguage::Python, "structure", "Import statements are alphabetically sorted",          ModelFamily::Gpt,    0.5),
+    h!("python.structure.consistent_blank_lines", HeuristicLanguage::Python, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Gemini, 0.5),
+    h!("python.structure.lines_under_88", HeuristicLanguage::Python, "structure", "All lines ≤88 chars — PEP 8 / Black-style discipline", ModelFamily::Gemini, 0.4),
 
     // ── js · structure ───────────────────────────────────────────────────
-    h!("js.structure.sorted_imports", HeuristicLanguage::Js, "structure", "Import statements are alphabetically sorted",     ModelFamily::Claude, 1.0),
-    h!("js.structure.consistent_blank_lines", HeuristicLanguage::Js, "structure", "Perfectly consistent blank line spacing",         ModelFamily::Claude, 1.0),
-    h!("js.structure.lines_under_100", HeuristicLanguage::Js, "structure", "All lines ≤100 chars — disciplined formatting",  ModelFamily::Claude, 0.8),
+    h!("js.structure.sorted_imports", HeuristicLanguage::Js, "structure", "Import statements are alphabetically sorted",     ModelFamily::Gpt,    0.5),
+    h!("js.structure.consistent_blank_lines", HeuristicLanguage::Js, "structure", "Perfectly consistent blank line spacing",         ModelFamily::Gemini, 0.5),
+    h!("js.structure.lines_under_100", HeuristicLanguage::Js, "structure", "All lines ≤100 chars — disciplined formatting",  ModelFamily::Gemini, 0.4),
     h!("js.structure.many_long_lines", HeuristicLanguage::Js, "structure", "5+ lines over 100 chars",                        ModelFamily::Human,  1.0),
 
     // ── go · structure ───────────────────────────────────────────────────
-    h!("go.structure.sorted_imports", HeuristicLanguage::Go, "structure", "Import strings are sorted — goimports-style",          ModelFamily::Claude, 1.0),
-    h!("go.structure.consistent_blank_lines", HeuristicLanguage::Go, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Claude, 1.0),
-    h!("go.structure.lines_under_120", HeuristicLanguage::Go, "structure", "All lines ≤120 chars — gofmt-style discipline",        ModelFamily::Claude, 0.8),
+    h!("go.structure.sorted_imports", HeuristicLanguage::Go, "structure", "Import strings are sorted — goimports-style",          ModelFamily::Gpt,    0.5),
+    h!("go.structure.consistent_blank_lines", HeuristicLanguage::Go, "structure", "Perfectly consistent blank line spacing",               ModelFamily::Gemini, 0.5),
+    h!("go.structure.lines_under_120", HeuristicLanguage::Go, "structure", "All lines ≤120 chars — gofmt-style discipline",        ModelFamily::Gemini, 0.4),
 
     // ── rust · comments ──────────────────────────────────────────────────
     h!("rust.comments.high_density", HeuristicLanguage::Rust, "comments", "High comment density (>15%)",                              ModelFamily::Claude, 1.5),
     h!("rust.comments.low_density", HeuristicLanguage::Rust, "comments", "Very low comment density (<3%)",                           ModelFamily::Human,  1.0),
-    h!("rust.comments.teaching_voice", HeuristicLanguage::Rust, "comments", "3+ comments with teaching/explanatory voice",              ModelFamily::Claude, 2.0),
+    h!("rust.comments.teaching_voice", HeuristicLanguage::Rust, "comments", "3+ comments with teaching/explanatory voice",              ModelFamily::Claude, 1.5),
     h!("rust.comments.some_explanatory", HeuristicLanguage::Rust, "comments", "Some explanatory comments present",                        ModelFamily::Gpt,   0.8),
     h!("rust.comments.doc_comments", HeuristicLanguage::Rust, "comments", "5+ doc comments (///) — thorough documentation",          ModelFamily::Claude, 1.5),
     h!("rust.comments.terse_markers", HeuristicLanguage::Rust, "comments", "2+ terse/frustrated comments (TODO, HACK, etc.)",         ModelFamily::Human,  2.0),
@@ -216,7 +216,7 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     // ── python · comments ────────────────────────────────────────────────
     h!("python.comments.high_density", HeuristicLanguage::Python, "comments", "High comment density (>15%)",                             ModelFamily::Claude, 1.5),
     h!("python.comments.low_density", HeuristicLanguage::Python, "comments", "Very low comment density (<3%)",                          ModelFamily::Human,  1.0),
-    h!("python.comments.teaching_voice", HeuristicLanguage::Python, "comments", "3+ comments with teaching/explanatory voice",             ModelFamily::Claude, 2.0),
+    h!("python.comments.teaching_voice", HeuristicLanguage::Python, "comments", "3+ comments with teaching/explanatory voice",             ModelFamily::Claude, 1.5),
     h!("python.comments.some_explanatory", HeuristicLanguage::Python, "comments", "Some explanatory comments present",                       ModelFamily::Gpt,   0.8),
     h!("python.comments.docstring_blocks", HeuristicLanguage::Python, "comments", "5+ docstring blocks — thorough documentation",            ModelFamily::Claude, 1.5),
     h!("python.comments.terse_markers", HeuristicLanguage::Python, "comments", "2+ terse/frustrated comments",                           ModelFamily::Human,  2.0),
@@ -224,7 +224,7 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     // ── js · comments ────────────────────────────────────────────────────
     h!("js.comments.high_density", HeuristicLanguage::Js, "comments", "High comment density (>15%)",                                 ModelFamily::Claude, 1.5),
     h!("js.comments.low_density", HeuristicLanguage::Js, "comments", "Very low comment density (<3%)",                              ModelFamily::Human,  1.0),
-    h!("js.comments.teaching_voice", HeuristicLanguage::Js, "comments", "3+ comments with teaching/explanatory voice",                 ModelFamily::Claude, 2.0),
+    h!("js.comments.teaching_voice", HeuristicLanguage::Js, "comments", "3+ comments with teaching/explanatory voice",                 ModelFamily::Claude, 1.5),
     h!("js.comments.some_explanatory", HeuristicLanguage::Js, "comments", "Some explanatory comments present",                           ModelFamily::Gpt,   0.8),
     h!("js.comments.terse_markers", HeuristicLanguage::Js, "comments", "2+ terse/frustrated comments (TODO, HACK, etc.)",            ModelFamily::Human,  2.0),
     h!("js.comments.jsdoc_blocks", HeuristicLanguage::Js, "comments", "5+ JSDoc comment blocks — thorough API documentation",       ModelFamily::Claude, 1.5),
@@ -232,7 +232,7 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     // ── go · comments ────────────────────────────────────────────────────
     h!("go.comments.high_density", HeuristicLanguage::Go, "comments", "High comment density (>15%)",                                 ModelFamily::Claude, 1.5),
     h!("go.comments.low_density", HeuristicLanguage::Go, "comments", "Very low comment density (<3%)",                              ModelFamily::Human,  1.0),
-    h!("go.comments.teaching_voice", HeuristicLanguage::Go, "comments", "3+ comments with teaching/explanatory voice",                 ModelFamily::Claude, 2.0),
+    h!("go.comments.teaching_voice", HeuristicLanguage::Go, "comments", "3+ comments with teaching/explanatory voice",                 ModelFamily::Claude, 1.5),
     h!("go.comments.some_explanatory", HeuristicLanguage::Go, "comments", "Some explanatory comments present",                           ModelFamily::Gpt,   0.8),
     h!("go.comments.terse_markers", HeuristicLanguage::Go, "comments", "2+ terse/frustrated comments (TODO, HACK, etc.)",            ModelFamily::Human,  2.0),
 
@@ -289,29 +289,29 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     h!("js.idioms.arrow_fns_only", HeuristicLanguage::Js, "idioms", "5+ arrow functions, no regular functions — modern ES6+ style", ModelFamily::Claude, 1.5),
     h!("js.idioms.regular_fns_only", HeuristicLanguage::Js, "idioms", "3+ traditional function declarations — older style",           ModelFamily::Human,  1.0),
     h!("js.idioms.var_declarations", HeuristicLanguage::Js, "idioms", "3+ var declarations — legacy hoisting style",                  ModelFamily::Human,  1.5),
-    h!("js.idioms.const_declarations", HeuristicLanguage::Js, "idioms", "5+ const declarations — immutability-first approach",          ModelFamily::Claude, 1.0),
+    h!("js.idioms.const_declarations", HeuristicLanguage::Js, "idioms", "5+ const declarations — immutability-first approach",          ModelFamily::Copilot, 1.0),
     h!("js.idioms.null_safe_ops", HeuristicLanguage::Js, "idioms", "3+ optional chaining/nullish ops — modern null safety",        ModelFamily::Claude, 1.0),
-    h!("js.idioms.destructuring", HeuristicLanguage::Js, "idioms", "3+ destructuring assignments — idiomatic ES6+",                ModelFamily::Claude, 0.8),
-    h!("js.idioms.async_await", HeuristicLanguage::Js, "idioms", "3+ async/await usages — modern asynchronous style",            ModelFamily::Claude, 0.8),
+    h!("js.idioms.destructuring", HeuristicLanguage::Js, "idioms", "3+ destructuring assignments — idiomatic ES6+",                ModelFamily::Gemini, 0.8),
+    h!("js.idioms.async_await", HeuristicLanguage::Js, "idioms", "3+ async/await usages — modern asynchronous style",            ModelFamily::Gemini, 0.8),
 
     // ── go · idioms ──────────────────────────────────────────────────────
     h!("go.idioms.interface_checks", HeuristicLanguage::Go, "idioms", "1+ compile-time interface checks — thorough Go design",      ModelFamily::Claude, 1.5),
     h!("go.idioms.goroutines", HeuristicLanguage::Go, "idioms", "2+ goroutine launches — concurrent design",                  ModelFamily::Gpt,   0.8),
-    h!("go.idioms.defer_stmts", HeuristicLanguage::Go, "idioms", "2+ defer statements — idiomatic resource cleanup",           ModelFamily::Claude, 0.8),
+    h!("go.idioms.defer_stmts", HeuristicLanguage::Go, "idioms", "2+ defer statements — idiomatic resource cleanup",           ModelFamily::Gemini, 0.8),
     h!("go.idioms.table_driven_tests", HeuristicLanguage::Go, "idioms", "Table-driven test pattern detected — idiomatic Go testing",  ModelFamily::Claude, 1.5),
-    h!("go.idioms.iota_constants", HeuristicLanguage::Go, "idioms", "1+ iota constants — idiomatic Go enumeration",              ModelFamily::Claude, 0.8),
+    h!("go.idioms.iota_constants", HeuristicLanguage::Go, "idioms", "1+ iota constants — idiomatic Go enumeration",              ModelFamily::Copilot, 0.8),
 
     // ── rust_cst ─────────────────────────────────────────────────────────
-    h!("rust_cst.complexity.low", HeuristicLanguage::RustCst, "rust_cst", "Low avg cyclomatic complexity (≤2.0) — simple, linear functions", ModelFamily::Claude, 2.5),
+    h!("rust_cst.complexity.low", HeuristicLanguage::RustCst, "rust_cst", "Low avg cyclomatic complexity (≤2.0) — simple, linear functions", ModelFamily::Claude, 1.5),
     h!("rust_cst.complexity.high", HeuristicLanguage::RustCst, "rust_cst", "High avg cyclomatic complexity (≥5.0) — complex branching",       ModelFamily::Human,  1.5),
-    h!("rust_cst.doc_coverage.high", HeuristicLanguage::RustCst, "rust_cst", "≥90% doc comment coverage on pub functions",                     ModelFamily::Claude, 2.0),
+    h!("rust_cst.doc_coverage.high", HeuristicLanguage::RustCst, "rust_cst", "≥90% doc comment coverage on pub functions",                     ModelFamily::Claude, 1.5),
     h!("rust_cst.entropy.high", HeuristicLanguage::RustCst, "rust_cst", "High identifier entropy (≥4.0) — diverse, descriptive names",    ModelFamily::Claude, 1.5),
     h!("rust_cst.entropy.low", HeuristicLanguage::RustCst, "rust_cst", "Low identifier entropy (<3.0) — repetitive or terse names",      ModelFamily::Human,  1.0),
     h!("rust_cst.nesting.low", HeuristicLanguage::RustCst, "rust_cst", "Low avg nesting depth (≤3.0) — flat, readable structure",        ModelFamily::Claude, 1.5),
-    h!("rust_cst.imports.sorted", HeuristicLanguage::RustCst, "rust_cst", "use declarations are alphabetically sorted",                     ModelFamily::Claude, 1.0),
+    h!("rust_cst.imports.sorted", HeuristicLanguage::RustCst, "rust_cst", "use declarations are alphabetically sorted",                     ModelFamily::Claude, 0.5),
 
     // ── python_cst ───────────────────────────────────────────────────────
-    h!("python_cst.doc_coverage.high", HeuristicLanguage::PythonCst, "python_cst", "≥85% docstring coverage — thorough documentation",              ModelFamily::Claude, 2.0),
+    h!("python_cst.doc_coverage.high", HeuristicLanguage::PythonCst, "python_cst", "≥85% docstring coverage — thorough documentation",              ModelFamily::Claude, 1.5),
     h!("python_cst.type_annotations.high", HeuristicLanguage::PythonCst, "python_cst", "≥80% type annotation coverage on parameters",                   ModelFamily::Claude, 1.5),
     h!("python_cst.fstrings.only", HeuristicLanguage::PythonCst, "python_cst", "f-strings present, no %-formatting — modern Python idiom",      ModelFamily::Claude, 1.0),
 
@@ -322,9 +322,77 @@ pub static ALL_HEURISTICS: &[HeuristicSpec] = &[
     h!("js_cst.optional_chaining.high", HeuristicLanguage::JsCst, "js_cst", "3+ optional chaining usages (?.) — defensive modern style", ModelFamily::Claude, 1.0),
 
     // ── go_cst ───────────────────────────────────────────────────────────
-    h!("go_cst.doc_coverage.high", HeuristicLanguage::GoCst, "go_cst", "≥80% Godoc coverage on exported functions",            ModelFamily::Claude, 2.0),
+    h!("go_cst.doc_coverage.high", HeuristicLanguage::GoCst, "go_cst", "≥80% Godoc coverage on exported functions",            ModelFamily::Claude, 1.5),
     h!("go_cst.goroutines.present", HeuristicLanguage::GoCst, "go_cst", "2+ goroutines — concurrent design",                    ModelFamily::Claude, 1.0),
     h!("go_cst.errors.nil_checks", HeuristicLanguage::GoCst, "go_cst", "3+ err != nil checks — thorough error handling",       ModelFamily::Claude, 1.5),
+
+    // ── GPT signals (new) ──────────────────────────────────────────────
+    h!("rust.comments.step_numbered",    HeuristicLanguage::Rust,   "comments",   "3+ step-numbered comments",                    ModelFamily::Gpt, 1.5),
+    h!("python.comments.step_numbered",  HeuristicLanguage::Python, "comments",   "3+ step-numbered comments",                    ModelFamily::Gpt, 1.5),
+    h!("js.comments.step_numbered",      HeuristicLanguage::Js,     "comments",   "3+ step-numbered comments",                    ModelFamily::Gpt, 1.5),
+    h!("go.comments.step_numbered",      HeuristicLanguage::Go,     "comments",   "3+ step-numbered comments",                    ModelFamily::Gpt, 1.5),
+    h!("rust.comments.heres_lets",       HeuristicLanguage::Rust,   "comments",   "3+ here's/let's phrases in comments",          ModelFamily::Gpt, 1.0),
+    h!("python.comments.heres_lets",     HeuristicLanguage::Python, "comments",   "3+ here's/let's phrases in comments",          ModelFamily::Gpt, 1.0),
+    h!("js.comments.heres_lets",         HeuristicLanguage::Js,     "comments",   "3+ here's/let's phrases in comments",          ModelFamily::Gpt, 1.0),
+    h!("go.comments.heres_lets",         HeuristicLanguage::Go,     "comments",   "3+ here's/let's phrases in comments",          ModelFamily::Gpt, 1.0),
+    h!("rust.ai_signals.triple_backtick",   HeuristicLanguage::Rust,   "ai_signals", "Markdown triple-backtick in code comments",  ModelFamily::Gpt, 1.5),
+    h!("python.ai_signals.triple_backtick", HeuristicLanguage::Python, "ai_signals", "Markdown triple-backtick in code comments",  ModelFamily::Gpt, 1.5),
+    h!("js.ai_signals.triple_backtick",     HeuristicLanguage::Js,     "ai_signals", "Markdown triple-backtick in code comments",  ModelFamily::Gpt, 1.5),
+    h!("go.ai_signals.triple_backtick",     HeuristicLanguage::Go,     "ai_signals", "Markdown triple-backtick in code comments",  ModelFamily::Gpt, 1.5),
+    h!("rust.comments.verbose_obvious",  HeuristicLanguage::Rust,   "comments",   "High comment-to-code ratio in simple code",    ModelFamily::Gpt, 1.2),
+    h!("python.comments.verbose_obvious",HeuristicLanguage::Python, "comments",   "High comment-to-code ratio in simple code",    ModelFamily::Gpt, 1.2),
+    h!("js.comments.verbose_obvious",    HeuristicLanguage::Js,     "comments",   "High comment-to-code ratio in simple code",    ModelFamily::Gpt, 1.2),
+    h!("go.comments.verbose_obvious",    HeuristicLanguage::Go,     "comments",   "High comment-to-code ratio in simple code",    ModelFamily::Gpt, 1.2),
+
+    // ── Gemini signals (new) ───────────────────────────────────────────
+    h!("rust.comments.bullet_style",     HeuristicLanguage::Rust,   "comments",   "3+ bullet-point comments",                     ModelFamily::Gemini, 1.0),
+    h!("python.comments.bullet_style",   HeuristicLanguage::Python, "comments",   "3+ bullet-point comments",                     ModelFamily::Gemini, 1.0),
+    h!("js.comments.bullet_style",       HeuristicLanguage::Js,     "comments",   "3+ bullet-point comments",                     ModelFamily::Gemini, 1.0),
+    h!("go.comments.bullet_style",       HeuristicLanguage::Go,     "comments",   "3+ bullet-point comments",                     ModelFamily::Gemini, 1.0),
+    h!("rust.naming.medium_descriptive",    HeuristicLanguage::Rust,   "naming",  "Medium-length descriptive names (avg 5–8 chars)", ModelFamily::Gemini, 1.0),
+    h!("python.naming.medium_descriptive",  HeuristicLanguage::Python, "naming",  "Medium-length descriptive names (avg 5–8 chars)", ModelFamily::Gemini, 1.0),
+    h!("js.naming.medium_descriptive",      HeuristicLanguage::Js,     "naming",  "Medium-length descriptive names (avg 5–8 chars)", ModelFamily::Gemini, 1.0),
+    h!("go.naming.medium_descriptive",      HeuristicLanguage::Go,     "naming",  "Medium-length descriptive names (avg 5–8 chars)", ModelFamily::Gemini, 1.0),
+    h!("rust.structure.ternary_heavy",   HeuristicLanguage::Rust,   "structure",  "3+ conditional expressions",                   ModelFamily::Gemini, 1.2),
+    h!("python.structure.ternary_heavy", HeuristicLanguage::Python, "structure",  "3+ conditional expressions",                   ModelFamily::Gemini, 1.2),
+    h!("js.structure.ternary_heavy",     HeuristicLanguage::Js,     "structure",  "3+ ternary expressions",                       ModelFamily::Gemini, 1.2),
+    h!("go.structure.ternary_heavy",     HeuristicLanguage::Go,     "structure",  "3+ conditional expressions",                   ModelFamily::Gemini, 1.2),
+    h!("rust.structure.compact_fns",     HeuristicLanguage::Rust,   "structure",  "Average function length 10–20 lines",          ModelFamily::Gemini, 1.0),
+    h!("python.structure.compact_fns",   HeuristicLanguage::Python, "structure",  "Average function length 10–20 lines",          ModelFamily::Gemini, 1.0),
+    h!("js.structure.compact_fns",       HeuristicLanguage::Js,     "structure",  "Average function length 10–20 lines",          ModelFamily::Gemini, 1.0),
+    h!("go.structure.compact_fns",       HeuristicLanguage::Go,     "structure",  "Average function length 10–20 lines",          ModelFamily::Gemini, 1.0),
+
+    // ── Copilot signals (new) ──────────────────────────────────────────
+    h!("rust.comments.minimal",          HeuristicLanguage::Rust,   "comments",   "<1% comment density in file >30 lines",        ModelFamily::Copilot, 1.5),
+    h!("python.comments.minimal",        HeuristicLanguage::Python, "comments",   "<1% comment density in file >30 lines",        ModelFamily::Copilot, 1.5),
+    h!("js.comments.minimal",            HeuristicLanguage::Js,     "comments",   "<1% comment density in file >30 lines",        ModelFamily::Copilot, 1.5),
+    h!("go.comments.minimal",            HeuristicLanguage::Go,     "comments",   "<1% comment density in file >30 lines",        ModelFamily::Copilot, 1.5),
+    h!("rust.naming.mixed_conventions",     HeuristicLanguage::Rust,   "naming",  "Mixed camelCase and snake_case identifiers",    ModelFamily::Copilot, 1.5),
+    h!("python.naming.mixed_conventions",   HeuristicLanguage::Python, "naming",  "Mixed camelCase and snake_case identifiers",    ModelFamily::Copilot, 1.5),
+    h!("js.naming.mixed_conventions",       HeuristicLanguage::Js,     "naming",  "Mixed camelCase and snake_case identifiers",    ModelFamily::Copilot, 1.5),
+    h!("go.naming.mixed_conventions",       HeuristicLanguage::Go,     "naming",  "Mixed camelCase and snake_case identifiers",    ModelFamily::Copilot, 1.5),
+    h!("rust.structure.very_short_fns",  HeuristicLanguage::Rust,   "structure",  "Average function length <10 lines",            ModelFamily::Copilot, 1.2),
+    h!("python.structure.very_short_fns",HeuristicLanguage::Python, "structure",  "Average function length <10 lines",            ModelFamily::Copilot, 1.2),
+    h!("js.structure.very_short_fns",    HeuristicLanguage::Js,     "structure",  "Average function length <10 lines",            ModelFamily::Copilot, 1.2),
+    h!("go.structure.very_short_fns",    HeuristicLanguage::Go,     "structure",  "Average function length <10 lines",            ModelFamily::Copilot, 1.2),
+    h!("rust.structure.format_inconsistent",   HeuristicLanguage::Rust,   "structure", "Mixed indentation (tabs+spaces)",          ModelFamily::Copilot, 1.2),
+    h!("python.structure.format_inconsistent", HeuristicLanguage::Python, "structure", "Mixed indentation (tabs+spaces)",          ModelFamily::Copilot, 1.2),
+    h!("js.structure.format_inconsistent",     HeuristicLanguage::Js,     "structure", "Mixed indentation (tabs+spaces)",          ModelFamily::Copilot, 1.2),
+    h!("go.structure.format_inconsistent",     HeuristicLanguage::Go,     "structure", "Mixed indentation (tabs+spaces)",          ModelFamily::Copilot, 1.2),
+
+    // ── Human signals (new) ────────────────────────────────────────────
+    h!("rust.comments.external_refs",    HeuristicLanguage::Rust,   "comments",   "2+ ticket/issue references in comments",       ModelFamily::Human, 2.0),
+    h!("python.comments.external_refs",  HeuristicLanguage::Python, "comments",   "2+ ticket/issue references in comments",       ModelFamily::Human, 2.0),
+    h!("js.comments.external_refs",      HeuristicLanguage::Js,     "comments",   "2+ ticket/issue references in comments",       ModelFamily::Human, 2.0),
+    h!("go.comments.external_refs",      HeuristicLanguage::Go,     "comments",   "2+ ticket/issue references in comments",       ModelFamily::Human, 2.0),
+    h!("rust.ai_signals.pragma",         HeuristicLanguage::Rust,   "ai_signals", "Pragma/lint override directives",              ModelFamily::Human, 1.5),
+    h!("python.ai_signals.pragma",       HeuristicLanguage::Python, "ai_signals", "Pragma/lint override directives",              ModelFamily::Human, 1.5),
+    h!("js.ai_signals.pragma",           HeuristicLanguage::Js,     "ai_signals", "Pragma/lint override directives",              ModelFamily::Human, 1.5),
+    h!("go.ai_signals.pragma",           HeuristicLanguage::Go,     "ai_signals", "Pragma/lint override directives",              ModelFamily::Human, 1.5),
+    h!("rust.naming.domain_abbreviations",   HeuristicLanguage::Rust,   "naming", "3+ domain abbreviations (cfg, ctx, etc.)",     ModelFamily::Human, 1.0),
+    h!("python.naming.domain_abbreviations", HeuristicLanguage::Python, "naming", "3+ domain abbreviations (cfg, ctx, etc.)",     ModelFamily::Human, 1.0),
+    h!("js.naming.domain_abbreviations",     HeuristicLanguage::Js,     "naming", "3+ domain abbreviations (cfg, ctx, etc.)",     ModelFamily::Human, 1.0),
+    h!("go.naming.domain_abbreviations",     HeuristicLanguage::Go,     "naming", "3+ domain abbreviations (cfg, ctx, etc.)",     ModelFamily::Human, 1.0),
 ];
 
 // ---------------------------------------------------------------------------
@@ -541,6 +609,74 @@ pub mod signal_ids {
     pub const GO_CST_DOC_COVERAGE_HIGH:  &str = "go_cst.doc_coverage.high";
     pub const GO_CST_GOROUTINES_PRESENT: &str = "go_cst.goroutines.present";
     pub const GO_CST_ERRORS_NIL_CHECKS:  &str = "go_cst.errors.nil_checks";
+
+    // GPT signals (new)
+    pub const RUST_COMMENTS_STEP_NUMBERED:       &str = "rust.comments.step_numbered";
+    pub const PYTHON_COMMENTS_STEP_NUMBERED:     &str = "python.comments.step_numbered";
+    pub const JS_COMMENTS_STEP_NUMBERED:         &str = "js.comments.step_numbered";
+    pub const GO_COMMENTS_STEP_NUMBERED:         &str = "go.comments.step_numbered";
+    pub const RUST_COMMENTS_HERES_LETS:          &str = "rust.comments.heres_lets";
+    pub const PYTHON_COMMENTS_HERES_LETS:        &str = "python.comments.heres_lets";
+    pub const JS_COMMENTS_HERES_LETS:            &str = "js.comments.heres_lets";
+    pub const GO_COMMENTS_HERES_LETS:            &str = "go.comments.heres_lets";
+    pub const RUST_AI_SIGNALS_TRIPLE_BACKTICK:   &str = "rust.ai_signals.triple_backtick";
+    pub const PYTHON_AI_SIGNALS_TRIPLE_BACKTICK: &str = "python.ai_signals.triple_backtick";
+    pub const JS_AI_SIGNALS_TRIPLE_BACKTICK:     &str = "js.ai_signals.triple_backtick";
+    pub const GO_AI_SIGNALS_TRIPLE_BACKTICK:     &str = "go.ai_signals.triple_backtick";
+    pub const RUST_COMMENTS_VERBOSE_OBVIOUS:     &str = "rust.comments.verbose_obvious";
+    pub const PYTHON_COMMENTS_VERBOSE_OBVIOUS:   &str = "python.comments.verbose_obvious";
+    pub const JS_COMMENTS_VERBOSE_OBVIOUS:       &str = "js.comments.verbose_obvious";
+    pub const GO_COMMENTS_VERBOSE_OBVIOUS:       &str = "go.comments.verbose_obvious";
+
+    // Gemini signals (new)
+    pub const RUST_COMMENTS_BULLET_STYLE:        &str = "rust.comments.bullet_style";
+    pub const PYTHON_COMMENTS_BULLET_STYLE:      &str = "python.comments.bullet_style";
+    pub const JS_COMMENTS_BULLET_STYLE:          &str = "js.comments.bullet_style";
+    pub const GO_COMMENTS_BULLET_STYLE:          &str = "go.comments.bullet_style";
+    pub const RUST_NAMING_MEDIUM_DESCRIPTIVE:    &str = "rust.naming.medium_descriptive";
+    pub const PYTHON_NAMING_MEDIUM_DESCRIPTIVE:  &str = "python.naming.medium_descriptive";
+    pub const JS_NAMING_MEDIUM_DESCRIPTIVE:      &str = "js.naming.medium_descriptive";
+    pub const GO_NAMING_MEDIUM_DESCRIPTIVE:      &str = "go.naming.medium_descriptive";
+    pub const RUST_STRUCTURE_TERNARY_HEAVY:      &str = "rust.structure.ternary_heavy";
+    pub const PYTHON_STRUCTURE_TERNARY_HEAVY:    &str = "python.structure.ternary_heavy";
+    pub const JS_STRUCTURE_TERNARY_HEAVY:        &str = "js.structure.ternary_heavy";
+    pub const GO_STRUCTURE_TERNARY_HEAVY:        &str = "go.structure.ternary_heavy";
+    pub const RUST_STRUCTURE_COMPACT_FNS:        &str = "rust.structure.compact_fns";
+    pub const PYTHON_STRUCTURE_COMPACT_FNS:      &str = "python.structure.compact_fns";
+    pub const JS_STRUCTURE_COMPACT_FNS:          &str = "js.structure.compact_fns";
+    pub const GO_STRUCTURE_COMPACT_FNS:          &str = "go.structure.compact_fns";
+
+    // Copilot signals (new)
+    pub const RUST_COMMENTS_MINIMAL:             &str = "rust.comments.minimal";
+    pub const PYTHON_COMMENTS_MINIMAL:           &str = "python.comments.minimal";
+    pub const JS_COMMENTS_MINIMAL:               &str = "js.comments.minimal";
+    pub const GO_COMMENTS_MINIMAL:               &str = "go.comments.minimal";
+    pub const RUST_NAMING_MIXED_CONVENTIONS:     &str = "rust.naming.mixed_conventions";
+    pub const PYTHON_NAMING_MIXED_CONVENTIONS:   &str = "python.naming.mixed_conventions";
+    pub const JS_NAMING_MIXED_CONVENTIONS:       &str = "js.naming.mixed_conventions";
+    pub const GO_NAMING_MIXED_CONVENTIONS:       &str = "go.naming.mixed_conventions";
+    pub const RUST_STRUCTURE_VERY_SHORT_FNS:     &str = "rust.structure.very_short_fns";
+    pub const PYTHON_STRUCTURE_VERY_SHORT_FNS:   &str = "python.structure.very_short_fns";
+    pub const JS_STRUCTURE_VERY_SHORT_FNS:       &str = "js.structure.very_short_fns";
+    pub const GO_STRUCTURE_VERY_SHORT_FNS:       &str = "go.structure.very_short_fns";
+    pub const RUST_STRUCTURE_FORMAT_INCONSISTENT:   &str = "rust.structure.format_inconsistent";
+    pub const PYTHON_STRUCTURE_FORMAT_INCONSISTENT: &str = "python.structure.format_inconsistent";
+    pub const JS_STRUCTURE_FORMAT_INCONSISTENT:     &str = "js.structure.format_inconsistent";
+    pub const GO_STRUCTURE_FORMAT_INCONSISTENT:     &str = "go.structure.format_inconsistent";
+
+    // Human signals (new)
+    pub const RUST_COMMENTS_EXTERNAL_REFS:       &str = "rust.comments.external_refs";
+    pub const PYTHON_COMMENTS_EXTERNAL_REFS:     &str = "python.comments.external_refs";
+    pub const JS_COMMENTS_EXTERNAL_REFS:         &str = "js.comments.external_refs";
+    pub const GO_COMMENTS_EXTERNAL_REFS:         &str = "go.comments.external_refs";
+    pub const RUST_AI_SIGNALS_PRAGMA:            &str = "rust.ai_signals.pragma";
+    pub const PYTHON_AI_SIGNALS_PRAGMA:          &str = "python.ai_signals.pragma";
+    pub const JS_AI_SIGNALS_PRAGMA:              &str = "js.ai_signals.pragma";
+    pub const GO_AI_SIGNALS_PRAGMA:              &str = "go.ai_signals.pragma";
+    pub const RUST_NAMING_DOMAIN_ABBREVIATIONS:  &str = "rust.naming.domain_abbreviations";
+    pub const PYTHON_NAMING_DOMAIN_ABBREVIATIONS:&str = "python.naming.domain_abbreviations";
+    pub const JS_NAMING_DOMAIN_ABBREVIATIONS:    &str = "js.naming.domain_abbreviations";
+    pub const GO_NAMING_DOMAIN_ABBREVIATIONS:    &str = "go.naming.domain_abbreviations";
 }
 
 // ---------------------------------------------------------------------------
@@ -667,8 +803,8 @@ mod tests {
     fn default_heuristics_returns_correct_weight() {
         let h = DefaultHeuristics;
         assert_eq!(h.weight(signal_ids::RUST_ERRORS_ZERO_UNWRAP), 1.5);
-        assert_eq!(h.weight(signal_ids::RUST_AI_SIGNALS_COMMENTED_OUT_CODE), 2.5);
-        assert_eq!(h.weight(signal_ids::RUST_CST_COMPLEXITY_LOW), 2.5);
+        assert_eq!(h.weight(signal_ids::RUST_AI_SIGNALS_COMMENTED_OUT_CODE), 2.0);
+        assert_eq!(h.weight(signal_ids::RUST_CST_COMPLEXITY_LOW), 1.5);
     }
 
     #[test]
@@ -694,6 +830,22 @@ mod tests {
         let h = ConfiguredHeuristics::from_config(overrides);
         assert!(!h.is_enabled(signal_ids::RUST_ERRORS_ZERO_UNWRAP));
         assert!(h.is_enabled(signal_ids::RUST_ERRORS_MANY_UNWRAPS));
+    }
+
+    #[test]
+    fn no_family_exceeds_35_percent() {
+        let mut counts: std::collections::HashMap<ModelFamily, usize> = std::collections::HashMap::new();
+        for h in ALL_HEURISTICS {
+            *counts.entry(h.family).or_default() += 1;
+        }
+        let total = ALL_HEURISTICS.len();
+        for (fam, count) in &counts {
+            assert!(
+                (*count as f64 / total as f64) <= 0.35,
+                "{fam:?} has {count}/{total} signals ({:.1}%), exceeds 35%",
+                *count as f64 / total as f64 * 100.0
+            );
+        }
     }
 
     #[test]

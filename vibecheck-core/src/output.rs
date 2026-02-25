@@ -20,11 +20,15 @@ pub fn format_text(report: &Report) -> String {
     if let Some(ref path) = report.metadata.file_path {
         out.push_str(&format!("File: {}\n", path.display()));
     }
-    out.push_str(&format!(
-        "Verdict: {} ({:.0}% confidence)\n",
-        report.attribution.primary,
-        report.attribution.confidence * 100.0
-    ));
+    if report.attribution.has_sufficient_data() {
+        out.push_str(&format!(
+            "Verdict: {} ({:.0}% confidence)\n",
+            report.attribution.primary,
+            report.attribution.confidence * 100.0
+        ));
+    } else {
+        out.push_str("Verdict: Insufficient data\n");
+    }
     out.push_str(&format!(
         "Lines: {} | Signals: {}\n",
         report.metadata.lines_of_code, report.metadata.signal_count
@@ -113,6 +117,28 @@ mod tests {
         let json = format_json(&report);
         assert!(json.contains("\"primary\""));
         assert!(json.contains("claude"));
+    }
+
+    #[test]
+    fn format_text_insufficient_data() {
+        let scores = HashMap::new();
+        let report = Report {
+            attribution: Attribution {
+                primary: ModelFamily::Human,
+                confidence: 0.0,
+                scores,
+            },
+            signals: vec![],
+            metadata: ReportMetadata {
+                file_path: Some(PathBuf::from("config.toml")),
+                lines_of_code: 10,
+                signal_count: 0,
+            },
+            symbol_reports: None,
+        };
+        let out = format_text(&report);
+        assert!(out.contains("Insufficient data"), "expected 'Insufficient data' in output: {out}");
+        assert!(!out.contains("confidence"));
     }
 
     #[test]

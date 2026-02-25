@@ -99,6 +99,15 @@ pub struct Attribution {
     pub scores: HashMap<ModelFamily, f64>,
 }
 
+impl Attribution {
+    /// Returns `true` when there was enough signal data to produce a
+    /// meaningful attribution. When `false`, consumers should display
+    /// "Insufficient data" rather than the `primary` field.
+    pub fn has_sufficient_data(&self) -> bool {
+        self.confidence > 0.0
+    }
+}
+
 /// Metadata about the analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReportMetadata {
