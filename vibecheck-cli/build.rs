@@ -1,6 +1,6 @@
 #![deny(warnings)]
 
-use vibecheck_core::heuristics::{ALL_HEURISTICS, HeuristicLanguage};
+use vibecheck_core::heuristics::{all_heuristics, HeuristicLanguage};
 use vibecheck_core::report::{ModelFamily, Report};
 
 const FONT: &str = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace";
@@ -699,7 +699,7 @@ fn generate_readme_signals() {
     ];
 
     for (lang_name, variants) in groups {
-        let mut signals: Vec<_> = ALL_HEURISTICS
+        let mut signals: Vec<_> = all_heuristics()
             .iter()
             .filter(|s| variants.contains(&s.language))
             .collect();

@@ -187,11 +187,12 @@ fn collect_cached_reports(
             }
             if let Ok(bytes) = std::fs::read(&path) {
                 let hash = Cache::hash_content(&bytes);
-                if let Some(ref c) = cache {
-                    if let Some(mut report) = c.get(&hash) {
-                        report.metadata.file_path = Some(path.clone());
-                        results.push((path, report));
-                    }
+                let cached = cache.and_then(|c| c.get(&hash));
+                if let Some(mut report) = cached {
+                    report.metadata.file_path = Some(path.clone());
+                    results.push((path, report));
+                } else if let Ok(report) = analyze_file(&path) {
+                    results.push((path, report));
                 }
             }
         }

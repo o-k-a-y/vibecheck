@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use redb::{Database, TableDefinition};
 use sha2::{Digest, Sha256};
@@ -7,6 +8,21 @@ use crate::merkle::DirNode;
 use crate::report::{Report, SymbolReport};
 
 const CACHE_TABLE: TableDefinition<&[u8], &str> = TableDefinition::new("cache");
+
+/// SHA-256 of the embedded heuristics.toml, computed once.
+/// Mixed into every content hash so cache entries auto-invalidate
+/// when signal definitions change.
+fn heuristics_epoch() -> &'static [u8; 32] {
+    static EPOCH: OnceLock<[u8; 32]> = OnceLock::new();
+    EPOCH.get_or_init(|| {
+        let mut h = Sha256::new();
+        h.update(include_str!("../heuristics.toml").as_bytes());
+        let result = h.finalize();
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(&result);
+        hash
+    })
+}
 
 /// Stores `Vec<SymbolReport>` keyed by the same SHA-256 hash as `CACHE_TABLE`.
 /// Kept separate so that regular `analyze_file` results are never inflated with
@@ -37,9 +53,11 @@ impl Cache {
             .join("vibecheck")
     }
 
-    /// Compute the SHA-256 hash of `content`.
+    /// Compute the SHA-256 hash of `content`, mixed with the heuristics epoch
+    /// so that cache entries auto-invalidate when signal definitions change.
     pub fn hash_content(content: &[u8]) -> [u8; 32] {
         let mut hasher = Sha256::new();
+        hasher.update(heuristics_epoch());
         hasher.update(content);
         let result = hasher.finalize();
         let mut hash = [0u8; 32];

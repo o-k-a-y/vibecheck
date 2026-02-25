@@ -1,5 +1,5 @@
 use anyhow::Result;
-use vibecheck_core::heuristics::{signal_ids, ALL_HEURISTICS};
+use vibecheck_core::heuristics::{all_heuristics, signal_ids};
 
 pub fn run(format: &str) -> Result<()> {
     match format {
@@ -37,7 +37,7 @@ fn print_table() {
     );
     println!("{separator}");
 
-    for h in ALL_HEURISTICS {
+    for h in all_heuristics() {
         let family = format!("{:?}", h.family);
         let lang_str = h.language.to_string();
         println!(
@@ -64,7 +64,7 @@ fn print_toml() {
     println!();
 
     let mut last_lang = None;
-    for h in ALL_HEURISTICS {
+    for h in all_heuristics() {
         if last_lang != Some(h.language) {
             if last_lang.is_some() {
                 println!();
