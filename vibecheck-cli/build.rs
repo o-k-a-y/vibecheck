@@ -743,6 +743,94 @@ fn generate_readme_signals() {
     }
 }
 
+fn generate_readme_badges() {
+    const START_MARKER: &str = "<!-- vibecheck:badges-start -->";
+    const END_MARKER:   &str = "<!-- vibecheck:badges-end -->";
+
+    let dirs = ["../vibecheck-core/src", "../vibecheck-cli/src"];
+    let mut family_weighted: std::collections::HashMap<ModelFamily, f64> = std::collections::HashMap::new();
+    let mut total_loc: f64 = 0.0;
+
+    for dir in &dirs {
+        let entries = match std::fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        fn collect_rs(path: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+            if path.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(path) {
+                    for entry in entries.flatten() {
+                        collect_rs(&entry.path(), files);
+                    }
+                }
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                files.push(path.to_path_buf());
+            }
+        }
+        let mut files = Vec::new();
+        for entry in entries.flatten() {
+            collect_rs(&entry.path(), &mut files);
+        }
+        for file in &files {
+            let content = match std::fs::read_to_string(file) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let report = vibecheck_core::analyze(&content);
+            let loc = report.metadata.lines_of_code as f64;
+            if loc < 1.0 { continue; }
+            total_loc += loc;
+            for (fam, &score) in &report.attribution.scores {
+                *family_weighted.entry(*fam).or_default() += score * loc;
+            }
+        }
+    }
+
+    if total_loc < 1.0 { return; }
+
+    let mut scores: Vec<(ModelFamily, f64)> = family_weighted
+        .iter()
+        .map(|(f, &w)| (*f, (w / total_loc * 100.0).round()))
+        .collect();
+    scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
+
+    let badges: Vec<String> = scores
+        .iter()
+        .map(|(fam, pct)| {
+            let (r, g, b) = fam.rgb();
+            let color = format!("{r:02x}{g:02x}{b:02x}");
+            let pct_int = *pct as u32;
+            format!(
+                "[![{fam} {pct_int}%](https://img.shields.io/badge/{fam}-{pct_int}%25-{color})](https://github.com/o-k-a-y/vibecheck)"
+            )
+        })
+        .collect();
+
+    let badge_line = badges.join("\n");
+
+    let readme_path = "../README.md";
+    let content = match std::fs::read_to_string(readme_path) {
+        Ok(s) => s,
+        Err(e) => { eprintln!("build.rs: cannot read README.md for badges: {e}"); return; }
+    };
+
+    if let (Some(s), Some(e)) = (content.find(START_MARKER), content.find(END_MARKER)) {
+        let new_content = format!(
+            "{}{}\n{}\n{}{}",
+            &content[..s + START_MARKER.len()],
+            "\n",
+            badge_line,
+            END_MARKER,
+            &content[e + END_MARKER.len()..]
+        );
+        if let Err(e) = std::fs::write(readme_path, new_content) {
+            eprintln!("build.rs: failed to update README.md badges: {e}");
+        }
+    } else {
+        eprintln!("build.rs: README.md missing badge markers — skipping badge injection");
+    }
+}
+
 fn main() {
     let source = match std::fs::read_to_string("src/output.rs") {
         Ok(s) => s,
@@ -776,4 +864,5 @@ fn main() {
     }
 
     generate_readme_signals();
+    generate_readme_badges();
 }
