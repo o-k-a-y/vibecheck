@@ -29,5 +29,9 @@ tree-sitter-javascript = "0.23"
 tree-sitter-go       = "0.23"
 rusqlite = { version = "0.31", optional = true }
 
+[build-dependencies]
+toml  = "0.8"
+serde = { version = "1", features = ["derive"] }
+
 [dev-dependencies]
 tempfile = "3"

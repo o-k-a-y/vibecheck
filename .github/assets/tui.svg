@@ -24,7 +24,7 @@
   <text x="7" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">▶     pipeline.rs</text>
   <text x="264" y="154" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   62%</text>
   <text x="7" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">      report.rs</text>
-  <text x="264" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   49%</text>
+  <text x="264" y="173" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff">Claude   50%</text>
   <text x="367" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold">vibecheck-core/src/pipeline.rs</text>
   <text x="598" y="62" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude (63%)</text>
   <text x="367" y="89" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Claude     </text>

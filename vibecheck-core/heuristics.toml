@@ -1,0 +1,1687 @@
+[[signal]]
+id          = "rust.errors.zero_unwrap"
+language    = "rust"
+analyzer    = "errors"
+description = "Zero .unwrap() calls in a large file"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.errors.many_unwraps"
+language    = "rust"
+analyzer    = "errors"
+description = "5+ .unwrap() calls — pragmatic style"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.errors.few_unwraps"
+language    = "rust"
+analyzer    = "errors"
+description = "1–3 .unwrap() calls — moderate usage"
+family      = "copilot"
+weight      = 0.5
+
+[[signal]]
+id          = "rust.errors.expect_calls"
+language    = "rust"
+analyzer    = "errors"
+description = "2+ .expect() calls — descriptive error handling"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.errors.question_mark"
+language    = "rust"
+analyzer    = "errors"
+description = "3+ uses of the ? operator"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.errors.exhaustive_match"
+language    = "rust"
+analyzer    = "errors"
+description = "Match expressions prefer exhaustive patterns over wildcards"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.errors.panic_calls"
+language    = "rust"
+analyzer    = "errors"
+description = "2+ panic!() calls"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "python.errors.broad_except"
+language    = "python"
+analyzer    = "errors"
+description = "2+ broad except clauses — swallows all exceptions"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "python.errors.specific_except"
+language    = "python"
+analyzer    = "errors"
+description = "2+ specific exception types — precise error handling"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "python.errors.no_try_except"
+language    = "python"
+analyzer    = "errors"
+description = "No try/except blocks in a substantial file"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "python.errors.raise_from"
+language    = "python"
+analyzer    = "errors"
+description = "2+ raise…from patterns — idiomatic exception chaining"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "js.errors.console_error"
+language    = "js"
+analyzer    = "errors"
+description = "2+ console.error/warn calls — debug artifacts"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js.errors.typed_error_check"
+language    = "js"
+analyzer    = "errors"
+description = "2+ instanceof Error checks — typed error handling"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "js.errors.promise_catch"
+language    = "js"
+analyzer    = "errors"
+description = "2+ .catch() chains — promise-based error handling"
+family      = "human"
+weight      = 0.8
+
+[[signal]]
+id          = "js.errors.try_catch_blocks"
+language    = "js"
+analyzer    = "errors"
+description = "2+ try/catch blocks — structured async error handling"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "js.errors.typed_error_construction"
+language    = "js"
+analyzer    = "errors"
+description = "2+ typed Error constructions — specific error classes"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "go.errors.simple_err_return"
+language    = "go"
+analyzer    = "errors"
+description = "3+ simple 'if err != nil' returns"
+family      = "human"
+weight      = 0.8
+
+[[signal]]
+id          = "go.errors.errorf_wrap"
+language    = "go"
+analyzer    = "errors"
+description = "2+ fmt.Errorf(%w) wrappings — idiomatic error context"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "go.errors.errors_sentinel"
+language    = "go"
+analyzer    = "errors"
+description = "2+ errors.Is/As calls — structured error inspection"
+family      = "claude"
+weight      = 1.2
+
+[[signal]]
+id          = "go.errors.panic_calls"
+language    = "go"
+analyzer    = "errors"
+description = "2+ panic() calls — non-recoverable or human shortcut"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.ai_signals.no_todo"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "No TODO/FIXME markers in a substantial file"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.ai_signals.no_dead_code"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "No dead code suppressions (#[allow(dead_code)])"
+family      = "claude"
+weight      = 0.5
+
+[[signal]]
+id          = "rust.ai_signals.all_fns_documented"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "Every function has a doc comment — suspiciously thorough"
+family      = "claude"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.ai_signals.no_trailing_ws"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "Zero trailing whitespace — machine-perfect formatting"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "rust.ai_signals.commented_out_code"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "2+ lines of commented-out code"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.ai_signals.no_placeholder"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "No placeholder values — polished code"
+family      = "gpt"
+weight      = 0.3
+
+[[signal]]
+id          = "python.ai_signals.no_todo"
+language    = "python"
+analyzer    = "ai_signals"
+description = "No TODO/FIXME markers in a substantial file"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "python.ai_signals.no_trailing_ws"
+language    = "python"
+analyzer    = "ai_signals"
+description = "Zero trailing whitespace — machine-perfect formatting"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "python.ai_signals.no_placeholder"
+language    = "python"
+analyzer    = "ai_signals"
+description = "No placeholder values — polished code"
+family      = "gpt"
+weight      = 0.3
+
+[[signal]]
+id          = "python.ai_signals.no_linter_suppression"
+language    = "python"
+analyzer    = "ai_signals"
+description = "No noqa/type: ignore suppressions"
+family      = "claude"
+weight      = 0.5
+
+[[signal]]
+id          = "python.ai_signals.commented_out_code"
+language    = "python"
+analyzer    = "ai_signals"
+description = "2+ lines of commented-out code"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "python.ai_signals.all_fns_documented"
+language    = "python"
+analyzer    = "ai_signals"
+description = "Every function has a docstring — suspiciously thorough"
+family      = "claude"
+weight      = 2.0
+
+[[signal]]
+id          = "js.ai_signals.no_todo"
+language    = "js"
+analyzer    = "ai_signals"
+description = "No TODO/FIXME markers in a substantial file"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "js.ai_signals.no_trailing_ws"
+language    = "js"
+analyzer    = "ai_signals"
+description = "Zero trailing whitespace — machine-perfect formatting"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "js.ai_signals.no_placeholder"
+language    = "js"
+analyzer    = "ai_signals"
+description = "No placeholder values — polished code"
+family      = "gpt"
+weight      = 0.3
+
+[[signal]]
+id          = "js.ai_signals.no_linter_suppression"
+language    = "js"
+analyzer    = "ai_signals"
+description = "No eslint-disable / @ts-ignore suppressions"
+family      = "claude"
+weight      = 0.5
+
+[[signal]]
+id          = "js.ai_signals.commented_out_code"
+language    = "js"
+analyzer    = "ai_signals"
+description = "2+ lines of commented-out code"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "js.ai_signals.jsdoc_blocks"
+language    = "js"
+analyzer    = "ai_signals"
+description = "3+ JSDoc comment blocks — thorough documentation"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js.ai_signals.console_log"
+language    = "js"
+analyzer    = "ai_signals"
+description = "3+ console.log calls — likely debugging artifacts"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "go.ai_signals.no_todo"
+language    = "go"
+analyzer    = "ai_signals"
+description = "No TODO/FIXME markers in a substantial file"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "go.ai_signals.no_trailing_ws"
+language    = "go"
+analyzer    = "ai_signals"
+description = "Zero trailing whitespace — machine-perfect formatting"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "go.ai_signals.no_placeholder"
+language    = "go"
+analyzer    = "ai_signals"
+description = "No placeholder values — polished code"
+family      = "gpt"
+weight      = 0.3
+
+[[signal]]
+id          = "go.ai_signals.no_nolint"
+language    = "go"
+analyzer    = "ai_signals"
+description = "No nolint suppressions — clean linter compliance"
+family      = "claude"
+weight      = 0.5
+
+[[signal]]
+id          = "go.ai_signals.commented_out_code"
+language    = "go"
+analyzer    = "ai_signals"
+description = "2+ lines of commented-out code"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "go.ai_signals.all_exported_documented"
+language    = "go"
+analyzer    = "ai_signals"
+description = "All exported identifiers have doc comments"
+family      = "claude"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.structure.high_type_annotation"
+language    = "rust"
+analyzer    = "structure"
+description = "High type annotation ratio on let bindings"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.structure.low_type_annotation"
+language    = "rust"
+analyzer    = "structure"
+description = "Relies on type inference — minimal annotations"
+family      = "gemini"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.structure.sorted_imports"
+language    = "rust"
+analyzer    = "structure"
+description = "Import statements are alphabetically sorted"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "rust.structure.consistent_blank_lines"
+language    = "rust"
+analyzer    = "structure"
+description = "Perfectly consistent blank line spacing"
+family      = "gemini"
+weight      = 0.5
+
+[[signal]]
+id          = "rust.structure.lines_under_100"
+language    = "rust"
+analyzer    = "structure"
+description = "All lines ≤100 chars — disciplined formatting"
+family      = "gemini"
+weight      = 0.4
+
+[[signal]]
+id          = "rust.structure.many_long_lines"
+language    = "rust"
+analyzer    = "structure"
+description = "5+ lines over 100 chars"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.structure.heavy_derive"
+language    = "rust"
+analyzer    = "structure"
+description = "Heavy derive usage (avg ≥4 traits per derive)"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "python.structure.sorted_imports"
+language    = "python"
+analyzer    = "structure"
+description = "Import statements are alphabetically sorted"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "python.structure.consistent_blank_lines"
+language    = "python"
+analyzer    = "structure"
+description = "Perfectly consistent blank line spacing"
+family      = "gemini"
+weight      = 0.5
+
+[[signal]]
+id          = "python.structure.lines_under_88"
+language    = "python"
+analyzer    = "structure"
+description = "All lines ≤88 chars — PEP 8 / Black-style discipline"
+family      = "gemini"
+weight      = 0.4
+
+[[signal]]
+id          = "js.structure.sorted_imports"
+language    = "js"
+analyzer    = "structure"
+description = "Import statements are alphabetically sorted"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "js.structure.consistent_blank_lines"
+language    = "js"
+analyzer    = "structure"
+description = "Perfectly consistent blank line spacing"
+family      = "gemini"
+weight      = 0.5
+
+[[signal]]
+id          = "js.structure.lines_under_100"
+language    = "js"
+analyzer    = "structure"
+description = "All lines ≤100 chars — disciplined formatting"
+family      = "gemini"
+weight      = 0.4
+
+[[signal]]
+id          = "js.structure.many_long_lines"
+language    = "js"
+analyzer    = "structure"
+description = "5+ lines over 100 chars"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "go.structure.sorted_imports"
+language    = "go"
+analyzer    = "structure"
+description = "Import strings are sorted — goimports-style"
+family      = "gpt"
+weight      = 0.5
+
+[[signal]]
+id          = "go.structure.consistent_blank_lines"
+language    = "go"
+analyzer    = "structure"
+description = "Perfectly consistent blank line spacing"
+family      = "gemini"
+weight      = 0.5
+
+[[signal]]
+id          = "go.structure.lines_under_120"
+language    = "go"
+analyzer    = "structure"
+description = "All lines ≤120 chars — gofmt-style discipline"
+family      = "gemini"
+weight      = 0.4
+
+[[signal]]
+id          = "rust.comments.high_density"
+language    = "rust"
+analyzer    = "comments"
+description = "High comment density (>15%)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.low_density"
+language    = "rust"
+analyzer    = "comments"
+description = "Very low comment density (<3%)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.comments.teaching_voice"
+language    = "rust"
+analyzer    = "comments"
+description = "3+ comments with teaching/explanatory voice"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.some_explanatory"
+language    = "rust"
+analyzer    = "comments"
+description = "Some explanatory comments present"
+family      = "gpt"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.comments.doc_comments"
+language    = "rust"
+analyzer    = "comments"
+description = "5+ doc comments (///) — thorough documentation"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.terse_markers"
+language    = "rust"
+analyzer    = "comments"
+description = "2+ terse/frustrated comments (TODO, HACK, etc.)"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "python.comments.high_density"
+language    = "python"
+analyzer    = "comments"
+description = "High comment density (>15%)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.comments.low_density"
+language    = "python"
+analyzer    = "comments"
+description = "Very low comment density (<3%)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "python.comments.teaching_voice"
+language    = "python"
+analyzer    = "comments"
+description = "3+ comments with teaching/explanatory voice"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.comments.some_explanatory"
+language    = "python"
+analyzer    = "comments"
+description = "Some explanatory comments present"
+family      = "gpt"
+weight      = 0.8
+
+[[signal]]
+id          = "python.comments.docstring_blocks"
+language    = "python"
+analyzer    = "comments"
+description = "5+ docstring blocks — thorough documentation"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.comments.terse_markers"
+language    = "python"
+analyzer    = "comments"
+description = "2+ terse/frustrated comments"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "js.comments.high_density"
+language    = "js"
+analyzer    = "comments"
+description = "High comment density (>15%)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js.comments.low_density"
+language    = "js"
+analyzer    = "comments"
+description = "Very low comment density (<3%)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js.comments.teaching_voice"
+language    = "js"
+analyzer    = "comments"
+description = "3+ comments with teaching/explanatory voice"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js.comments.some_explanatory"
+language    = "js"
+analyzer    = "comments"
+description = "Some explanatory comments present"
+family      = "gpt"
+weight      = 0.8
+
+[[signal]]
+id          = "js.comments.terse_markers"
+language    = "js"
+analyzer    = "comments"
+description = "2+ terse/frustrated comments (TODO, HACK, etc.)"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "js.comments.jsdoc_blocks"
+language    = "js"
+analyzer    = "comments"
+description = "5+ JSDoc comment blocks — thorough API documentation"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.comments.high_density"
+language    = "go"
+analyzer    = "comments"
+description = "High comment density (>15%)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.comments.low_density"
+language    = "go"
+analyzer    = "comments"
+description = "Very low comment density (<3%)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "go.comments.teaching_voice"
+language    = "go"
+analyzer    = "comments"
+description = "3+ comments with teaching/explanatory voice"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.comments.some_explanatory"
+language    = "go"
+analyzer    = "comments"
+description = "Some explanatory comments present"
+family      = "gpt"
+weight      = 0.8
+
+[[signal]]
+id          = "go.comments.terse_markers"
+language    = "go"
+analyzer    = "comments"
+description = "2+ terse/frustrated comments (TODO, HACK, etc.)"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.naming.very_descriptive_vars"
+language    = "rust"
+analyzer    = "naming"
+description = "Very descriptive variable names (avg >12 chars)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.naming.descriptive_vars"
+language    = "rust"
+analyzer    = "naming"
+description = "Descriptive variable names (avg 8–12 chars)"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.naming.short_vars"
+language    = "rust"
+analyzer    = "naming"
+description = "Short variable names (avg <4 chars)"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.naming.many_single_char_vars"
+language    = "rust"
+analyzer    = "naming"
+description = "3+ single-character variable names"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.naming.no_single_char_vars"
+language    = "rust"
+analyzer    = "naming"
+description = "No single-character variable names"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.naming.underscore_bindings"
+language    = "rust"
+analyzer    = "naming"
+description = "2+ underscore-prefixed bindings (acknowledging unused)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.naming.descriptive_fn_names"
+language    = "rust"
+analyzer    = "naming"
+description = "Very descriptive function names (avg >15 chars)"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "python.naming.very_descriptive"
+language    = "python"
+analyzer    = "naming"
+description = "Very descriptive names (avg >12 chars)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.naming.descriptive"
+language    = "python"
+analyzer    = "naming"
+description = "Descriptive names (avg 8–12 chars)"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "python.naming.short_names"
+language    = "python"
+analyzer    = "naming"
+description = "Short names (avg <4 chars)"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "python.naming.many_single_char"
+language    = "python"
+analyzer    = "naming"
+description = "3+ single-character names"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "python.naming.no_single_char"
+language    = "python"
+analyzer    = "naming"
+description = "No single-character names"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "js.naming.very_descriptive"
+language    = "js"
+analyzer    = "naming"
+description = "Very descriptive names (avg >12 chars)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js.naming.descriptive"
+language    = "js"
+analyzer    = "naming"
+description = "Descriptive names (avg 8–12 chars)"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "js.naming.short_names"
+language    = "js"
+analyzer    = "naming"
+description = "Short names (avg <4 chars)"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "js.naming.many_single_char"
+language    = "js"
+analyzer    = "naming"
+description = "3+ single-character names"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "js.naming.no_single_char"
+language    = "js"
+analyzer    = "naming"
+description = "No single-character names"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "go.naming.very_descriptive"
+language    = "go"
+analyzer    = "naming"
+description = "Very descriptive names (avg >12 chars)"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.naming.descriptive"
+language    = "go"
+analyzer    = "naming"
+description = "Descriptive names (avg 8–12 chars)"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "go.naming.short_names"
+language    = "go"
+analyzer    = "naming"
+description = "Short names (avg <4 chars)"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "go.naming.many_single_char"
+language    = "go"
+analyzer    = "naming"
+description = "3+ single-character names"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "go.naming.no_single_char"
+language    = "go"
+analyzer    = "naming"
+description = "No single-character names"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.idioms.iterator_chains"
+language    = "rust"
+analyzer    = "idioms"
+description = "5+ iterator chain usages — textbook-idiomatic Rust"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.idioms.builder_pattern"
+language    = "rust"
+analyzer    = "idioms"
+description = "8+ method chain continuation lines — builder pattern"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.idioms.impl_display"
+language    = "rust"
+analyzer    = "idioms"
+description = "Implements Display trait — thorough API design"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.idioms.from_into_impls"
+language    = "rust"
+analyzer    = "idioms"
+description = "2+ From/Into implementations — conversion-rich design"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.idioms.self_usage"
+language    = "rust"
+analyzer    = "idioms"
+description = "3+ uses of Self — consistent self-referencing"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.idioms.pattern_matching"
+language    = "rust"
+analyzer    = "idioms"
+description = "3+ if-let/while-let patterns"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.idioms.format_macro"
+language    = "rust"
+analyzer    = "idioms"
+description = "Uses format!() exclusively, no string concatenation"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "rust.idioms.string_concat"
+language    = "rust"
+analyzer    = "idioms"
+description = "3+ string concatenations — less idiomatic"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.idioms.many_traits"
+language    = "rust"
+analyzer    = "idioms"
+description = "3+ trait definitions — heavy abstraction"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "python.idioms.comprehensions"
+language    = "python"
+analyzer    = "idioms"
+description = "3+ list/dict/set comprehensions — pythonic style"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.idioms.return_type_annotations"
+language    = "python"
+analyzer    = "idioms"
+description = "All function definitions have return type annotations"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python.idioms.context_managers"
+language    = "python"
+analyzer    = "idioms"
+description = "2+ context manager usages (with statement)"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "python.idioms.functional_builtins"
+language    = "python"
+analyzer    = "idioms"
+description = "4+ functional builtin usages — idiomatic Python"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "python.idioms.fstrings"
+language    = "python"
+analyzer    = "idioms"
+description = "Uses f-strings exclusively — modern string formatting"
+family      = "claude"
+weight      = 0.8
+
+[[signal]]
+id          = "python.idioms.old_format"
+language    = "python"
+analyzer    = "idioms"
+description = "3+ old-style format calls — legacy string formatting"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js.idioms.arrow_fns_only"
+language    = "js"
+analyzer    = "idioms"
+description = "5+ arrow functions, no regular functions — modern ES6+ style"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js.idioms.regular_fns_only"
+language    = "js"
+analyzer    = "idioms"
+description = "3+ traditional function declarations — older style"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js.idioms.var_declarations"
+language    = "js"
+analyzer    = "idioms"
+description = "3+ var declarations — legacy hoisting style"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "js.idioms.const_declarations"
+language    = "js"
+analyzer    = "idioms"
+description = "5+ const declarations — immutability-first approach"
+family      = "copilot"
+weight      = 1.0
+
+[[signal]]
+id          = "js.idioms.null_safe_ops"
+language    = "js"
+analyzer    = "idioms"
+description = "3+ optional chaining/nullish ops — modern null safety"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "js.idioms.destructuring"
+language    = "js"
+analyzer    = "idioms"
+description = "3+ destructuring assignments — idiomatic ES6+"
+family      = "gemini"
+weight      = 0.8
+
+[[signal]]
+id          = "js.idioms.async_await"
+language    = "js"
+analyzer    = "idioms"
+description = "3+ async/await usages — modern asynchronous style"
+family      = "gemini"
+weight      = 0.8
+
+[[signal]]
+id          = "go.idioms.interface_checks"
+language    = "go"
+analyzer    = "idioms"
+description = "1+ compile-time interface checks — thorough Go design"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.idioms.goroutines"
+language    = "go"
+analyzer    = "idioms"
+description = "2+ goroutine launches — concurrent design"
+family      = "gpt"
+weight      = 0.8
+
+[[signal]]
+id          = "go.idioms.defer_stmts"
+language    = "go"
+analyzer    = "idioms"
+description = "2+ defer statements — idiomatic resource cleanup"
+family      = "gemini"
+weight      = 0.8
+
+[[signal]]
+id          = "go.idioms.table_driven_tests"
+language    = "go"
+analyzer    = "idioms"
+description = "Table-driven test pattern detected — idiomatic Go testing"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go.idioms.iota_constants"
+language    = "go"
+analyzer    = "idioms"
+description = "1+ iota constants — idiomatic Go enumeration"
+family      = "copilot"
+weight      = 0.8
+
+[[signal]]
+id          = "rust_cst.complexity.low"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "Low avg cyclomatic complexity (≤2.0) — simple, linear functions"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust_cst.complexity.high"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "High avg cyclomatic complexity (≥5.0) — complex branching"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "rust_cst.doc_coverage.high"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "≥90% doc comment coverage on pub functions"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust_cst.entropy.high"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "High identifier entropy (≥4.0) — diverse, descriptive names"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust_cst.entropy.low"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "Low identifier entropy (<3.0) — repetitive or terse names"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "rust_cst.nesting.low"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "Low avg nesting depth (≤3.0) — flat, readable structure"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust_cst.imports.sorted"
+language    = "rust_cst"
+analyzer    = "rust_cst"
+description = "use declarations are alphabetically sorted"
+family      = "claude"
+weight      = 0.5
+
+[[signal]]
+id          = "python_cst.doc_coverage.high"
+language    = "python_cst"
+analyzer    = "python_cst"
+description = "≥85% docstring coverage — thorough documentation"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python_cst.type_annotations.high"
+language    = "python_cst"
+analyzer    = "python_cst"
+description = "≥80% type annotation coverage on parameters"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "python_cst.fstrings.only"
+language    = "python_cst"
+analyzer    = "python_cst"
+description = "f-strings present, no %-formatting — modern Python idiom"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "js_cst.arrow_fns.high_ratio"
+language    = "js_cst"
+analyzer    = "js_cst"
+description = "≥70% arrow functions — modern JavaScript style"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js_cst.async.await_only"
+language    = "js_cst"
+analyzer    = "js_cst"
+description = "2+ await expressions, no .then() — modern async style"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "js_cst.async.then_only"
+language    = "js_cst"
+analyzer    = "js_cst"
+description = "2+ .then() chains — promise chain style"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js_cst.optional_chaining.high"
+language    = "js_cst"
+analyzer    = "js_cst"
+description = "3+ optional chaining usages (?.) — defensive modern style"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "go_cst.doc_coverage.high"
+language    = "go_cst"
+analyzer    = "go_cst"
+description = "≥80% Godoc coverage on exported functions"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "go_cst.goroutines.present"
+language    = "go_cst"
+analyzer    = "go_cst"
+description = "2+ goroutines — concurrent design"
+family      = "claude"
+weight      = 1.0
+
+[[signal]]
+id          = "go_cst.errors.nil_checks"
+language    = "go_cst"
+analyzer    = "go_cst"
+description = "3+ err != nil checks — thorough error handling"
+family      = "claude"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.step_numbered"
+language    = "rust"
+analyzer    = "comments"
+description = "3+ step-numbered comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "python.comments.step_numbered"
+language    = "python"
+analyzer    = "comments"
+description = "3+ step-numbered comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "js.comments.step_numbered"
+language    = "js"
+analyzer    = "comments"
+description = "3+ step-numbered comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "go.comments.step_numbered"
+language    = "go"
+analyzer    = "comments"
+description = "3+ step-numbered comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.heres_lets"
+language    = "rust"
+analyzer    = "comments"
+description = "3+ here's/let's phrases in comments"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "python.comments.heres_lets"
+language    = "python"
+analyzer    = "comments"
+description = "3+ here's/let's phrases in comments"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "js.comments.heres_lets"
+language    = "js"
+analyzer    = "comments"
+description = "3+ here's/let's phrases in comments"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "go.comments.heres_lets"
+language    = "go"
+analyzer    = "comments"
+description = "3+ here's/let's phrases in comments"
+family      = "gpt"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.ai_signals.triple_backtick"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "Markdown triple-backtick in code comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "python.ai_signals.triple_backtick"
+language    = "python"
+analyzer    = "ai_signals"
+description = "Markdown triple-backtick in code comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "js.ai_signals.triple_backtick"
+language    = "js"
+analyzer    = "ai_signals"
+description = "Markdown triple-backtick in code comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "go.ai_signals.triple_backtick"
+language    = "go"
+analyzer    = "ai_signals"
+description = "Markdown triple-backtick in code comments"
+family      = "gpt"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.comments.verbose_obvious"
+language    = "rust"
+analyzer    = "comments"
+description = "High comment-to-code ratio in simple code"
+family      = "gpt"
+weight      = 1.2
+
+[[signal]]
+id          = "python.comments.verbose_obvious"
+language    = "python"
+analyzer    = "comments"
+description = "High comment-to-code ratio in simple code"
+family      = "gpt"
+weight      = 1.2
+
+[[signal]]
+id          = "js.comments.verbose_obvious"
+language    = "js"
+analyzer    = "comments"
+description = "High comment-to-code ratio in simple code"
+family      = "gpt"
+weight      = 1.2
+
+[[signal]]
+id          = "go.comments.verbose_obvious"
+language    = "go"
+analyzer    = "comments"
+description = "High comment-to-code ratio in simple code"
+family      = "gpt"
+weight      = 1.2
+
+[[signal]]
+id          = "rust.comments.bullet_style"
+language    = "rust"
+analyzer    = "comments"
+description = "3+ bullet-point comments"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "python.comments.bullet_style"
+language    = "python"
+analyzer    = "comments"
+description = "3+ bullet-point comments"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "js.comments.bullet_style"
+language    = "js"
+analyzer    = "comments"
+description = "3+ bullet-point comments"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "go.comments.bullet_style"
+language    = "go"
+analyzer    = "comments"
+description = "3+ bullet-point comments"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.naming.medium_descriptive"
+language    = "rust"
+analyzer    = "naming"
+description = "Medium-length descriptive names (avg 5–8 chars)"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "python.naming.medium_descriptive"
+language    = "python"
+analyzer    = "naming"
+description = "Medium-length descriptive names (avg 5–8 chars)"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "js.naming.medium_descriptive"
+language    = "js"
+analyzer    = "naming"
+description = "Medium-length descriptive names (avg 5–8 chars)"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "go.naming.medium_descriptive"
+language    = "go"
+analyzer    = "naming"
+description = "Medium-length descriptive names (avg 5–8 chars)"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.structure.ternary_heavy"
+language    = "rust"
+analyzer    = "structure"
+description = "3+ conditional expressions"
+family      = "gemini"
+weight      = 1.2
+
+[[signal]]
+id          = "python.structure.ternary_heavy"
+language    = "python"
+analyzer    = "structure"
+description = "3+ conditional expressions"
+family      = "gemini"
+weight      = 1.2
+
+[[signal]]
+id          = "js.structure.ternary_heavy"
+language    = "js"
+analyzer    = "structure"
+description = "3+ ternary expressions"
+family      = "gemini"
+weight      = 1.2
+
+[[signal]]
+id          = "go.structure.ternary_heavy"
+language    = "go"
+analyzer    = "structure"
+description = "3+ conditional expressions"
+family      = "gemini"
+weight      = 1.2
+
+[[signal]]
+id          = "rust.structure.compact_fns"
+language    = "rust"
+analyzer    = "structure"
+description = "Average function length 10–20 lines"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "python.structure.compact_fns"
+language    = "python"
+analyzer    = "structure"
+description = "Average function length 10–20 lines"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "js.structure.compact_fns"
+language    = "js"
+analyzer    = "structure"
+description = "Average function length 10–20 lines"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "go.structure.compact_fns"
+language    = "go"
+analyzer    = "structure"
+description = "Average function length 10–20 lines"
+family      = "gemini"
+weight      = 1.0
+
+[[signal]]
+id          = "rust.comments.minimal"
+language    = "rust"
+analyzer    = "comments"
+description = "<1% comment density in file >30 lines"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "python.comments.minimal"
+language    = "python"
+analyzer    = "comments"
+description = "<1% comment density in file >30 lines"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "js.comments.minimal"
+language    = "js"
+analyzer    = "comments"
+description = "<1% comment density in file >30 lines"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "go.comments.minimal"
+language    = "go"
+analyzer    = "comments"
+description = "<1% comment density in file >30 lines"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.naming.mixed_conventions"
+language    = "rust"
+analyzer    = "naming"
+description = "Mixed camelCase and snake_case identifiers"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "python.naming.mixed_conventions"
+language    = "python"
+analyzer    = "naming"
+description = "Mixed camelCase and snake_case identifiers"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "js.naming.mixed_conventions"
+language    = "js"
+analyzer    = "naming"
+description = "Mixed camelCase and snake_case identifiers"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "go.naming.mixed_conventions"
+language    = "go"
+analyzer    = "naming"
+description = "Mixed camelCase and snake_case identifiers"
+family      = "copilot"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.structure.very_short_fns"
+language    = "rust"
+analyzer    = "structure"
+description = "Average function length <10 lines"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "python.structure.very_short_fns"
+language    = "python"
+analyzer    = "structure"
+description = "Average function length <10 lines"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "js.structure.very_short_fns"
+language    = "js"
+analyzer    = "structure"
+description = "Average function length <10 lines"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "go.structure.very_short_fns"
+language    = "go"
+analyzer    = "structure"
+description = "Average function length <10 lines"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "rust.structure.format_inconsistent"
+language    = "rust"
+analyzer    = "structure"
+description = "Mixed indentation (tabs+spaces)"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "python.structure.format_inconsistent"
+language    = "python"
+analyzer    = "structure"
+description = "Mixed indentation (tabs+spaces)"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "js.structure.format_inconsistent"
+language    = "js"
+analyzer    = "structure"
+description = "Mixed indentation (tabs+spaces)"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "go.structure.format_inconsistent"
+language    = "go"
+analyzer    = "structure"
+description = "Mixed indentation (tabs+spaces)"
+family      = "copilot"
+weight      = 1.2
+
+[[signal]]
+id          = "rust.comments.external_refs"
+language    = "rust"
+analyzer    = "comments"
+description = "2+ ticket/issue references in comments"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "python.comments.external_refs"
+language    = "python"
+analyzer    = "comments"
+description = "2+ ticket/issue references in comments"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "js.comments.external_refs"
+language    = "js"
+analyzer    = "comments"
+description = "2+ ticket/issue references in comments"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "go.comments.external_refs"
+language    = "go"
+analyzer    = "comments"
+description = "2+ ticket/issue references in comments"
+family      = "human"
+weight      = 2.0
+
+[[signal]]
+id          = "rust.ai_signals.pragma"
+language    = "rust"
+analyzer    = "ai_signals"
+description = "Pragma/lint override directives"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "python.ai_signals.pragma"
+language    = "python"
+analyzer    = "ai_signals"
+description = "Pragma/lint override directives"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "js.ai_signals.pragma"
+language    = "js"
+analyzer    = "ai_signals"
+description = "Pragma/lint override directives"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "go.ai_signals.pragma"
+language    = "go"
+analyzer    = "ai_signals"
+description = "Pragma/lint override directives"
+family      = "human"
+weight      = 1.5
+
+[[signal]]
+id          = "rust.naming.domain_abbreviations"
+language    = "rust"
+analyzer    = "naming"
+description = "3+ domain abbreviations (cfg, ctx, etc.)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "python.naming.domain_abbreviations"
+language    = "python"
+analyzer    = "naming"
+description = "3+ domain abbreviations (cfg, ctx, etc.)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "js.naming.domain_abbreviations"
+language    = "js"
+analyzer    = "naming"
+description = "3+ domain abbreviations (cfg, ctx, etc.)"
+family      = "human"
+weight      = 1.0
+
+[[signal]]
+id          = "go.naming.domain_abbreviations"
+language    = "go"
+analyzer    = "naming"
+description = "3+ domain abbreviations (cfg, ctx, etc.)"
+family      = "human"
+weight      = 1.0
