@@ -584,6 +584,99 @@ fn generate_architecture_svg() -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Logo SVG
+// ---------------------------------------------------------------------------
+
+fn generate_logo_svg() -> String {
+    const W: u32 = 760;
+    const H: u32 = 215;
+    const LOGO_BG: &str = "#0d1117";
+    const FS: u32 = 76;
+    const WORD: &str = "vibecheck";
+    const CW_RATIO: f64 = 0.601;
+
+    let models: &[(&str, &str)] = &[
+        ("Claude",  "#d2a8ff"),
+        ("Gemini",  "#79c0ff"),
+        ("Copilot", "#39c5cf"),
+        ("GPT",     "#7ee787"),
+        ("Human",   "#e3b341"),
+    ];
+    let grad_stops: &[(u32, &str)] = &[
+        (  0, "#d2a8ff"),
+        ( 25, "#79c0ff"),
+        ( 50, "#39c5cf"),
+        ( 75, "#7ee787"),
+        (100, "#e3b341"),
+    ];
+
+    let text_w = WORD.len() as f64 * FS as f64 * CW_RATIO;
+    let x1 = (W as f64 - text_w) / 2.0;
+    let x2 = x1 + text_w;
+
+    let stop_xml: String = grad_stops
+        .iter()
+        .map(|(p, c)| format!("      <stop offset=\"{p}%\" stop-color=\"{c}\"/>"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let n = models.len();
+    let dot_cy: u32 = 175;
+    let label_y: u32 = 195;
+    let sep_y: u32   = 152;
+
+    let mut svg = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {W} {H}\" width=\"{W}\" height=\"{H}\">\n\
+         \x20 <defs>\n\
+         \x20   <linearGradient id=\"g\" gradientUnits=\"userSpaceOnUse\" x1=\"{x1:.1}\" y1=\"0\" x2=\"{x2:.1}\" y2=\"0\">\n\
+         {stop_xml}\n\
+         \x20   </linearGradient>\n\
+         \x20   <filter id=\"glow\" x=\"-20%\" y=\"-80%\" width=\"140%\" height=\"260%\">\n\
+         \x20     <feGaussianBlur in=\"SourceGraphic\" stdDeviation=\"9\" result=\"blur\"/>\n\
+         \x20     <feMerge>\n\
+         \x20       <feMergeNode in=\"blur\"/>\n\
+         \x20       <feMergeNode in=\"SourceGraphic\"/>\n\
+         \x20     </feMerge>\n\
+         \x20   </filter>\n\
+         \x20 </defs>\n\
+         \n\
+         \x20 <rect width=\"{W}\" height=\"{H}\" fill=\"{LOGO_BG}\" rx=\"14\"/>\n\
+         \n\
+         \x20 <!-- main wordmark — glow pass -->\n\
+         \x20 <text x=\"50%\" y=\"108\" text-anchor=\"middle\"\n\
+         \x20       font-family=\"{FONT}\" font-size=\"{FS}px\" font-weight=\"bold\"\n\
+         \x20       fill=\"url(#g)\" opacity=\"0.45\" filter=\"url(#glow)\">vibecheck</text>\n\
+         \x20 <!-- main wordmark — crisp pass -->\n\
+         \x20 <text x=\"50%\" y=\"108\" text-anchor=\"middle\"\n\
+         \x20       font-family=\"{FONT}\" font-size=\"{FS}px\" font-weight=\"bold\"\n\
+         \x20       fill=\"url(#g)\">vibecheck</text>\n\
+         \n\
+         \x20 <!-- tagline -->\n\
+         \x20 <text x=\"50%\" y=\"134\" text-anchor=\"middle\"\n\
+         \x20       font-family=\"{FONT}\" font-size=\"12.5px\" fill=\"#8b949e\" letter-spacing=\"0.5\">detect the AI behind the code</text>\n\
+         \n\
+         \x20 <!-- separator -->\n\
+         \x20 <line x1=\"{:.0}\" y1=\"{sep_y}\" x2=\"{:.0}\" y2=\"{sep_y}\"\n\
+         \x20       stroke=\"#21262d\" stroke-width=\"1\"/>\n",
+        W as f64 * 0.08,
+        W as f64 * 0.92,
+    );
+
+    for (i, (name, color)) in models.iter().enumerate() {
+        let cx = W as f64 / (n as f64 + 1.0) * (i as f64 + 1.0);
+        svg.push_str(&format!(
+            "\n\
+             \x20 <circle cx=\"{cx:.1}\" cy=\"{dot_cy}\" r=\"5\" fill=\"{color}\" opacity=\"0.9\"/>\n\
+             \x20 <text x=\"{cx:.1}\" y=\"{label_y}\" text-anchor=\"middle\"\n\
+             \x20       font-family=\"{FONT}\" font-size=\"11px\" fill=\"{color}\">{name}</text>"
+        ));
+    }
+
+    svg.push_str("\n</svg>\n");
+    svg
+}
+
+// ---------------------------------------------------------------------------
 // README signal catalogue injection
 // ---------------------------------------------------------------------------
 
@@ -675,6 +768,11 @@ fn main() {
     let arch_svg = generate_architecture_svg();
     if let Err(e) = std::fs::write("../.github/assets/architecture.svg", &arch_svg) {
         eprintln!("build.rs: failed to write architecture.svg: {e}");
+    }
+
+    let logo_svg = generate_logo_svg();
+    if let Err(e) = std::fs::write("../.github/assets/logo.svg", &logo_svg) {
+        eprintln!("build.rs: failed to write logo.svg: {e}");
     }
 
     generate_readme_signals();
