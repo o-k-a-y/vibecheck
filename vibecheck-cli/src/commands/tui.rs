@@ -425,7 +425,7 @@ fn aggregate_dir(dir: &Path, reports: &BTreeMap<&Path, &Report>) -> (ModelFamily
 
     let (best_name, best_score) = family_scores
         .iter()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap().then_with(|| a.0.cmp(b.0)))
         .map(|(k, v)| (k.clone(), *v / total_weight))
         .unwrap_or_else(|| ("human".to_string(), 0.5));
 
@@ -669,7 +669,7 @@ fn render_detail(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) 
     // Score bars.
     let mut score_lines: Vec<Line> = Vec::new();
     let mut sorted_scores: Vec<_> = report.attribution.scores.iter().collect();
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
     for (family, &score) in &sorted_scores {
         let bar_len = (score * 24.0) as usize;
         let bar = "█".repeat(bar_len);

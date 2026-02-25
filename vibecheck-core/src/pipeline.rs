@@ -174,7 +174,7 @@ impl Pipeline {
 
         let (primary, confidence) = shifted
             .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())))
             .map(|(&k, &v)| (k, v))
             .unwrap();
 

@@ -42,7 +42,7 @@ pub fn format_pretty(report: &Report, theme: &dyn ColorTheme) -> String {
 
     out.push_str(&format!("\n{}\n", "Scores:".bold()));
     let mut sorted_scores: Vec<_> = report.attribution.scores.iter().collect();
-    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
+    sorted_scores.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap().then_with(|| a.0.to_string().cmp(&b.0.to_string())));
     for (family, score) in &sorted_scores {
         let bar_len = (*score * 30.0) as usize;
         let bar = "█".repeat(bar_len);
