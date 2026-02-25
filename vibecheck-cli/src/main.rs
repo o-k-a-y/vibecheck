@@ -1,7 +1,5 @@
 #![deny(dead_code)]
 
-#![deny(dead_code)]
-
 use std::path::PathBuf;
 
 use anyhow::Result;

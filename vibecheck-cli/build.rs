@@ -163,7 +163,7 @@ fn generate_svg(report: &Report, display_path: &str) -> String {
         text(&mut svg, x, row_y(row), wt_col, &wt_str);
         x += wt_str.chars().count() as f64 * CW;
 
-        let fam_str = format!("{} ", sig.family.to_string());
+        let fam_str = format!("{} ", sig.family);
         text_bold(&mut svg, x, row_y(row), &fc, &fam_str);
         x += fam_str.chars().count() as f64 * CW;
 
@@ -366,7 +366,7 @@ fn generate_tui_svg() -> Option<String> {
         x += wt_str.len() as f64 * CW;
 
         // "FamilyName " — bold model color
-        let fam_str = format!("{} ", sig.family.to_string());
+        let fam_str = format!("{} ", sig.family);
         p!(format!("  <text x=\"{x:.0}\" y=\"{dy:.0}\" font-family=\"{FONT}\" font-size=\"{FS}px\" fill=\"{fc}\" font-weight=\"bold\">{}</text>",
             xml_esc(&fam_str)));
         x += fam_str.len() as f64 * CW;

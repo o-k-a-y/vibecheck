@@ -169,7 +169,7 @@ impl NamingAnalyzer {
             }
             // Function names
             if t.starts_with("def ") || t.starts_with("async def ") {
-                let after = if t.starts_with("async def ") { &t[10..] } else { &t[4..] };
+                let after = t.strip_prefix("async def ").unwrap_or(&t[4..]);
                 if let Some(name) = after.split('(').next().map(|s| s.trim()) {
                     if !name.is_empty() {
                         names.push(name.to_string());
@@ -180,6 +180,7 @@ impl NamingAnalyzer {
         names
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn analyze_names(
         source_name: &str,
         very_descriptive_id: &str,
@@ -335,19 +336,12 @@ impl NamingAnalyzer {
             .iter()
             .filter_map(|l| {
                 let t = l.trim();
-                let after = if t.starts_with("const ") {
-                    Some(&t[6..])
-                } else if t.starts_with("let ") {
-                    Some(&t[4..])
-                } else if t.starts_with("var ") {
-                    Some(&t[4..])
-                } else if t.starts_with("function ") {
-                    Some(&t[9..])
-                } else {
-                    None
-                };
+                let after = t.strip_prefix("const ")
+                    .or_else(|| t.strip_prefix("let "))
+                    .or_else(|| t.strip_prefix("var "))
+                    .or_else(|| t.strip_prefix("function "));
                 after.and_then(|s| {
-                    s.split(|c: char| c == ' ' || c == '=' || c == '(' || c == ':')
+                    s.split([' ', '=', '(', ':'])
                         .next()
                         .map(|n| n.trim().to_string())
                 })
@@ -391,9 +385,7 @@ impl NamingAnalyzer {
                 }
             }
             // func names
-            if t.starts_with("func ") {
-                let after = &t[5..];
-                // Could be "func (r *Receiver) MethodName(" — get the actual name
+            if let Some(after) = t.strip_prefix("func ") {
                 let name_part = if after.starts_with('(') {
                     // method: skip receiver
                     after.find(')').and_then(|p| after[p + 1..].trim().split('(').next())
@@ -445,13 +437,10 @@ impl Analyzer for NamingAnalyzer {
             .filter_map(|l| {
                 let trimmed = l.trim();
                 if trimmed.starts_with("let ") || trimmed.starts_with("let mut ") {
-                    let after_let = if trimmed.starts_with("let mut ") {
-                        &trimmed[8..]
-                    } else {
-                        &trimmed[4..]
-                    };
+                    let after_let = trimmed.strip_prefix("let mut ")
+                        .unwrap_or(&trimmed[4..]);
                     let name = after_let
-                        .split(|c: char| c == ':' || c == '=' || c == ' ')
+                        .split([':', '=', ' '])
                         .next()
                         .map(|s| s.trim());
                     name
@@ -543,13 +532,8 @@ impl Analyzer for NamingAnalyzer {
             .iter()
             .filter_map(|l| {
                 let trimmed = l.trim();
-                let after_fn = if trimmed.starts_with("pub fn ") {
-                    Some(&trimmed[7..])
-                } else if trimmed.starts_with("fn ") {
-                    Some(&trimmed[3..])
-                } else {
-                    None
-                };
+                let after_fn = trimmed.strip_prefix("pub fn ")
+                    .or_else(|| trimmed.strip_prefix("fn "));
                 after_fn.and_then(|s| s.split('(').next()).map(|s| s.trim())
             })
             .collect();

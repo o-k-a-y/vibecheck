@@ -81,6 +81,18 @@ impl From<Language> for HeuristicLanguage {
     }
 }
 
+impl HeuristicLanguage {
+    /// Map a file-level `Language` to the corresponding CST heuristic language.
+    pub fn cst_from(lang: Language) -> Self {
+        match lang {
+            Language::Rust       => HeuristicLanguage::RustCst,
+            Language::Python     => HeuristicLanguage::PythonCst,
+            Language::JavaScript => HeuristicLanguage::JsCst,
+            Language::Go         => HeuristicLanguage::GoCst,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // HeuristicSpec — single signal entry
 // ---------------------------------------------------------------------------
@@ -100,6 +112,14 @@ pub struct HeuristicSpec {
     pub family: ModelFamily,
     /// Default weight (positive = toward `family`, 0.0 = disabled).
     pub default_weight: f64,
+    /// Metric name that triggers this signal (CST metric-based signals only).
+    pub metric: Option<&'static str>,
+    /// Comparison operator: ">=", "<=", ">", "<".
+    pub op: Option<&'static str>,
+    /// Threshold value for the metric comparison.
+    pub threshold: Option<f64>,
+    /// Optional upper bound — signal only fires if value <= threshold_max.
+    pub threshold_max: Option<f64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +134,10 @@ struct RawSignalDef {
     description: String,
     family: ModelFamily,
     weight: f64,
+    metric: Option<String>,
+    op: Option<String>,
+    threshold: Option<f64>,
+    threshold_max: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -143,6 +167,10 @@ pub fn all_heuristics() -> &'static [HeuristicSpec] {
                 let id: &'static str = Box::leak(raw.id.into_boxed_str());
                 let analyzer: &'static str = Box::leak(raw.analyzer.into_boxed_str());
                 let description: &'static str = Box::leak(raw.description.into_boxed_str());
+                let metric: Option<&'static str> =
+                    raw.metric.map(|s| &*Box::leak(s.into_boxed_str()));
+                let op: Option<&'static str> =
+                    raw.op.map(|s| &*Box::leak(s.into_boxed_str()));
                 HeuristicSpec {
                     id,
                     language: raw.language,
@@ -150,6 +178,10 @@ pub fn all_heuristics() -> &'static [HeuristicSpec] {
                     description,
                     family: raw.family,
                     default_weight: raw.weight,
+                    metric,
+                    op,
+                    threshold: raw.threshold,
+                    threshold_max: raw.threshold_max,
                 }
             })
             .collect()
@@ -293,9 +325,9 @@ mod tests {
     #[test]
     fn default_heuristics_returns_correct_weight() {
         let h = DefaultHeuristics;
-        assert_eq!(h.weight(signal_ids::RUST_ERRORS_ZERO_UNWRAP), 1.5);
+        assert_eq!(h.weight(signal_ids::RUST_ERRORS_ZERO_UNWRAP), 0.8);
         assert_eq!(h.weight(signal_ids::RUST_AI_SIGNALS_COMMENTED_OUT_CODE), 2.0);
-        assert_eq!(h.weight(signal_ids::RUST_CST_COMPLEXITY_LOW), 1.5);
+        assert_eq!(h.weight(signal_ids::RUST_CST_COMPLEXITY_LOW), 0.5);
     }
 
     #[test]

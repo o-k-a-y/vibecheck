@@ -1,9 +1,10 @@
+use std::collections::HashMap;
+
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
-use crate::heuristics::signal_ids;
 use crate::language::Language;
-use crate::report::{ModelFamily, Signal, SymbolMetadata};
+use crate::report::SymbolMetadata;
 
 pub struct PythonCstAnalyzer;
 
@@ -20,65 +21,67 @@ impl CstAnalyzer for PythonCstAnalyzer {
         tree_sitter_python::LANGUAGE.into()
     }
 
-    fn analyze_tree(&self, tree: &Tree, source: &str) -> Vec<Signal> {
-        let mut signals = Vec::new();
+    fn extract_metrics(
+        &self,
+        tree: &Tree,
+        source: &str,
+    ) -> HashMap<String, f64> {
+        let mut metrics = HashMap::new();
         let src_bytes = source.as_bytes();
         let root = tree.root_node();
 
         let functions = collect_all_functions(root);
 
-        // --- Signal 1: Docstring coverage ---
         if !functions.is_empty() {
-            let documented = functions
-                .iter()
-                .filter(|&&f| has_docstring(f))
-                .count();
+            let documented = functions.iter().filter(|&&f| has_docstring(f)).count();
             let ratio = documented as f64 / functions.len() as f64;
-            if ratio >= 0.85 {
-                signals.push(Signal::new(
-                    signal_ids::PYTHON_CST_DOC_COVERAGE_HIGH,
-                    "python_cst",
-                    format!(
-                        "Docstring coverage {:.0}% — thorough documentation",
-                        ratio * 100.0
-                    ),
-                    ModelFamily::Claude,
-                    2.0,
-                ));
-            }
+            metrics.insert("doc_coverage_ratio".into(), ratio);
+
+            let lengths: Vec<usize> = functions.iter().map(|&f| fn_line_count(f)).collect();
+            let avg_len = lengths.iter().sum::<usize>() as f64 / lengths.len() as f64;
+            metrics.insert("avg_fn_length".into(), avg_len);
+
+            let complexities: Vec<usize> =
+                functions.iter().map(|&f| complexity_of_fn(f)).collect();
+            let avg_complexity =
+                complexities.iter().sum::<usize>() as f64 / complexities.len() as f64;
+            metrics.insert("avg_complexity".into(), avg_complexity);
+
+            let depths: Vec<usize> =
+                functions.iter().map(|&f| max_nesting_depth(f)).collect();
+            let avg_depth =
+                depths.iter().sum::<usize>() as f64 / depths.len() as f64;
+            metrics.insert("avg_nesting_depth".into(), avg_depth);
         }
 
-        // --- Signal 2: Type annotation coverage ---
         let (typed, total_params) = count_type_annotations(&functions, src_bytes);
         if total_params >= 5 {
             let ratio = typed as f64 / total_params as f64;
-            if ratio >= 0.8 {
-                signals.push(Signal::new(
-                    signal_ids::PYTHON_CST_TYPE_ANNOTATIONS_HIGH,
-                    "python_cst",
-                    format!(
-                        "Type annotation coverage {:.0}% on parameters — modern Python style",
-                        ratio * 100.0
-                    ),
-                    ModelFamily::Claude,
-                    1.5,
-                ));
-            }
+            metrics.insert("type_annotation_ratio".into(), ratio);
         }
 
-        // --- Signal 3: f-string usage ---
         let (fstring_count, old_style_count) = count_string_styles(root, src_bytes);
-        if fstring_count > 0 && old_style_count == 0 {
-            signals.push(Signal::new(
-                signal_ids::PYTHON_CST_FSTRINGS_ONLY,
-                "python_cst",
-                format!("{fstring_count} f-strings, no %-formatting — modern Python idiom"),
-                ModelFamily::Claude,
-                1.0,
-            ));
+        let total_fmt = fstring_count + old_style_count;
+        if total_fmt > 0 {
+            metrics.insert("fstring_ratio".into(), fstring_count as f64 / total_fmt as f64);
+        } else if fstring_count > 0 {
+            metrics.insert("fstring_ratio".into(), 1.0);
         }
 
-        signals
+        let identifiers = collect_identifiers(root, src_bytes);
+        if identifiers.len() >= 10 {
+            metrics.insert("identifier_entropy".into(), shannon_entropy(&identifiers));
+        }
+
+        let (comment_lines, code_lines) = inline_comment_ratio(&functions, src_bytes);
+        if code_lines > 0 {
+            metrics.insert(
+                "inline_comment_ratio".into(),
+                comment_lines as f64 / code_lines as f64,
+            );
+        }
+
+        metrics
     }
 
     fn extract_symbols<'tree>(
@@ -88,7 +91,7 @@ impl CstAnalyzer for PythonCstAnalyzer {
     ) -> Vec<(SymbolMetadata, tree_sitter::Node<'tree>)> {
         let root = tree.root_node();
         let mut results = Vec::new();
-        let mut stack = vec![(root, false)]; // (node, inside_class)
+        let mut stack = vec![(root, false)];
 
         while let Some((node, inside_class)) = stack.pop() {
             match node.kind() {
@@ -109,7 +112,6 @@ impl CstAnalyzer for PythonCstAnalyzer {
                             node,
                         ));
                     }
-                    // Don't recurse into nested functions.
                     continue;
                 }
                 "class_definition" => {
@@ -128,7 +130,6 @@ impl CstAnalyzer for PythonCstAnalyzer {
                             node,
                         ));
                     }
-                    // Recurse into the class body to pick up methods.
                     let mut cursor = node.walk();
                     for child in node.children(&mut cursor) {
                         stack.push((child, true));
@@ -147,7 +148,6 @@ impl CstAnalyzer for PythonCstAnalyzer {
     }
 }
 
-/// Collect all `function_definition` nodes in the tree.
 fn collect_all_functions<'t>(root: Node<'t>) -> Vec<Node<'t>> {
     let mut result = Vec::new();
     let mut stack = vec![root];
@@ -163,15 +163,13 @@ fn collect_all_functions<'t>(root: Node<'t>) -> Vec<Node<'t>> {
     result
 }
 
-/// Check whether a `function_definition`'s body starts with a docstring.
 fn has_docstring(func: Node<'_>) -> bool {
-    // Find the `block` child of the function
     let mut cursor = func.walk();
     for child in func.children(&mut cursor) {
         if child.kind() == "block" {
-            // Check if the first named child is an expression_statement containing a string
             let mut block_cursor = child.walk();
-            for stmt in child.named_children(&mut block_cursor) {
+            let first_stmt = child.named_children(&mut block_cursor).next();
+            if let Some(stmt) = first_stmt {
                 if stmt.kind() == "expression_statement" {
                     let mut stmt_cursor = stmt.walk();
                     for expr in stmt.named_children(&mut stmt_cursor) {
@@ -180,15 +178,12 @@ fn has_docstring(func: Node<'_>) -> bool {
                         }
                     }
                 }
-                // Only check the first statement
-                break;
             }
         }
     }
     false
 }
 
-/// Count typed vs untyped parameters across all functions.
 fn count_type_annotations(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, usize) {
     let mut typed = 0usize;
     let mut total = 0usize;
@@ -205,8 +200,11 @@ fn count_type_annotations(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, u
                             total += 1;
                         }
                         "identifier" => {
-                            // Check it's not `self`
-                            if param.utf8_text(src_bytes).map(|t| t != "self").unwrap_or(true) {
+                            if param
+                                .utf8_text(src_bytes)
+                                .map(|t| t != "self")
+                                .unwrap_or(true)
+                            {
                                 total += 1;
                             }
                         }
@@ -219,140 +217,6 @@ fn count_type_annotations(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, u
     (typed, total)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::analyzers::CstAnalyzer;
-    use crate::report::{ModelFamily, SymbolMetadata};
-
-    fn parse_and_run(source: &str) -> Vec<Signal> {
-        let analyzer = PythonCstAnalyzer;
-        let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&analyzer.ts_language()).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        analyzer.analyze_tree(&tree, source)
-    }
-
-    fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
-        let analyzer = PythonCstAnalyzer;
-        let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&analyzer.ts_language()).unwrap();
-        let tree = parser.parse(source, None).unwrap();
-        analyzer
-            .extract_symbols(&tree, source.as_bytes())
-            .into_iter()
-            .map(|(meta, _)| meta)
-            .collect()
-    }
-
-    #[test]
-    fn extract_module_level_functions() {
-        let source = "def foo():\n    pass\n\ndef bar(x):\n    return x\n";
-        let syms = parse_and_extract(source);
-        assert!(syms.iter().any(|s| s.name == "foo" && s.kind == "function"),
-            "expected 'foo' as function; got: {:?}", syms);
-        assert!(syms.iter().any(|s| s.name == "bar" && s.kind == "function"),
-            "expected 'bar' as function; got: {:?}", syms);
-    }
-
-    #[test]
-    fn extract_class_and_methods() {
-        let source = "class MyClass:\n    def __init__(self):\n        pass\n    def run(self):\n        pass\n";
-        let syms = parse_and_extract(source);
-        assert!(syms.iter().any(|s| s.name == "MyClass" && s.kind == "class"),
-            "expected 'MyClass' as class; got: {:?}", syms);
-        assert!(syms.iter().any(|s| s.name == "__init__" && s.kind == "method"),
-            "expected '__init__' as method; got: {:?}", syms);
-        assert!(syms.iter().any(|s| s.name == "run" && s.kind == "method"),
-            "expected 'run' as method; got: {:?}", syms);
-    }
-
-    #[test]
-    fn nested_functions_not_extracted() {
-        let source = "def outer():\n    def inner():\n        pass\n";
-        let syms = parse_and_extract(source);
-        assert!(syms.iter().any(|s| s.name == "outer"),
-            "expected 'outer'; got: {:?}", syms);
-        assert!(!syms.iter().any(|s| s.name == "inner"),
-            "inner should not appear; got: {:?}", syms);
-    }
-
-    #[test]
-    fn extract_symbol_line_numbers() {
-        let source = "def first():\n    pass\ndef second():\n    pass\n";
-        let syms = parse_and_extract(source);
-        let first = syms.iter().find(|s| s.name == "first").unwrap();
-        let second = syms.iter().find(|s| s.name == "second").unwrap();
-        assert_eq!(first.start_line, 1);
-        assert_eq!(second.start_line, 3);
-        assert!(first.end_line >= first.start_line);
-    }
-
-    #[test]
-    fn docstring_coverage_is_claude() {
-        let source = r#"
-def process(data):
-    """Process the input data and return result."""
-    return data
-
-def validate(value):
-    """Validate the given value against constraints."""
-    return bool(value)
-
-def transform(item):
-    """Transform item into the required format."""
-    return str(item)
-"#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 2.0
-                && s.description.contains("Docstring")),
-            "expected docstring coverage Claude signal; got: {:?}", signals
-        );
-    }
-
-    #[test]
-    fn type_annotation_coverage_is_claude() {
-        let source = r#"
-def add(a: int, b: int) -> int:
-    return a + b
-
-def greet(name: str, greeting: str) -> str:
-    return f"{greeting}, {name}"
-
-def compute(x: float, y: float, z: float) -> float:
-    return x + y + z
-"#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 1.5
-                && s.description.contains("annotation")),
-            "expected type annotation Claude signal; got: {:?}", signals
-        );
-    }
-
-    #[test]
-    fn fstring_only_is_claude() {
-        let source = r#"
-def greet(name):
-    return f"Hello, {name}"
-
-def describe(item, count):
-    return f"{count} items of type {item}"
-"#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 1.0
-                && s.description.contains("f-string")),
-            "expected f-string Claude signal; got: {:?}", signals
-        );
-    }
-}
-
-/// Count f-strings and old-style %-formatted strings in the tree.
 fn count_string_styles(root: Node<'_>, src_bytes: &[u8]) -> (usize, usize) {
     let mut fstrings = 0usize;
     let mut old_style = 0usize;
@@ -370,7 +234,6 @@ fn count_string_styles(root: Node<'_>, src_bytes: &[u8]) -> (usize, usize) {
                 }
             }
         }
-        // Detect old-style % formatting: binary_operator whose operator is "%" and left is string.
         if node.kind() == "binary_operator" {
             let left_is_string = node
                 .child_by_field_name("left")
@@ -391,4 +254,230 @@ fn count_string_styles(root: Node<'_>, src_bytes: &[u8]) -> (usize, usize) {
         }
     }
     (fstrings, old_style)
+}
+
+fn fn_line_count(node: Node<'_>) -> usize {
+    let start = node.start_position().row;
+    let end = node.end_position().row;
+    (end - start) + 1
+}
+
+fn complexity_of_fn(root: Node<'_>) -> usize {
+    let decision_kinds = [
+        "if_statement",
+        "for_statement",
+        "while_statement",
+        "elif_clause",
+        "except_clause",
+    ];
+    let mut count = 0usize;
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if decision_kinds.contains(&node.kind()) {
+            count += 1;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() != "function_definition" {
+                stack.push(child);
+            }
+        }
+    }
+    count
+}
+
+fn max_nesting_depth(root: Node<'_>) -> usize {
+    let nesting_kinds = [
+        "block",
+        "if_statement",
+        "for_statement",
+        "while_statement",
+        "try_statement",
+    ];
+    let mut stack = vec![(root, 0usize)];
+    let mut max_depth = 0usize;
+    while let Some((node, depth)) = stack.pop() {
+        let new_depth = if nesting_kinds.contains(&node.kind()) {
+            depth + 1
+        } else {
+            depth
+        };
+        if new_depth > max_depth {
+            max_depth = new_depth;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() != "function_definition" {
+                stack.push((child, new_depth));
+            }
+        }
+    }
+    max_depth
+}
+
+fn collect_identifiers<'s>(root: Node<'_>, src_bytes: &'s [u8]) -> Vec<&'s str> {
+    let mut result = Vec::new();
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "identifier" {
+            if let Ok(text) = node.utf8_text(src_bytes) {
+                result.push(text);
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
+        }
+    }
+    result
+}
+
+fn shannon_entropy(identifiers: &[&str]) -> f64 {
+    let combined: String = identifiers.join("");
+    if combined.is_empty() {
+        return 0.0;
+    }
+    let mut freq: HashMap<char, usize> = HashMap::new();
+    for c in combined.chars() {
+        *freq.entry(c).or_insert(0) += 1;
+    }
+    let total = combined.chars().count() as f64;
+    -freq
+        .values()
+        .map(|&count| {
+            let p = count as f64 / total;
+            p * p.log2()
+        })
+        .sum::<f64>()
+}
+
+fn inline_comment_ratio(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, usize) {
+    let mut comment_lines = 0usize;
+    let mut code_lines = 0usize;
+    for &func in functions {
+        let text = func.utf8_text(src_bytes).unwrap_or("");
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with('#') {
+                comment_lines += 1;
+            } else {
+                code_lines += 1;
+            }
+        }
+    }
+    (comment_lines, code_lines)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analyzers::CstAnalyzer;
+    use crate::report::SymbolMetadata;
+
+    fn parse_and_metrics(source: &str) -> HashMap<String, f64> {
+        let analyzer = PythonCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer.extract_metrics(&tree, source)
+    }
+
+    fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
+        let analyzer = PythonCstAnalyzer;
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&analyzer.ts_language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+        analyzer
+            .extract_symbols(&tree, source.as_bytes())
+            .into_iter()
+            .map(|(meta, _)| meta)
+            .collect()
+    }
+
+    #[test]
+    fn extract_module_level_functions() {
+        let source = "def foo():\n    pass\n\ndef bar(x):\n    return x\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "foo" && s.kind == "function"));
+        assert!(syms.iter().any(|s| s.name == "bar" && s.kind == "function"));
+    }
+
+    #[test]
+    fn extract_class_and_methods() {
+        let source =
+            "class MyClass:\n    def __init__(self):\n        pass\n    def run(self):\n        pass\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "MyClass" && s.kind == "class"));
+        assert!(syms.iter().any(|s| s.name == "__init__" && s.kind == "method"));
+        assert!(syms.iter().any(|s| s.name == "run" && s.kind == "method"));
+    }
+
+    #[test]
+    fn nested_functions_not_extracted() {
+        let source = "def outer():\n    def inner():\n        pass\n";
+        let syms = parse_and_extract(source);
+        assert!(syms.iter().any(|s| s.name == "outer"));
+        assert!(!syms.iter().any(|s| s.name == "inner"));
+    }
+
+    #[test]
+    fn extract_symbol_line_numbers() {
+        let source = "def first():\n    pass\ndef second():\n    pass\n";
+        let syms = parse_and_extract(source);
+        let first = syms.iter().find(|s| s.name == "first").unwrap();
+        let second = syms.iter().find(|s| s.name == "second").unwrap();
+        assert_eq!(first.start_line, 1);
+        assert_eq!(second.start_line, 3);
+    }
+
+    #[test]
+    fn docstring_coverage_metrics() {
+        let source = r#"
+def process(data):
+    """Process the input data and return result."""
+    return data
+
+def validate(value):
+    """Validate the given value against constraints."""
+    return bool(value)
+
+def transform(item):
+    """Transform item into the required format."""
+    return str(item)
+"#;
+        let m = parse_and_metrics(source);
+        assert!(m["doc_coverage_ratio"] >= 0.85);
+    }
+
+    #[test]
+    fn type_annotation_metrics() {
+        let source = r#"
+def add(a: int, b: int) -> int:
+    return a + b
+
+def greet(name: str, greeting: str) -> str:
+    return f"{greeting}, {name}"
+
+def compute(x: float, y: float, z: float) -> float:
+    return x + y + z
+"#;
+        let m = parse_and_metrics(source);
+        assert!(m["type_annotation_ratio"] >= 0.8);
+    }
+
+    #[test]
+    fn fstring_metrics() {
+        let source = r#"
+def greet(name):
+    return f"Hello, {name}"
+
+def describe(item, count):
+    return f"{count} items of type {item}"
+"#;
+        let m = parse_and_metrics(source);
+        assert!(m["fstring_ratio"] >= 1.0);
+    }
 }

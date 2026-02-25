@@ -2,9 +2,78 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::analyzers::{default_analyzers, default_cst_analyzers, Analyzer, CstAnalyzer};
-use crate::heuristics::{DefaultHeuristics, HeuristicsProvider};
+use crate::heuristics::{all_heuristics, DefaultHeuristics, HeuristicLanguage, HeuristicsProvider};
 use crate::language::{detect_language, get_ts_language};
 use crate::report::{Attribution, ModelFamily, Report, ReportMetadata, Signal, SymbolReport};
+
+/// Match extracted CST metrics against TOML-defined threshold rules to produce signals.
+pub(crate) fn match_metric_signals(
+    metrics: &HashMap<String, f64>,
+    language: HeuristicLanguage,
+    heuristics: &dyn HeuristicsProvider,
+) -> Vec<Signal> {
+    let mut signals = Vec::new();
+    for spec in all_heuristics() {
+        if spec.language != language {
+            continue;
+        }
+        let metric_name = match spec.metric {
+            Some(m) => m,
+            None => continue,
+        };
+        let op = match spec.op {
+            Some(o) => o,
+            None => continue,
+        };
+        let threshold = match spec.threshold {
+            Some(t) => t,
+            None => continue,
+        };
+        let value = match metrics.get(metric_name) {
+            Some(&v) => v,
+            None => continue,
+        };
+
+        let passes = match op {
+            ">=" => value >= threshold,
+            "<=" => value <= threshold,
+            ">"  => value > threshold,
+            "<"  => value < threshold,
+            _    => false,
+        };
+        if !passes {
+            continue;
+        }
+        if let Some(max) = spec.threshold_max {
+            if value > max {
+                continue;
+            }
+        }
+
+        let weight = heuristics.weight(spec.id);
+        if weight == 0.0 {
+            continue;
+        }
+
+        let pct = value * 100.0;
+        let description = spec.description
+            .replace("{value}", &format!("{value}"))
+            .replace("{value:.0}", &format!("{value:.0}"))
+            .replace("{value:.1}", &format!("{value:.1}"))
+            .replace("{value:.2}", &format!("{value:.2}"))
+            .replace("{pct:.0}", &format!("{pct:.0}"))
+            .replace("{pct:.1}", &format!("{pct:.1}"));
+
+        signals.push(Signal::new(
+            spec.id,
+            spec.analyzer,
+            description,
+            spec.family,
+            weight,
+        ));
+    }
+    signals
+}
 
 /// Orchestrates analyzers and aggregates their signals into a report.
 pub struct Pipeline {
@@ -51,16 +120,26 @@ impl Pipeline {
             .flat_map(|a| a.analyze_with_language(source, lang))
             .collect();
 
-        // CST analysis — dispatch by Language enum
+        // CST analysis — extract metrics then match against TOML rules
         if let Some(ref path) = file_path {
             if let Some(lang) = detect_language(path) {
                 let ts_lang = crate::language::get_ts_language(lang);
                 let mut parser = tree_sitter::Parser::new();
                 if parser.set_language(&ts_lang).is_ok() {
                     if let Some(tree) = parser.parse(source.as_bytes(), None) {
+                        let cst_heur_lang = HeuristicLanguage::cst_from(lang);
                         for cst_analyzer in &self.cst_analyzers {
                             if cst_analyzer.target_language() == lang {
-                                signals.extend(cst_analyzer.analyze_tree(&tree, source));
+                                let metrics = cst_analyzer.extract_metrics(&tree, source);
+                                if metrics.is_empty() {
+                                    signals.extend(cst_analyzer.analyze_tree(&tree, source));
+                                } else {
+                                    signals.extend(match_metric_signals(
+                                        &metrics,
+                                        cst_heur_lang,
+                                        &*self.heuristics,
+                                    ));
+                                }
                             }
                         }
                     }

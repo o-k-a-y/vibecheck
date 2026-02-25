@@ -1,6 +1,8 @@
 pub mod cst;
 pub mod text;
 
+use std::collections::HashMap;
+
 use crate::language::Language;
 use crate::report::{Signal, SymbolMetadata};
 
@@ -59,7 +61,22 @@ pub trait CstAnalyzer: Send + Sync {
     fn ts_language(&self) -> tree_sitter::Language;
 
     /// Analyze the parsed CST and return signals.
-    fn analyze_tree(&self, tree: &tree_sitter::Tree, source: &str) -> Vec<Signal>;
+    ///
+    /// Deprecated: override `extract_metrics` instead; the pipeline will
+    /// match metrics against TOML-defined thresholds to produce signals.
+    fn analyze_tree(&self, _tree: &tree_sitter::Tree, _source: &str) -> Vec<Signal> {
+        vec![]
+    }
+
+    /// Extract numeric metrics from the CST. The pipeline matches these
+    /// against metric/op/threshold rules in `heuristics.toml` to emit signals.
+    fn extract_metrics(
+        &self,
+        _tree: &tree_sitter::Tree,
+        _source: &str,
+    ) -> HashMap<String, f64> {
+        HashMap::new()
+    }
 
     /// Extract named top-level symbols (functions, methods, classes, …) from
     /// the tree.  Returns `(metadata, node)` pairs where `node` covers the

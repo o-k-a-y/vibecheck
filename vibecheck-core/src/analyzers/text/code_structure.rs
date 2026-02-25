@@ -158,7 +158,7 @@ impl CodeStructureAnalyzer {
             lengths.push(total_lines.saturating_sub(last));
         }
         let avg_len: f64 = lengths.iter().sum::<usize>() as f64 / lengths.len() as f64;
-        if avg_len >= 10.0 && avg_len <= 20.0 {
+        if (10.0..=20.0).contains(&avg_len) {
             signals.push(Signal::new(
                 compact_fns_id,
                 "structure",

@@ -9,6 +9,7 @@ pub mod language;
 pub mod merkle;
 pub mod output;
 pub mod pipeline;
+pub mod project_tools;
 pub mod report;
 
 #[cfg(feature = "corpus")]

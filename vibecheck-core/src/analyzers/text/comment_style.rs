@@ -127,6 +127,7 @@ impl CommentStyleAnalyzer {
     /// New comment signals shared across languages.
     ///
     /// Takes precomputed comment lines (as lowercase strings) and raw lines.
+    #[allow(clippy::too_many_arguments)]
     fn detect_extra_signals(
         name: &str,
         comment_lines_lower: &[String],

@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use tree_sitter::{Node, Tree};
 
 use crate::analyzers::CstAnalyzer;
-use crate::heuristics::signal_ids;
 use crate::language::Language;
-use crate::report::{ModelFamily, Signal, SymbolMetadata};
+use crate::report::SymbolMetadata;
 
 pub struct RustCstAnalyzer;
 
@@ -22,36 +21,37 @@ impl CstAnalyzer for RustCstAnalyzer {
         tree_sitter_rust::LANGUAGE.into()
     }
 
-    fn analyze_tree(&self, tree: &Tree, source: &str) -> Vec<Signal> {
-        let mut signals = Vec::new();
+    fn extract_metrics(
+        &self,
+        tree: &Tree,
+        source: &str,
+    ) -> HashMap<String, f64> {
+        let mut metrics = HashMap::new();
         let src_bytes = source.as_bytes();
         let root = tree.root_node();
 
-        // --- Signal 1: Cyclomatic complexity ---
         let functions = collect_all_functions(root);
+
         if !functions.is_empty() {
-            let complexities: Vec<usize> = functions.iter().map(|&f| complexity_of_fn(f)).collect();
-            let avg = complexities.iter().sum::<usize>() as f64 / complexities.len() as f64;
-            if avg <= 2.0 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_COMPLEXITY_LOW,
-                    "rust_cst",
-                    format!("Low average cyclomatic complexity ({avg:.1}) — simple, linear functions"),
-                    ModelFamily::Claude,
-                    2.5,
-                ));
-            } else if avg >= 5.0 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_COMPLEXITY_HIGH,
-                    "rust_cst",
-                    format!("High average cyclomatic complexity ({avg:.1}) — complex branching"),
-                    ModelFamily::Human,
-                    1.5,
-                ));
-            }
+            let complexities: Vec<usize> =
+                functions.iter().map(|&f| complexity_of_fn(f)).collect();
+            let avg =
+                complexities.iter().sum::<usize>() as f64 / complexities.len() as f64;
+            metrics.insert("avg_complexity".into(), avg);
+
+            let depths: Vec<usize> =
+                functions.iter().map(|&f| max_nesting_depth(f)).collect();
+            let avg_depth =
+                depths.iter().sum::<usize>() as f64 / depths.len() as f64;
+            metrics.insert("avg_nesting_depth".into(), avg_depth);
+
+            let lengths: Vec<usize> =
+                functions.iter().map(|&f| fn_line_count(f)).collect();
+            let avg_len =
+                lengths.iter().sum::<usize>() as f64 / lengths.len() as f64;
+            metrics.insert("avg_fn_length".into(), avg_len);
         }
 
-        // --- Signal 2: Doc comment coverage on pub functions ---
         let pub_fns: Vec<Node> = functions
             .iter()
             .copied()
@@ -63,70 +63,30 @@ impl CstAnalyzer for RustCstAnalyzer {
                 .filter(|&&f| has_preceding_doc_comment(f, src_bytes))
                 .count();
             let ratio = documented as f64 / pub_fns.len() as f64;
-            if ratio >= 0.9 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_DOC_COVERAGE_HIGH,
-                    "rust_cst",
-                    format!(
-                        "Doc comment coverage {:.0}% on pub functions — thorough documentation",
-                        ratio * 100.0
-                    ),
-                    ModelFamily::Claude,
-                    2.0,
-                ));
-            }
+            metrics.insert("doc_coverage_ratio".into(), ratio);
         }
 
-        // --- Signal 3: Identifier entropy ---
         let identifiers = collect_identifiers(root, src_bytes);
         if identifiers.len() >= 10 {
             let entropy = shannon_entropy(&identifiers);
-            if entropy >= 4.0 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_ENTROPY_HIGH,
-                    "rust_cst",
-                    format!("High identifier entropy ({entropy:.2}) — diverse, descriptive names"),
-                    ModelFamily::Claude,
-                    1.5,
-                ));
-            } else if entropy < 3.0 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_ENTROPY_LOW,
-                    "rust_cst",
-                    format!("Low identifier entropy ({entropy:.2}) — repetitive or terse names"),
-                    ModelFamily::Human,
-                    1.0,
-                ));
-            }
+            metrics.insert("identifier_entropy".into(), entropy);
         }
 
-        // --- Signal 4: Max nesting depth ---
-        if !functions.is_empty() {
-            let depths: Vec<usize> = functions.iter().map(|&f| max_nesting_depth(f)).collect();
-            let avg_depth = depths.iter().sum::<usize>() as f64 / depths.len() as f64;
-            if avg_depth <= 3.0 {
-                signals.push(Signal::new(
-                    signal_ids::RUST_CST_NESTING_LOW,
-                    "rust_cst",
-                    format!("Low average nesting depth ({avg_depth:.1}) — flat, readable structure"),
-                    ModelFamily::Claude,
-                    1.5,
-                ));
-            }
-        }
-
-        // --- Signal 5: Import ordering ---
         if imports_are_sorted(root, src_bytes) {
-            signals.push(Signal::new(
-                signal_ids::RUST_CST_IMPORTS_SORTED,
-                "rust_cst",
-                "use declarations are alphabetically sorted",
-                ModelFamily::Claude,
-                1.0,
-            ));
+            metrics.insert("imports_sorted".into(), 1.0);
+        } else {
+            metrics.insert("imports_sorted".into(), 0.0);
         }
 
-        signals
+        let (comment_lines, code_lines) = inline_comment_ratio(&functions, src_bytes);
+        if code_lines > 0 {
+            metrics.insert(
+                "inline_comment_ratio".into(),
+                comment_lines as f64 / code_lines as f64,
+            );
+        }
+
+        metrics
     }
 
     fn extract_symbols<'tree>(
@@ -157,7 +117,6 @@ impl CstAnalyzer for RustCstAnalyzer {
                             node,
                         ));
                     }
-                    // Don't recurse — skip nested function items.
                     continue;
                 }
                 "impl_item" => {
@@ -179,7 +138,6 @@ impl CstAnalyzer for RustCstAnalyzer {
     }
 }
 
-/// Collect all `function_item` nodes anywhere in the tree (includes methods).
 fn collect_all_functions<'t>(root: Node<'t>) -> Vec<Node<'t>> {
     let mut result = Vec::new();
     let mut stack = vec![root];
@@ -195,7 +153,6 @@ fn collect_all_functions<'t>(root: Node<'t>) -> Vec<Node<'t>> {
     result
 }
 
-/// Count decision-point nodes within a function, not recursing into nested functions.
 fn complexity_of_fn(root: Node<'_>) -> usize {
     let decision_kinds = [
         "if_expression",
@@ -212,7 +169,6 @@ fn complexity_of_fn(root: Node<'_>) -> usize {
         }
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            // Stop at nested function boundaries
             if child.kind() != "function_item" {
                 stack.push(child);
             }
@@ -221,32 +177,32 @@ fn complexity_of_fn(root: Node<'_>) -> usize {
     count
 }
 
-/// Check whether a `function_item` has `pub` visibility.
 fn is_pub_fn(node: Node<'_>, src_bytes: &[u8]) -> bool {
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if child.kind() == "visibility_modifier" {
-            return child.utf8_text(src_bytes).map(|t| t == "pub").unwrap_or(false);
+            return child
+                .utf8_text(src_bytes)
+                .map(|t| t == "pub")
+                .unwrap_or(false);
         }
     }
     false
 }
 
-/// Check whether the previous named sibling of a node is a doc comment.
-/// Also skips over attribute items that may appear between the comment and function.
-/// In tree-sitter-rust, doc comments (`///`) are `line_comment` nodes whose text
-/// starts with `///`, not a distinct `line_doc_comment` kind.
 fn has_preceding_doc_comment(node: Node<'_>, src_bytes: &[u8]) -> bool {
     let mut prev = node.prev_named_sibling();
     while let Some(n) = prev {
         match n.kind() {
             "line_comment" => {
-                return n.utf8_text(src_bytes)
+                return n
+                    .utf8_text(src_bytes)
                     .map(|t| t.starts_with("///"))
                     .unwrap_or(false);
             }
             "block_comment" => {
-                return n.utf8_text(src_bytes)
+                return n
+                    .utf8_text(src_bytes)
                     .map(|t| t.starts_with("/**"))
                     .unwrap_or(false);
             }
@@ -259,7 +215,6 @@ fn has_preceding_doc_comment(node: Node<'_>, src_bytes: &[u8]) -> bool {
     false
 }
 
-/// Collect text of all `identifier` and `field_identifier` nodes.
 fn collect_identifiers<'s>(root: Node<'_>, src_bytes: &'s [u8]) -> Vec<&'s str> {
     let mut result = Vec::new();
     let mut stack = vec![root];
@@ -277,7 +232,6 @@ fn collect_identifiers<'s>(root: Node<'_>, src_bytes: &'s [u8]) -> Vec<&'s str> 
     result
 }
 
-/// Shannon entropy of the character distribution in the concatenated identifier text.
 fn shannon_entropy(identifiers: &[&str]) -> f64 {
     let combined: String = identifiers.join("");
     if combined.is_empty() {
@@ -297,8 +251,6 @@ fn shannon_entropy(identifiers: &[&str]) -> f64 {
         .sum::<f64>()
 }
 
-/// Maximum nesting depth of block/if/match/loop nodes within a function,
-/// not recursing into nested `function_item` nodes.
 fn max_nesting_depth(root: Node<'_>) -> usize {
     let nesting_kinds = [
         "block",
@@ -308,7 +260,6 @@ fn max_nesting_depth(root: Node<'_>) -> usize {
         "while_expression",
         "loop_expression",
     ];
-    // Stack of (node, current_depth)
     let mut stack = vec![(root, 0usize)];
     let mut max_depth = 0usize;
     while let Some((node, depth)) = stack.pop() {
@@ -330,7 +281,12 @@ fn max_nesting_depth(root: Node<'_>) -> usize {
     max_depth
 }
 
-/// Check whether top-level `use_declaration` nodes are alphabetically sorted.
+fn fn_line_count(node: Node<'_>) -> usize {
+    let start = node.start_position().row;
+    let end = node.end_position().row;
+    (end - start) + 1
+}
+
 fn imports_are_sorted(root: Node<'_>, src_bytes: &[u8]) -> bool {
     let mut use_texts: Vec<String> = Vec::new();
     let mut cursor = root.walk();
@@ -347,18 +303,38 @@ fn imports_are_sorted(root: Node<'_>, src_bytes: &[u8]) -> bool {
     use_texts.windows(2).all(|w| w[0] <= w[1])
 }
 
+fn inline_comment_ratio(functions: &[Node<'_>], src_bytes: &[u8]) -> (usize, usize) {
+    let mut comment_lines = 0usize;
+    let mut code_lines = 0usize;
+    for &func in functions {
+        let text = func.utf8_text(src_bytes).unwrap_or("");
+        for line in text.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with("//") {
+                comment_lines += 1;
+            } else {
+                code_lines += 1;
+            }
+        }
+    }
+    (comment_lines, code_lines)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::analyzers::CstAnalyzer;
-    use crate::report::{ModelFamily, SymbolMetadata};
+    use crate::report::SymbolMetadata;
 
-    fn parse_and_run(source: &str) -> Vec<Signal> {
+    fn parse_and_metrics(source: &str) -> HashMap<String, f64> {
         let analyzer = RustCstAnalyzer;
         let mut parser = tree_sitter::Parser::new();
         parser.set_language(&analyzer.ts_language()).unwrap();
         let tree = parser.parse(source, None).unwrap();
-        analyzer.analyze_tree(&tree, source)
+        analyzer.extract_metrics(&tree, source)
     }
 
     fn parse_and_extract(source: &str) -> Vec<SymbolMetadata> {
@@ -391,11 +367,17 @@ impl Foo {
 }
 "#;
         let syms = parse_and_extract(source);
-        assert!(syms.iter().any(|s| s.name == "new" && s.kind == "method"),
-            "expected 'new' as method; got: {:?}", syms);
-        assert!(syms.iter().any(|s| s.name == "process" && s.kind == "method"),
-            "expected 'process' as method; got: {:?}", syms);
-        // The struct name itself is not a symbol we extract.
+        assert!(
+            syms.iter().any(|s| s.name == "new" && s.kind == "method"),
+            "expected 'new' as method; got: {:?}",
+            syms
+        );
+        assert!(
+            syms.iter()
+                .any(|s| s.name == "process" && s.kind == "method"),
+            "expected 'process' as method; got: {:?}",
+            syms
+        );
         assert!(!syms.iter().any(|s| s.name == "Foo" && s.kind == "function"));
     }
 
@@ -403,10 +385,16 @@ impl Foo {
     fn nested_functions_not_extracted() {
         let source = "fn outer() { fn inner() {} }\n";
         let syms = parse_and_extract(source);
-        assert!(syms.iter().any(|s| s.name == "outer"),
-            "expected 'outer'; got: {:?}", syms);
-        assert!(!syms.iter().any(|s| s.name == "inner"),
-            "inner should not appear; got: {:?}", syms);
+        assert!(
+            syms.iter().any(|s| s.name == "outer"),
+            "expected 'outer'; got: {:?}",
+            syms
+        );
+        assert!(
+            !syms.iter().any(|s| s.name == "inner"),
+            "inner should not appear; got: {:?}",
+            syms
+        );
     }
 
     #[test]
@@ -422,25 +410,18 @@ impl Foo {
     }
 
     #[test]
-    fn low_complexity_is_claude() {
-        // Simple linear functions → avg cyclomatic complexity ≤ 2.0
+    fn low_complexity_metrics() {
         let source = r#"
 fn add(a: i32, b: i32) -> i32 { a + b }
 fn subtract(a: i32, b: i32) -> i32 { a - b }
 fn multiply(a: i32, b: i32) -> i32 { a * b }
 "#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 2.5
-                && s.description.contains("complexity")),
-            "expected low complexity Claude signal; got: {:?}", signals
-        );
+        let m = parse_and_metrics(source);
+        assert!(m["avg_complexity"] <= 2.0, "expected low complexity; got {}", m["avg_complexity"]);
     }
 
     #[test]
-    fn doc_comment_coverage_is_claude() {
-        // All pub functions preceded by doc comments
+    fn doc_coverage_metrics() {
         let source = r#"
 /// Adds two numbers together.
 pub fn add(a: i32, b: i32) -> i32 { a + b }
@@ -451,17 +432,12 @@ pub fn subtract(a: i32, b: i32) -> i32 { a - b }
 /// Multiplies two numbers.
 pub fn multiply(a: i32, b: i32) -> i32 { a * b }
 "#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 2.0
-                && s.description.contains("Doc comment")),
-            "expected doc comment coverage Claude signal; got: {:?}", signals
-        );
+        let m = parse_and_metrics(source);
+        assert!(m["doc_coverage_ratio"] >= 0.9, "expected high doc coverage; got {}", m["doc_coverage_ratio"]);
     }
 
     #[test]
-    fn sorted_imports_is_claude() {
+    fn sorted_imports_metrics() {
         let source = r#"
 use std::collections::HashMap;
 use std::fmt;
@@ -469,12 +445,15 @@ use std::path::PathBuf;
 
 fn main() {}
 "#;
-        let signals = parse_and_run(source);
-        assert!(
-            signals.iter().any(|s| s.family == ModelFamily::Claude
-                && s.weight == 1.0
-                && s.description.contains("sorted")),
-            "expected sorted imports Claude signal; got: {:?}", signals
-        );
+        let m = parse_and_metrics(source);
+        assert_eq!(m["imports_sorted"], 1.0);
+    }
+
+    #[test]
+    fn avg_fn_length_computed() {
+        let source = "fn a() {}\nfn b() {}\nfn c() {}\n";
+        let m = parse_and_metrics(source);
+        assert!(m.contains_key("avg_fn_length"));
+        assert!(m["avg_fn_length"] >= 1.0);
     }
 }
