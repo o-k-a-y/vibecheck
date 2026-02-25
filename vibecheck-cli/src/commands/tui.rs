@@ -74,6 +74,16 @@ struct App {
     detail_scroll: u16,
     /// Horizontal scroll offset for the detail pane.
     detail_scroll_x: u16,
+    /// Total rendered line count of the detail pane (updated each frame, used for clamping).
+    detail_content_lines: u16,
+    /// Max rendered line width of the detail pane (updated each frame, used for clamping).
+    detail_max_width: u16,
+    /// Inner height of the detail pane (updated each frame, used for clamping).
+    detail_pane_h: u16,
+    /// Inner width of the detail pane (updated each frame, used for clamping).
+    detail_pane_w: u16,
+    /// Whether the keybinding help overlay is visible.
+    show_help: bool,
     /// Whether the git history panel is visible.
     show_history: bool,
     /// Which pane has keyboard focus.
@@ -101,6 +111,11 @@ impl App {
             detail: None,
             detail_scroll: 0,
             detail_scroll_x: 0,
+            detail_content_lines: 0,
+            detail_max_width: 0,
+            detail_pane_h: 0,
+            detail_pane_w: 0,
+            show_help: false,
             show_history: false,
             focus: FocusPane::Tree,
             history_entries: Vec::new(),
@@ -125,6 +140,11 @@ impl App {
             detail,
             detail_scroll: 0,
             detail_scroll_x: 0,
+            detail_content_lines: 0,
+            detail_max_width: 0,
+            detail_pane_h: 0,
+            detail_pane_w: 0,
+            show_help: false,
             show_history: false,
             focus: FocusPane::Tree,
             history_entries: Vec::new(),
@@ -203,7 +223,8 @@ impl App {
     }
 
     fn scroll_detail_down(&mut self, amount: u16) {
-        self.detail_scroll = self.detail_scroll.saturating_add(amount);
+        let max = self.detail_content_lines.saturating_sub(self.detail_pane_h);
+        self.detail_scroll = self.detail_scroll.saturating_add(amount).min(max);
     }
 
     fn scroll_detail_up(&mut self, amount: u16) {
@@ -211,11 +232,17 @@ impl App {
     }
 
     fn scroll_detail_right(&mut self, amount: u16) {
-        self.detail_scroll_x = self.detail_scroll_x.saturating_add(amount);
+        let max = self.detail_max_width.saturating_sub(self.detail_pane_w);
+        self.detail_scroll_x = self.detail_scroll_x.saturating_add(amount).min(max);
     }
 
     fn scroll_detail_left(&mut self, amount: u16) {
         self.detail_scroll_x = self.detail_scroll_x.saturating_sub(amount);
+    }
+
+    /// Toggle the keybinding help overlay.
+    fn toggle_help(&mut self) {
+        self.show_help = !self.show_help;
     }
 
     /// Toggle the git history panel for the currently selected file.
@@ -480,6 +507,10 @@ fn render(frame: &mut Frame, app: &mut App) {
     }
 
     render_statusbar(frame, outer[1]);
+
+    if app.show_help {
+        render_help_overlay(frame);
+    }
 }
 
 fn render_tree(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
@@ -571,9 +602,12 @@ fn render_symbol_lines(symbols: &[SymbolReport]) -> Vec<Line<'static>> {
     lines
 }
 
-fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
-    let scroll = app.detail_scroll;
-    let scroll_x = app.detail_scroll_x;
+/// Returns the total display-column width of a rendered `Line` (sum of span char counts).
+fn line_display_width(line: &Line) -> u16 {
+    line.spans.iter().map(|s| s.content.chars().count() as u16).sum()
+}
+
+fn render_detail(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
     let block = Block::default().borders(Borders::ALL).title(" Detail ");
 
     let Some(ref report) = app.detail else {
@@ -668,6 +702,18 @@ fn render_detail(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     all_lines.extend(signal_lines);
     all_lines.extend(sym_lines);
 
+    // Update stored content dimensions so scroll methods can clamp correctly.
+    let total_lines = all_lines.len() as u16;
+    let max_width = all_lines.iter().map(line_display_width).max().unwrap_or(0);
+    app.detail_content_lines = total_lines;
+    app.detail_max_width = max_width;
+    app.detail_pane_h = inner.height;
+    app.detail_pane_w = inner.width;
+
+    // Clamp scroll to valid ranges (exact, using current frame dimensions).
+    let scroll = app.detail_scroll.min(total_lines.saturating_sub(inner.height));
+    let scroll_x = app.detail_scroll_x.min(max_width.saturating_sub(inner.width));
+
     frame.render_widget(Paragraph::new(all_lines).scroll((scroll, scroll_x)), inner);
 }
 
@@ -731,6 +777,8 @@ fn render_history(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
 fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
     let bar = Paragraph::new(Line::from(vec![
+        Span::styled(" ? ", Style::default().fg(Color::Cyan)),
+        Span::raw("help  "),
         Span::styled(" ↑↓ ", Style::default().fg(Color::Cyan)),
         Span::raw("navigate  "),
         Span::styled("Enter/→ ", Style::default().fg(Color::Cyan)),
@@ -738,9 +786,9 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
         Span::styled("← ", Style::default().fg(Color::Cyan)),
         Span::raw("collapse  "),
         Span::styled(" d/u ", Style::default().fg(Color::Cyan)),
-        Span::raw("scroll detail  "),
+        Span::raw("scroll ↕  "),
         Span::styled("⇧←/⇧→ ", Style::default().fg(Color::Cyan)),
-        Span::raw("scroll right pane  "),
+        Span::raw("scroll ↔  "),
         Span::styled(" h ", Style::default().fg(Color::Cyan)),
         Span::raw("history  "),
         Span::styled(" q ", Style::default().fg(Color::Cyan)),
@@ -748,6 +796,67 @@ fn render_statusbar(frame: &mut Frame, area: ratatui::layout::Rect) {
     ]))
     .style(Style::default().bg(Color::DarkGray));
     frame.render_widget(bar, area);
+}
+
+fn render_help_overlay(frame: &mut Frame) {
+    use ratatui::widgets::Clear;
+
+    let lines: &[(&str, &str)] = &[
+        ("↑ / k / ↓ / j",   "navigate file list"),
+        ("Enter / → / l",    "expand directory"),
+        ("←",               "collapse directory"),
+        ("d / PageDown",     "scroll detail down"),
+        ("u / PageUp",       "scroll detail up"),
+        ("⇧→",              "scroll detail right"),
+        ("⇧←",              "scroll detail left"),
+        ("h",                "toggle git history panel"),
+        ("↑ / ↓  (history)", "navigate history entries"),
+        ("?",                "toggle this help"),
+        ("q / Ctrl-C",       "quit"),
+    ];
+
+    let key_col = lines.iter().map(|(k, _)| k.chars().count()).max().unwrap_or(0) + 2;
+    let val_col = lines.iter().map(|(_, v)| v.chars().count()).max().unwrap_or(0);
+    let inner_w = (key_col + val_col + 4) as u16;
+    let inner_h = lines.len() as u16 + 2; // title + blank line + entries
+    let box_w = inner_w + 2;
+    let box_h = inner_h + 2;
+
+    let area = frame.area();
+    let x = area.width.saturating_sub(box_w) / 2;
+    let y = area.height.saturating_sub(box_h) / 2;
+    let popup = ratatui::layout::Rect::new(x, y, box_w.min(area.width), box_h.min(area.height));
+
+    frame.render_widget(Clear, popup);
+
+    let mut content: Vec<Line> = vec![
+        Line::from(Span::styled(
+            " Keybindings",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::raw(""),
+    ];
+    for (key, desc) in lines {
+        content.push(Line::from(vec![
+            Span::styled(
+                format!(" {key:<key_col$}"),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(format!("{desc}")),
+        ]));
+    }
+    content.push(Line::raw(""));
+    content.push(Line::from(Span::styled(
+        " Press ? or Esc to close",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    frame.render_widget(
+        Paragraph::new(content)
+            .block(Block::default().borders(Borders::ALL).title(" Help "))
+            .style(Style::default().bg(Color::Black)),
+        popup,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -889,9 +998,19 @@ fn event_loop<B: ratatui::backend::Backend>(
         }
 
         if let Event::Key(key) = event::read()? {
+            // Help overlay captures all keys — only ? and Esc dismiss it.
+            if app.show_help {
+                match key.code {
+                    KeyCode::Char('?') | KeyCode::Esc => app.toggle_help(),
+                    _ => {}
+                }
+                continue;
+            }
+
             match key.code {
                 KeyCode::Char('q') => break,
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                KeyCode::Char('?') => app.toggle_help(),
 
                 // History panel navigation (takes priority when panel has focus).
                 KeyCode::Down | KeyCode::Char('j') if app.focus == FocusPane::History => {
@@ -1314,24 +1433,50 @@ mod tests {
     // App::scroll_detail_down / scroll_detail_up
     // -------------------------------------------------------------------------
 
+    /// Set up an app with enough simulated content height to avoid scroll clamping
+    /// interfering with small test scroll values.
+    fn app_with_content(lines: u16, pane_h: u16) -> App {
+        let mut app = App::for_test(vec![]);
+        app.detail_content_lines = lines;
+        app.detail_pane_h = pane_h;
+        app
+    }
+
     #[test]
     fn scroll_down_increases_offset() {
-        let mut app = App::for_test(vec![]);
+        let mut app = app_with_content(100, 20);
         app.scroll_detail_down(5);
         assert_eq!(app.detail_scroll, 5);
     }
 
     #[test]
     fn scroll_down_accumulates() {
-        let mut app = App::for_test(vec![]);
+        let mut app = app_with_content(100, 20);
         app.scroll_detail_down(5);
         app.scroll_detail_down(3);
         assert_eq!(app.detail_scroll, 8);
     }
 
     #[test]
-    fn scroll_up_decreases_offset() {
+    fn scroll_down_clamps_at_content_minus_pane() {
+        // With 30 content lines and 20 pane height, max scroll = 10.
+        let mut app = app_with_content(30, 20);
+        app.scroll_detail_down(99);
+        assert_eq!(app.detail_scroll, 10);
+    }
+
+    #[test]
+    fn scroll_right_clamps_at_content_minus_pane() {
         let mut app = App::for_test(vec![]);
+        app.detail_max_width = 120;
+        app.detail_pane_w = 80;
+        app.scroll_detail_right(999);
+        assert_eq!(app.detail_scroll_x, 40);
+    }
+
+    #[test]
+    fn scroll_up_decreases_offset() {
+        let mut app = app_with_content(100, 20);
         app.detail_scroll = 10;
         app.scroll_detail_up(5);
         assert_eq!(app.detail_scroll, 5);
@@ -1357,7 +1502,7 @@ mod tests {
 
     #[test]
     fn scroll_up_after_down_returns_to_origin() {
-        let mut app = App::for_test(vec![]);
+        let mut app = app_with_content(100, 20);
         app.scroll_detail_down(10);
         app.scroll_detail_up(10);
         assert_eq!(app.detail_scroll, 0);

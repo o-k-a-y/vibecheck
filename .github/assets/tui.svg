@@ -36,9 +36,9 @@
   <text x="367" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Human      </text>
   <rect x="460.7" y="116.3" width="16.2" height="10" fill="#e3b341" rx="1"/>
   <text x="627" y="126" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3"> 10.2%</text>
-  <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Copilot    </text>
+  <text x="367" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
   <text x="627" y="145" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
-  <text x="367" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Gemini     </text>
+  <text x="367" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#8b949e">  Copilot    </text>
   <text x="627" y="163" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  0.0%</text>
   <text x="367" y="189" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#ffffff" font-weight="bold"> Signals (14):</text>
   <text x="367" y="208" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">  </text>
@@ -77,14 +77,20 @@
   <text x="482" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#d2a8ff" font-weight="bold">Claude </text>
   <text x="533" y="319" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="12px" fill="#e6edf3">— No single-character variable names</text>
   <rect x="0" y="460" width="900" height="20" fill="#30363d"/>
-  <text x="8" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ↑↓ </text>
-  <text x="62" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> navigate  </text>
-  <text x="137" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> Enter/→ </text>
-  <text x="212" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> expand  </text>
-  <text x="273" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ← </text>
-  <text x="307" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> collapse  </text>
-  <text x="382" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> d/u </text>
-  <text x="416" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> scroll detail  </text>
-  <text x="525" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> q </text>
-  <text x="545" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> quit</text>
+  <text x="8" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ? </text>
+  <text x="28" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> help  </text>
+  <text x="76" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ↑↓ </text>
+  <text x="103" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> navigate  </text>
+  <text x="178" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> Enter/→ </text>
+  <text x="239" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> expand  </text>
+  <text x="300" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ← </text>
+  <text x="321" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> collapse  </text>
+  <text x="396" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> d/u </text>
+  <text x="430" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> scroll ↕  </text>
+  <text x="504" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> ⇧←/⇧→ </text>
+  <text x="552" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> scroll ↔  </text>
+  <text x="627" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> h </text>
+  <text x="647" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> history  </text>
+  <text x="715" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#58a6ff"> q </text>
+  <text x="736" y="474" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="11px" fill="#c9d1d9"> quit</text>
 </svg>

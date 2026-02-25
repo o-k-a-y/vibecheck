@@ -104,6 +104,6 @@ Is this a bug fix or internal change with no visible effect on callers?
   YES → patch
 ```
 
-When in doubt: if a downstream library consumer (e.g. `ambits`) would need
+When in doubt: if a downstream library consumer would need
 to change their code or config after upgrading, it is at minimum a minor bump.
 If they cannot upgrade without changing code that previously worked, it is major.
