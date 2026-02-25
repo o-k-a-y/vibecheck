@@ -1,3 +1,6 @@
+#![deny(warnings)]
+
+use vibecheck_core::heuristics::{ALL_HEURISTICS, HeuristicLanguage};
 use vibecheck_core::report::{ModelFamily, Report};
 
 const FONT: &str = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace";
@@ -381,23 +384,270 @@ fn generate_tui_svg() -> Option<String> {
     let sb_y = H as f64 - SB_H;
     p!(format!("  <rect x=\"0\" y=\"{sb_y:.0}\" width=\"{W}\" height=\"{SB_H:.0}\" fill=\"{BORDER}\"/>"));
     let keys: &[(&str, &str)] = &[
-        ("↑↓", " navigate  "),
+        ("?",     " help  "),
+        ("↑↓",    " navigate  "),
         ("Enter/→", " expand  "),
-        ("←", " collapse  "),
-        ("d/u", " scroll detail  "),
-        ("q", " quit"),
+        ("←",     " collapse  "),
+        ("d/u",   " scroll ↕  "),
+        ("⇧←/⇧→", " scroll ↔  "),
+        ("h",     " history  "),
+        ("q",     " quit"),
     ];
     let sb_text_y = sb_y + SB_H * 0.72;
     let mut sx = 8.0f64;
     for &(key, rest) in keys {
         p!(format!("  <text x=\"{sx:.0}\" y=\"{sb_text_y:.0}\" font-family=\"{FONT}\" font-size=\"11px\" fill=\"{KEY_COLOR}\"> {key} </text>"));
-        sx += (key.len() + 2) as f64 * 6.8;
+        // Use char count (not byte len) so multi-byte unicode chars don't over-space.
+        sx += (key.chars().count() + 2) as f64 * 6.8;
         p!(format!("  <text x=\"{sx:.0}\" y=\"{sb_text_y:.0}\" font-family=\"{FONT}\" font-size=\"11px\" fill=\"{SB_TEXT}\">{rest}</text>"));
-        sx += rest.len() as f64 * 6.8;
+        sx += rest.chars().count() as f64 * 6.8;
     }
 
     svg.push("</svg>".into());
     Some(svg.join("\n") + "\n")
+}
+
+// ---------------------------------------------------------------------------
+// Architecture diagram SVG
+// ---------------------------------------------------------------------------
+
+fn generate_architecture_svg() -> String {
+    // ── Palette (handcrafted for #161b22 dark background) ─────────────────────
+    // Tailwind-inspired pastels — readable, harmonious, no purple, no yellow/amber.
+    const SRC_C:   &str = "#6ee7b7";  // emerald-300  — source input / consumers
+    const CACHE_C: &str = "#38bdf8";  // sky-400      — incremental cache / core wrapper
+    const STORE_C: &str = "#2dd4bf";  // teal-400     — cache write-back store
+    const ANA_C:   &str = "#60a5fa";  // blue-400     — analysis pipeline stages
+    const REP_C:   &str = "#f472b6";  // pink-400     — report output
+    const ARROW:   &str = "#e2e8f0";  // slate-200    — arrows
+    const DIM:     &str = "#94a3b8";  // slate-400    — body / subtitle text
+
+    const W: u32 = 1000;
+    const H: u32 = 630;
+    const RX: u32 = 8;
+
+    let mut out: Vec<String> = Vec::new();
+    macro_rules! p { ($s:expr) => { out.push($s) } }
+
+    p!(format!("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {W} {H}\" width=\"{W}\" height=\"{H}\">"));
+    p!(format!("  <rect width=\"{W}\" height=\"{H}\" fill=\"{BG}\" rx=\"10\"/>"));
+
+    // Defs: two arrowhead markers — solid (pipeline) and dashed (cache-hit bypass)
+    p!(format!("  <defs>\n\
+         \x20   <marker id=\"arr\" viewBox=\"0 0 14 14\" markerWidth=\"14\" markerHeight=\"14\"\n\
+         \x20           refX=\"11\" refY=\"7\" orient=\"auto\" markerUnits=\"userSpaceOnUse\">\n\
+         \x20     <path d=\"M 2 2 L 11 7 L 2 12\" fill=\"none\" stroke=\"{ARROW}\"\n\
+         \x20           stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n\
+         \x20   </marker>\n\
+         \x20   <marker id=\"arr-cache\" viewBox=\"0 0 14 14\" markerWidth=\"14\" markerHeight=\"14\"\n\
+         \x20           refX=\"11\" refY=\"7\" orient=\"auto\" markerUnits=\"userSpaceOnUse\">\n\
+         \x20     <path d=\"M 2 2 L 11 7 L 2 12\" fill=\"none\" stroke=\"#fbbf24\"\n\
+         \x20           stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n\
+         \x20   </marker>\n\
+         \x20 </defs>"));
+
+    // Title bar
+    p!("  <circle cx=\"22\" cy=\"18\" r=\"5\" fill=\"#ff5f57\"/>".into());
+    p!("  <circle cx=\"38\" cy=\"18\" r=\"5\" fill=\"#febc2e\"/>".into());
+    p!("  <circle cx=\"54\" cy=\"18\" r=\"5\" fill=\"#28c840\"/>".into());
+    p!(format!("  <line x1=\"0\" y1=\"32\" x2=\"{W}\" y2=\"32\" stroke=\"{BOLD_FG}\" stroke-opacity=\"0.06\" stroke-width=\"1\"/>"));
+    p!(format!("  <text x=\"{:.0}\" y=\"26\" font-family=\"{FONT}\" font-size=\"14px\" fill=\"{BOLD_FG}\" font-weight=\"bold\" text-anchor=\"middle\" letter-spacing=\"0.5\">vibecheck \u{2014} analysis pipeline</text>",
+        W as f64 / 2.0));
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Container: dashed border, barely-there tinted fill (section wrappers)
+    let container = |x: u32, y: u32, w: u32, h: u32, c: &str| -> Vec<String> { vec![
+        format!("  <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{h}\" rx=\"{RX}\" fill=\"{c}\" fill-opacity=\"0.05\" stroke=\"none\"/>"),
+        format!("  <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{h}\" rx=\"{RX}\" fill=\"none\" stroke=\"{c}\" stroke-width=\"1.2\" stroke-opacity=\"0.40\" stroke-dasharray=\"6 3\"/>"),
+    ]};
+    // Card: clear tinted fill + crisp border (pipeline stage boxes)
+    let card = |x: u32, y: u32, w: u32, h: u32, c: &str| -> Vec<String> { vec![
+        format!("  <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{h}\" rx=\"{RX}\" fill=\"{c}\" fill-opacity=\"0.10\" stroke=\"none\"/>"),
+        format!("  <rect x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{h}\" rx=\"{RX}\" fill=\"none\" stroke=\"{c}\" stroke-width=\"1.8\" stroke-opacity=\"0.90\"/>"),
+    ]};
+    let bold = |cx: u32, y: u32, c: &str, fs: u32, s: &str| -> String {
+        format!("  <text x=\"{cx}\" y=\"{y}\" font-family=\"{FONT}\" font-size=\"{fs}px\" fill=\"{c}\" font-weight=\"bold\" text-anchor=\"middle\">{}</text>",
+            xml_esc(s))
+    };
+    let section_label = |cx: u32, y: u32, c: &str, s: &str| -> String {
+        format!("  <text x=\"{cx}\" y=\"{y}\" font-family=\"{FONT}\" font-size=\"10px\" fill=\"{c}\" font-weight=\"bold\" text-anchor=\"middle\" letter-spacing=\"1.5\">{}</text>",
+            xml_esc(s))
+    };
+    let dim = |cx: u32, y: u32, s: &str| -> String {
+        format!("  <text x=\"{cx}\" y=\"{y}\" font-family=\"{FONT}\" font-size=\"11px\" fill=\"{DIM}\" text-anchor=\"middle\">{}</text>",
+            xml_esc(s))
+    };
+    let note = |cx: u32, y: u32, s: &str| -> String {
+        format!("  <text x=\"{cx}\" y=\"{y}\" font-family=\"{FONT}\" font-size=\"12px\" fill=\"#fbbf24\" font-weight=\"bold\" text-anchor=\"middle\">{}</text>",
+            xml_esc(s))
+    };
+    let arrow = |x1: u32, y1: u32, x2: u32, y2: u32| -> String {
+        format!("  <line x1=\"{x1}\" y1=\"{y1}\" x2=\"{x2}\" y2=\"{y2}\" stroke=\"{ARROW}\" stroke-width=\"2\" marker-end=\"url(#arr)\"/>")
+    };
+    let cache_arrow = |x1: u32, y1: u32, x2: u32, y2: u32| -> String {
+        format!("  <line x1=\"{x1}\" y1=\"{y1}\" x2=\"{x2}\" y2=\"{y2}\" stroke=\"#fbbf24\" stroke-width=\"1.8\" stroke-dasharray=\"5 3\" marker-end=\"url(#arr-cache)\"/>")
+    };
+
+    // ══ Layout ════════════════════════════════════════════════════════════════
+    //  source:      x=10  w=142  cx=81    y=48  h=72   (right=152)
+    //  core:        x=162 w=818  cx=571   y=44  h=458  (dashed, bottom=502)
+    //    cache:     x=178 w=256  cx=306   y=66  h=88   (right=434, bottom=154)
+    //    text:      x=178 w=256  cx=306   y=206 h=68   (gap=52, bottom=274)
+    //    syntax:    x=178 w=256  cx=306   y=326 h=68   (gap=52, bottom=394)
+    //    agg:       x=178 w=256  cx=306   y=446 h=50   (gap=52, bottom=496)
+    //    report:    x=620 w=340  cx=790   y=200 h=164  (gap=186, bottom=364)
+    //    cache-wbk: x=680 w=220  cx=790   y=406 h=46   (bottom=452)
+    //  consumers:   x=162 w=818           y=522 h=78   (dashed, bottom=600)
+    //    cli panel: x=162–571  cx=366     divider x=571
+    //    ext panel: x=571–980  cx=775
+    // ═════════════════════════════════════════════════════════════════════════
+
+    // Source files
+    for s in card(10, 48, 142, 72, SRC_C) { p!(s); }
+    p!(bold(81, 78, BOLD_FG, 13, "source files"));
+    p!(dim(81, 97, ".rs  .py  .js  .go"));
+
+    // vibecheck-core wrapper
+    for s in container(162, 44, 818, 458, CACHE_C) { p!(s); }
+    p!(section_label(571, 59, CACHE_C, "vibecheck-core"));
+
+    // Incremental cache
+    for s in card(178, 66, 256, 88, CACHE_C) { p!(s); }
+    p!(bold(306, 91,  BOLD_FG, 13, "incremental cache"));
+    p!(dim(306, 111, "SHA-256 content hash per file"));
+    p!(dim(306, 129, "hit \u{2192} return cached Report"));
+    p!(dim(306, 147, "miss \u{2192} run analysis pipeline \u{2193}"));
+
+    // Text-pattern analysis
+    for s in card(178, 206, 256, 68, ANA_C) { p!(s); }
+    p!(bold(306, 232, BOLD_FG, 13, "text-pattern analysis"));
+    p!(dim(306, 252, "comments \u{b7} naming \u{b7} structure \u{b7} idioms"));
+
+    // Syntax tree analysis
+    for s in card(178, 326, 256, 68, ANA_C) { p!(s); }
+    p!(bold(306, 352, BOLD_FG, 13, "syntax tree analysis"));
+    p!(dim(306, 372, "language-aware \u{b7} per function / class"));
+
+    // Aggregate + normalize
+    for s in card(178, 446, 256, 50, ANA_C) { p!(s); }
+    p!(bold(306, 469, BOLD_FG, 13, "aggregate + normalize"));
+    p!(dim(306, 487, "weighted scoring per model family"));
+
+    // Report
+    for s in card(620, 200, 340, 164, REP_C) { p!(s); }
+    p!(bold(790, 226, REP_C, 14, "Report"));
+    p!(dim(790, 250, "primary attribution"));
+    p!(dim(790, 268, "confidence score"));
+    p!(dim(790, 286, "score distribution"));
+    p!(dim(790, 304, "per-signal breakdown"));
+    p!(dim(790, 322, "symbol-level reports"));
+
+    // Cache write-back — intermediate store between Report and consumers
+    for s in card(680, 406, 220, 46, STORE_C) { p!(s); }
+    p!(bold(790, 432, STORE_C, 12, "cache"));
+
+    // Consumers wrapper
+    for s in container(162, 522, 818, 78, SRC_C) { p!(s); }
+
+    // Left panel — vibecheck-cli (3×2 grid, columns at cx=230/366/502)
+    p!(section_label(366, 538, SRC_C, "vibecheck-cli"));
+    p!(dim(230, 560, "analyze")); p!(dim(366, 560, "tui")); p!(dim(502, 560, "watch"));
+    p!(dim(230, 578, "history")); p!(dim(366, 578, "heuristics")); p!(dim(502, 578, "help"));
+
+    // Divider
+    p!("  <line x1=\"571\" y1=\"530\" x2=\"571\" y2=\"594\" stroke=\"#30363d\" stroke-width=\"1\"/>".into());
+
+    // Right panel — external crates
+    p!(section_label(775, 538, SRC_C, "external crates"));
+    p!(dim(775, 560, "analyze()  \u{b7}  analyze_file_symbols()"));
+    p!(dim(775, 578, "analyze_directory_with(path, \u{2026})"));
+
+    // ── Arrows ────────────────────────────────────────────────────────────────
+    p!(arrow(152, 84,  178, 103));   // source → cache
+    p!(arrow(306, 154, 306, 206));   // cache → text
+    p!(arrow(306, 274, 306, 326));   // text → syntax
+    p!(arrow(306, 394, 306, 446));   // syntax → agg
+    p!(arrow(434, 240, 620, 250));   // text → report
+    p!(arrow(434, 360, 620, 304));   // syntax → report
+    p!(arrow(434, 471, 620, 350));   // agg → report
+    p!(arrow(790, 364, 790, 406));   // report → cache write-back
+    p!(arrow(710, 452, 366, 522));   // cache → vibecheck-cli
+    p!(arrow(870, 452, 775, 522));   // cache → external crates
+
+    // Cache-hit bypass: right of cache box → top of Report
+    // Midpoint at (527,155); label offset above the line
+    p!(cache_arrow(434, 110, 620, 200));
+    p!(note(540, 132, "cache hit"));
+
+    out.push("</svg>".into());
+    out.join("\n") + "\n"
+}
+
+// ---------------------------------------------------------------------------
+// README signal catalogue injection
+// ---------------------------------------------------------------------------
+
+fn generate_readme_signals() {
+    const START_MARKER: &str = "<!-- vibecheck:signals-start -->";
+    const END_MARKER:   &str = "<!-- vibecheck:signals-end -->";
+    const MAX_PER_GROUP: usize = 5;
+
+    // Language groups: (display name, CST/text variants merged together)
+    let groups: &[(&str, &[HeuristicLanguage])] = &[
+        ("rust",       &[HeuristicLanguage::Rust,   HeuristicLanguage::RustCst]),
+        ("python",     &[HeuristicLanguage::Python, HeuristicLanguage::PythonCst]),
+        ("javascript", &[HeuristicLanguage::Js,     HeuristicLanguage::JsCst]),
+        ("go",         &[HeuristicLanguage::Go,     HeuristicLanguage::GoCst]),
+    ];
+
+    let mut rows: Vec<String> = vec![
+        "| Language | Signal ID | Family | Weight | Description |".into(),
+        "|----------|-----------|--------|--------|-------------|".into(),
+    ];
+
+    for (lang_name, variants) in groups {
+        let mut signals: Vec<_> = ALL_HEURISTICS
+            .iter()
+            .filter(|s| variants.contains(&s.language))
+            .collect();
+        // Highest weight first; secondary sort by id for determinism
+        signals.sort_by(|a, b| {
+            b.default_weight
+                .partial_cmp(&a.default_weight)
+                .unwrap()
+                .then_with(|| a.id.cmp(b.id))
+        });
+        for sig in signals.iter().take(MAX_PER_GROUP) {
+            rows.push(format!(
+                "| {} | `{}` | {} | {:.1} | {} |",
+                lang_name, sig.id, sig.family, sig.default_weight, sig.description
+            ));
+        }
+    }
+
+    let table = rows.join("\n");
+
+    let readme_path = "../README.md";
+    let content = match std::fs::read_to_string(readme_path) {
+        Ok(s) => s,
+        Err(e) => { eprintln!("build.rs: cannot read README.md: {e}"); return; }
+    };
+
+    if let (Some(s), Some(e)) = (content.find(START_MARKER), content.find(END_MARKER)) {
+        let new_content = format!(
+            "{}{}\n{}\n{}{}",
+            &content[..s + START_MARKER.len()],
+            "\n",
+            table,
+            END_MARKER,
+            &content[e + END_MARKER.len()..]
+        );
+        if let Err(e) = std::fs::write(readme_path, new_content) {
+            eprintln!("build.rs: failed to update README.md signals table: {e}");
+        }
+    } else {
+        eprintln!("build.rs: README.md missing signal markers — skipping table injection");
+    }
 }
 
 fn main() {
@@ -421,4 +671,11 @@ fn main() {
             eprintln!("build.rs: failed to write tui.svg: {e}");
         }
     }
+
+    let arch_svg = generate_architecture_svg();
+    if let Err(e) = std::fs::write("../.github/assets/architecture.svg", &arch_svg) {
+        eprintln!("build.rs: failed to write architecture.svg: {e}");
+    }
+
+    generate_readme_signals();
 }
