@@ -20,11 +20,11 @@
   <text x="16.0" y="196" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  Gemini     </text>
   <rect x="117.4" y="184.0" width="91.2" height="12" fill="#79c0ff" rx="1"/>
   <text x="359.2" y="196" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">39.0%</text>
-  <text x="16.0" y="215" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  GPT        </text>
-  <rect x="117.4" y="203.0" width="19.8" height="12" fill="#7ee787" rx="1"/>
+  <text x="16.0" y="215" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  Copilot    </text>
+  <rect x="117.4" y="203.0" width="19.8" height="12" fill="#39c5cf" rx="1"/>
   <text x="359.2" y="215" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">8.5%</text>
-  <text x="16.0" y="234" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  Copilot    </text>
-  <rect x="117.4" y="222.0" width="19.8" height="12" fill="#39c5cf" rx="1"/>
+  <text x="16.0" y="234" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  GPT        </text>
+  <rect x="117.4" y="222.0" width="19.8" height="12" fill="#7ee787" rx="1"/>
   <text x="359.2" y="234" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">8.5%</text>
   <text x="16.0" y="253" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">  Human      </text>
   <text x="359.2" y="253" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,monospace" font-size="13px" fill="#e6edf3">0.0%</text>
