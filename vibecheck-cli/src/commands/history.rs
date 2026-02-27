@@ -188,6 +188,45 @@ fn is_source_file(name: &str) -> bool {
     )
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_source_file_supported_extensions() {
+        assert!(is_source_file("main.rs"));
+        assert!(is_source_file("script.py"));
+        assert!(is_source_file("app.js"));
+        assert!(is_source_file("types.ts"));
+        assert!(is_source_file("server.go"));
+    }
+
+    #[test]
+    fn is_source_file_unsupported() {
+        assert!(!is_source_file("README.md"));
+        assert!(!is_source_file("Cargo.toml"));
+        assert!(!is_source_file("image.png"));
+        assert!(!is_source_file("noextension"));
+    }
+
+    #[test]
+    fn format_date_epoch() {
+        assert_eq!(format_date(0), "1970-01-01");
+    }
+
+    #[test]
+    fn format_date_known_date() {
+        // 2026-02-27 00:00:00 UTC = 1772150400
+        assert_eq!(format_date(1772150400), "2026-02-27");
+    }
+
+    #[test]
+    fn format_date_leap_year() {
+        // 2024-02-29 12:00:00 UTC = 1709208000
+        assert_eq!(format_date(1709208000), "2024-02-29");
+    }
+}
+
 /// Format a Unix timestamp as `YYYY-MM-DD`.
 fn format_date(unix_secs: i64) -> String {
     // Hand-rolled to avoid a chrono dependency.

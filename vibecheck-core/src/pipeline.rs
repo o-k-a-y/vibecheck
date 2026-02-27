@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::analyzers::{default_analyzers, default_cst_analyzers, Analyzer, CstAnalyzer};
 use crate::heuristics::{all_heuristics, DefaultHeuristics, HeuristicLanguage, HeuristicsProvider};
-use crate::language::{detect_language, get_ts_language};
+use crate::language::{detect_language, get_ts_language, Language};
 use crate::report::{Attribution, ModelFamily, Report, ReportMetadata, Signal, SymbolReport};
 
 /// Match extracted CST metrics against TOML-defined threshold rules to produce signals.
@@ -75,11 +75,55 @@ pub(crate) fn match_metric_signals(
     signals
 }
 
+/// Optional post-aggregation scorer that augments heuristic attribution
+/// with ML model predictions. Defined in vibecheck-core (no ML deps);
+/// implemented by vibecheck-ml's `EnsembleModel`.
+pub trait PostScorer: Send + Sync {
+    fn rescore(
+        &self,
+        signals: &[Signal],
+        metrics: &HashMap<String, f64>,
+        heuristic_attribution: &Attribution,
+        language: Option<Language>,
+        source: &str,
+    ) -> Attribution;
+}
+
+/// Linearly interpolate two score distributions.
+///
+/// `blend = 0.0` → pure heuristic, `blend = 1.0` → pure ML.
+fn blend_attributions(heuristic: &Attribution, ml: &Attribution, blend: f64) -> Attribution {
+    let mut scores = HashMap::new();
+    for family in ModelFamily::all() {
+        let h = heuristic.scores.get(family).copied().unwrap_or(0.0);
+        let m = ml.scores.get(family).copied().unwrap_or(0.0);
+        scores.insert(*family, (1.0 - blend) * h + blend * m);
+    }
+
+    let (primary, confidence) = scores
+        .iter()
+        .max_by(|a, b| {
+            a.1.partial_cmp(b.1)
+                .unwrap()
+                .then_with(|| a.0.to_string().cmp(&b.0.to_string()))
+        })
+        .map(|(&k, &v)| (k, v))
+        .unwrap();
+
+    Attribution {
+        primary,
+        confidence,
+        scores,
+    }
+}
+
 /// Orchestrates analyzers and aggregates their signals into a report.
 pub struct Pipeline {
     analyzers: Vec<Box<dyn Analyzer>>,
     cst_analyzers: Vec<Box<dyn CstAnalyzer>>,
     heuristics: Box<dyn HeuristicsProvider>,
+    scorer: Option<Box<dyn PostScorer>>,
+    ml_blend: f64,
 }
 
 impl Pipeline {
@@ -97,6 +141,8 @@ impl Pipeline {
             analyzers,
             cst_analyzers,
             heuristics,
+            scorer: None,
+            ml_blend: 0.0,
         }
     }
 
@@ -109,31 +155,56 @@ impl Pipeline {
         )
     }
 
+    /// Construct with an ML model scorer that blends with heuristic results.
+    ///
+    /// `blend` controls the mix: `0.0` = pure heuristic, `1.0` = pure ML,
+    /// `0.5` = equal weight.  The scorer's [`PostScorer::rescore`] is called
+    /// after heuristic aggregation in [`run`].
+    pub fn with_model(
+        analyzers: Vec<Box<dyn Analyzer>>,
+        cst_analyzers: Vec<Box<dyn CstAnalyzer>>,
+        heuristics: Box<dyn HeuristicsProvider>,
+        scorer: Box<dyn PostScorer>,
+        blend: f64,
+    ) -> Self {
+        Self {
+            analyzers,
+            cst_analyzers,
+            heuristics,
+            scorer: Some(scorer),
+            ml_blend: blend.clamp(0.0, 1.0),
+        }
+    }
+
     pub fn run(&self, source: &str, file_path: Option<PathBuf>) -> Report {
-        // Detect language early so text analyzers can gate on it.
         let lang = file_path.as_ref().and_then(|p| detect_language(p));
 
-        // Text-pattern analysis (language-aware)
         let mut signals: Vec<Signal> = self
             .analyzers
             .iter()
             .flat_map(|a| a.analyze_with_language(source, lang))
             .collect();
 
-        // CST analysis — extract metrics then match against TOML rules
+        // CST analysis — extract metrics, match against TOML rules, and
+        // accumulate raw metrics for the PostScorer (if configured).
+        let mut collected_metrics = HashMap::new();
+
         if let Some(ref path) = file_path {
-            if let Some(lang) = detect_language(path) {
-                let ts_lang = crate::language::get_ts_language(lang);
+            if let Some(cst_lang) = detect_language(path) {
+                let ts_lang = crate::language::get_ts_language(cst_lang);
                 let mut parser = tree_sitter::Parser::new();
                 if parser.set_language(&ts_lang).is_ok() {
                     if let Some(tree) = parser.parse(source.as_bytes(), None) {
-                        let cst_heur_lang = HeuristicLanguage::cst_from(lang);
+                        let cst_heur_lang = HeuristicLanguage::cst_from(cst_lang);
                         for cst_analyzer in &self.cst_analyzers {
-                            if cst_analyzer.target_language() == lang {
+                            if cst_analyzer.target_language() == cst_lang {
                                 let metrics = cst_analyzer.extract_metrics(&tree, source);
                                 if metrics.is_empty() {
                                     signals.extend(cst_analyzer.analyze_tree(&tree, source));
                                 } else {
+                                    collected_metrics.extend(
+                                        metrics.iter().map(|(k, &v)| (k.clone(), v)),
+                                    );
                                     signals.extend(match_metric_signals(
                                         &metrics,
                                         cst_heur_lang,
@@ -147,7 +218,6 @@ impl Pipeline {
             }
         }
 
-        // Apply heuristic weight overrides and filter disabled signals.
         for s in &mut signals {
             if !s.id.is_empty() {
                 s.weight = self.heuristics.weight(&s.id);
@@ -155,7 +225,20 @@ impl Pipeline {
         }
         signals.retain(|s| s.id.is_empty() || self.heuristics.is_enabled(&s.id));
 
-        let attribution = self.aggregate(&signals);
+        let attribution = if let Some(ref scorer) = self.scorer {
+            let heuristic_attr = self.aggregate(&signals);
+            let ml_attr = scorer.rescore(
+                &signals,
+                &collected_metrics,
+                &heuristic_attr,
+                lang,
+                source,
+            );
+            blend_attributions(&heuristic_attr, &ml_attr, self.ml_blend)
+        } else {
+            self.aggregate(&signals)
+        };
+
         let lines_of_code = source.lines().count();
         let signal_count = signals.len();
 
@@ -339,5 +422,111 @@ mod tests {
         assert!(!attr.has_sufficient_data());
         let total: f64 = attr.scores.values().sum();
         assert_eq!(total, 0.0, "scores should all be 0.0 when no signals");
+    }
+
+    // -- PostScorer / blend tests ------------------------------------------
+
+    struct FixedScorer(Attribution);
+
+    impl PostScorer for FixedScorer {
+        fn rescore(
+            &self,
+            _signals: &[Signal],
+            _metrics: &HashMap<String, f64>,
+            _heuristic: &Attribution,
+            _language: Option<Language>,
+            _source: &str,
+        ) -> Attribution {
+            self.0.clone()
+        }
+    }
+
+    fn make_attribution(primary: ModelFamily, confidence: f64) -> Attribution {
+        let mut scores = HashMap::new();
+        for f in ModelFamily::all() {
+            scores.insert(*f, if *f == primary { confidence } else { (1.0 - confidence) / 4.0 });
+        }
+        Attribution { primary, confidence, scores }
+    }
+
+    #[test]
+    fn blend_zero_returns_heuristic() {
+        let h = make_attribution(ModelFamily::Claude, 0.8);
+        let m = make_attribution(ModelFamily::Gpt, 0.9);
+        let blended = blend_attributions(&h, &m, 0.0);
+        assert_eq!(blended.primary, ModelFamily::Claude);
+        assert!((blended.confidence - 0.8).abs() < 1e-9);
+    }
+
+    #[test]
+    fn blend_one_returns_ml() {
+        let h = make_attribution(ModelFamily::Claude, 0.8);
+        let m = make_attribution(ModelFamily::Gpt, 0.9);
+        let blended = blend_attributions(&h, &m, 1.0);
+        assert_eq!(blended.primary, ModelFamily::Gpt);
+        assert!((blended.confidence - 0.9).abs() < 1e-9);
+    }
+
+    #[test]
+    fn blend_half_averages_scores() {
+        let h = make_attribution(ModelFamily::Human, 1.0);
+        let m = make_attribution(ModelFamily::Gemini, 1.0);
+        let blended = blend_attributions(&h, &m, 0.5);
+        let h_score = blended.scores[&ModelFamily::Human];
+        let m_score = blended.scores[&ModelFamily::Gemini];
+        assert!((h_score - m_score).abs() < 1e-9, "equal blend should produce equal scores");
+    }
+
+    #[test]
+    fn blend_preserves_normalization() {
+        let h = make_attribution(ModelFamily::Claude, 0.6);
+        let m = make_attribution(ModelFamily::Copilot, 0.7);
+        let blended = blend_attributions(&h, &m, 0.3);
+        let total: f64 = blended.scores.values().sum();
+        assert!((total - 1.0).abs() < 1e-9, "blended scores should sum to ~1.0; got {total}");
+    }
+
+    #[test]
+    fn with_model_scorer_is_called() {
+        let ml_attr = make_attribution(ModelFamily::Gemini, 0.95);
+        let scorer = FixedScorer(ml_attr);
+        let pipeline = Pipeline::with_model(
+            default_analyzers(),
+            default_cst_analyzers(),
+            Box::new(DefaultHeuristics),
+            Box::new(scorer),
+            1.0,
+        );
+        let report = pipeline.run("let x = 42;", None);
+        assert_eq!(report.attribution.primary, ModelFamily::Gemini);
+    }
+
+    #[test]
+    fn without_scorer_behavior_unchanged() {
+        let pipeline_default = Pipeline::with_defaults();
+        let pipeline_explicit = Pipeline::with_heuristics(
+            default_analyzers(),
+            default_cst_analyzers(),
+            Box::new(DefaultHeuristics),
+        );
+        let source = "fn main() { println!(\"hello\"); }\n";
+        let r1 = pipeline_default.run(source, None);
+        let r2 = pipeline_explicit.run(source, None);
+        assert_eq!(r1.attribution.primary, r2.attribution.primary);
+        assert!((r1.attribution.confidence - r2.attribution.confidence).abs() < 1e-9);
+    }
+
+    #[test]
+    fn with_model_blend_clamped() {
+        let ml_attr = make_attribution(ModelFamily::Gpt, 0.9);
+        let pipeline = Pipeline::with_model(
+            default_analyzers(),
+            default_cst_analyzers(),
+            Box::new(DefaultHeuristics),
+            Box::new(FixedScorer(ml_attr)),
+            5.0, // should clamp to 1.0
+        );
+        let report = pipeline.run("let x = 42;", None);
+        assert_eq!(report.attribution.primary, ModelFamily::Gpt);
     }
 }

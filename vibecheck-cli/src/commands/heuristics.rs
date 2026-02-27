@@ -89,3 +89,28 @@ const _ALL_IDS_REFERENCED: () = {
     let _ = signal_ids::RUST_ERRORS_ZERO_UNWRAP;
     let _ = signal_ids::RUST_CST_COMPLEXITY_LOW;
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_table_does_not_panic() {
+        run("table").unwrap();
+    }
+
+    #[test]
+    fn run_toml_does_not_panic() {
+        run("toml").unwrap();
+    }
+
+    #[test]
+    fn run_unknown_format_falls_back_to_table() {
+        run("anything").unwrap();
+    }
+
+    #[test]
+    fn all_heuristics_nonempty() {
+        assert!(!all_heuristics().is_empty());
+    }
+}

@@ -56,7 +56,10 @@ jobs:
           fail_ci_if_error: false
 
       - name: Enforce coverage gate
-        run: cargo llvm-cov --package vibecheck-core --fail-under-lines 80
+        run: |
+          cargo llvm-cov --package vibecheck-core    --fail-under-lines 80
+          cargo llvm-cov --package vibecheck-ml      --fail-under-lines 80
+          cargo llvm-cov --package vibecheck-cli     --fail-under-lines 50
 
       - name: Vibecheck source code
         run: |

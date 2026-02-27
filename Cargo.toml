@@ -1,5 +1,5 @@
 [workspace]
-members = ["vibecheck-core", "vibecheck-cli"]
+members = ["vibecheck-core", "vibecheck-cli", "vibecheck-ml"]
 resolver = "2"
 
 [workspace.package]
@@ -12,3 +12,4 @@ readme  = "README.md"
 serde          = { version = "1", features = ["derive"] }
 serde_json     = "1"
 vibecheck-core = { path = "vibecheck-core", version = "0.6.0" }
+vibecheck-ml   = { path = "vibecheck-ml",   version = "0.6.0" }

@@ -12,10 +12,10 @@
 [![vibecheck-cli on crates.io](https://img.shields.io/crates/v/vibecheck-cli.svg?label=vibecheck-cli)](https://crates.io/crates/vibecheck-cli)
 <!-- vibecheck:badges-start -->
 
-[![Claude 39%](https://img.shields.io/badge/Claude-39%25-d2a8ff)](https://github.com/o-k-a-y/vibecheck)
+[![Claude 38%](https://img.shields.io/badge/Claude-38%25-d2a8ff)](https://github.com/o-k-a-y/vibecheck)
 [![Human 30%](https://img.shields.io/badge/Human-30%25-e3b341)](https://github.com/o-k-a-y/vibecheck)
 [![Gemini 21%](https://img.shields.io/badge/Gemini-21%25-79c0ff)](https://github.com/o-k-a-y/vibecheck)
-[![GPT 9%](https://img.shields.io/badge/GPT-9%25-7ee787)](https://github.com/o-k-a-y/vibecheck)
+[![GPT 10%](https://img.shields.io/badge/GPT-10%25-7ee787)](https://github.com/o-k-a-y/vibecheck)
 [![Copilot 1%](https://img.shields.io/badge/Copilot-1%25-39c5cf)](https://github.com/o-k-a-y/vibecheck)
 <!-- vibecheck:badges-end -->
 
@@ -210,7 +210,7 @@ Every detection rule in vibecheck is a **signal** with three properties:
 - **Weight** — how strongly the signal shifts the score (positive = evidence for the family; `0.0` = disabled)
 - **Family** — which model family the signal points toward (Claude, Gpt, Copilot, Human, …)
 
-There are currently 151 signals across Rust, Python, JavaScript, and Go.
+There are currently 232 signals across Rust, Python, JavaScript, and Go.
 
 #### Viewing signals
 
@@ -451,10 +451,11 @@ Exit code `1` fails the job and blocks the PR. Both use cases work the same way 
 
 | Crate | Contents | Who uses it |
 |-------|----------|-------------|
-| `vibecheck-core` | Analysis engine, CST analyzers, cache, corpus store | any tool that imports it |
+| `vibecheck-core` | Analysis engine, CST analyzers, cache, corpus store, PostScorer trait | any tool that imports it |
 | `vibecheck-cli` | CLI binary | end users |
+| `vibecheck-ml` | ML classification engine — feature extraction, Markov chains, linfa classifiers, ensemble models | vibecheck-core (via PostScorer), future CLI training commands |
 
-`vibecheck-core` has no CLI dependencies — it is a clean library crate that any tool can import.
+`vibecheck-core` has no CLI or ML dependencies — it is a clean library crate that any tool can import. `vibecheck-ml` depends on `vibecheck-core` and provides the `PostScorer` implementation that plugs ML predictions back into the analysis pipeline.
 
 ## Model Family Profiles
 
@@ -472,6 +473,7 @@ How vibecheck tells them apart:
 |-------|---------|---------|-----------------|
 | `vibecheck-core` | `corpus` | No | SQLite corpus + trend store (`rusqlite`) |
 | `vibecheck-cli` | — | — | CLI binary; always has `clap`, `walkdir`, `colored`, `anyhow` |
+| `vibecheck-ml` | — | — | ML engine; always has `linfa-*`, `ndarray`, `tree-sitter` |
 
 ### The `corpus` feature
 
@@ -504,17 +506,18 @@ cargo add vibecheck-core --features corpus
           vibecheck heuristics command, TUI history panel)
   v0.5 - "It's Giving Claude" ✓ shipped
          (canonical color source, full model display names, Codecov)
-  v0.6 - "Signals Are Data, Not Code" <- next
-         (heuristics catalog: patterns/thresholds as structured definitions,
-          per-language and per-model configurability, deduped signal logic)
-  v0.7 - "Your Codebase Has a Trend Problem"
+  v0.6 - "Signals Are Data, Not Code" ✓ shipped
+         (metric-based CST architecture, signal rebalancing,
+          232 heuristic signals in TOML, config detection)
+  v0.7 - "We Trained a Model On This" <- next
+         (vibecheck-ml crate: feature extraction, Markov chains,
+          linfa classifiers, ensemble models, PostScorer pipeline,
+          corpus scraper, labeling game, benchmark suite)
+  v0.8 - "Your Codebase Has a Trend Problem"
          (persistent trend store, sparklines, TUI attribution drift panel)
-  v0.8 - "More Languages, Fewer Excuses"
+  v0.9 - "More Languages, Fewer Excuses"
          (TypeScript-specific signals, Ruby, Java, expanded Go/Python depth,
-          accuracy benchmarks against known human/AI repos)
-  v0.9 - "We Trained a Model On This"
-         (corpus scraper via git co-author metadata, linfa classifier,
-          hand-tuned weights replaced by trained model, version detection)
+          version detection: Claude 3.5 vs 4, GPT-3.5 vs 4o)
   v1.0 - "Skynet But For Code Review"
          (vibecheck-core 1.0 API stability, WASM plugin interface,
           IDE integration, published benchmark suite)
@@ -540,19 +543,27 @@ cargo add vibecheck-core --features corpus
 - [x] **Merkle hash tree** — incremental directory analysis; unchanged subtrees are skipped entirely
 - [x] **Ignore rules** — `.vibecheck` config file; auto-respects `.gitignore`; `--ignore-file` flag; `IgnoreRules` trait for DI in library consumers
 
-### Phase 3 — Configurability
-- [ ] **Heuristics catalog** — patterns and thresholds as structured data, not scattered imperative logic
-- [ ] **Per-language signal config** — tune or disable signals per language in `.vibecheck`
+### Phase 3 — Configurability ✅
+- [x] **Heuristics catalog** — 232 signals as structured TOML definitions with metric-based CST thresholds
+- [x] **Per-language signal config** — tune or disable signals per language in `.vibecheck`
+- [x] **CacheBackend trait** — pluggable cache layers (in-memory hot tier + redb persistent tier)
 - [ ] **Trend store + sparklines** — persistent per-file attribution history; drift visible in TUI
 - [ ] **Expanded language support** — TypeScript-specific signals, Ruby, Java, deeper Go/Python coverage
 
-### Phase 4 — Intelligence
+### Phase 4 — ML Intelligence (in progress)
+- [x] **PostScorer trait** — ML model seam in analysis pipeline; blends heuristic + ML scores
+- [x] **vibecheck-ml crate** — feature extraction (232 signal dims + CST metrics), `Classifier` trait
+- [x] **Markov chain engine** — AST node sequence classification with adaptive order backoff (1-3)
+- [x] **ML algorithm zoo** — logistic regression, naive Bayes, decision trees via linfa
+- [x] **Ensemble model** — weighted classifier combination, implements `PostScorer`
+- [x] **Training infrastructure** — label encoding, stratified splitting, dataset construction
 - [ ] **Corpus scraper** — acquire labeled samples from public repos via git co-author metadata
-- [ ] **ML classification** — `linfa`-based model trained on corpus; replaces hand-tuned weights
-- [ ] **Version detection** — distinguish Claude 3.5 vs Claude 4, GPT-3.5 vs GPT-4o (corpus permitting)
+- [ ] **Labeling game** — interactive game for community-driven corpus labeling
 - [ ] **Benchmark suite** — accuracy metrics against known human/AI code datasets
+- [ ] **Version detection** — distinguish Claude 3.5 vs Claude 4, GPT-3.5 vs GPT-4o (corpus permitting)
 
 ### Phase 5 — Platform
+- [ ] **Hosted training platform** — API server for distributed scraping and labeling
 - [ ] **WASM plugin interface** — external analyzers without recompiling
 - [ ] **IDE integration** — LSP server or VS Code extension
 - [ ] **`vibecheck-core` 1.0** — stable semver API guarantee
@@ -587,7 +598,7 @@ cargo add vibecheck-core --features corpus
 ```
 
 **Current limitations:**
-- **Heuristic-based** — no ML model; weights are hand-tuned, not learned from a corpus
+- **Heuristic + ML hybrid** — the ML engine (`vibecheck-ml`) is built but not yet trained on a large corpus; heuristic weights still drive attribution until the corpus scraper and training pipeline are complete
 - **Not adversarial-resistant** — deliberately obfuscated AI code will fool it
 - **Model family overlap** — GPT and Claude share many patterns; attribution between them is fuzzy
 - **Symbol-level is file-cached** — `--symbols` results are cached per file hash; mixed authorship within a file is detected but symbol boundaries depend on tree-sitter parse quality

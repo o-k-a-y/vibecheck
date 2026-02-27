@@ -48,6 +48,37 @@ impl std::fmt::Display for ModelFamily {
     }
 }
 
+/// Dynamic family identifier for the ML/corpus layer.
+///
+/// Maps to [`ModelFamily`] for known families, keeps the raw string for new
+/// ones (e.g. "deepseek", "qwen").  The heuristic path uses `ModelFamily`
+/// directly; the ML layer uses `FamilyId` and converts at boundaries.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct FamilyId(pub String);
+
+impl FamilyId {
+    pub fn to_model_family(&self) -> Option<ModelFamily> {
+        match self.0.to_lowercase().as_str() {
+            "claude"  => Some(ModelFamily::Claude),
+            "gpt"     => Some(ModelFamily::Gpt),
+            "gemini"  => Some(ModelFamily::Gemini),
+            "copilot" => Some(ModelFamily::Copilot),
+            "human"   => Some(ModelFamily::Human),
+            _         => None,
+        }
+    }
+
+    pub fn from_model_family(f: ModelFamily) -> Self {
+        Self(f.to_string().to_lowercase())
+    }
+}
+
+impl std::fmt::Display for FamilyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// A single signal emitted by an analyzer.
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,5 +270,42 @@ mod tests {
         assert_eq!(ModelFamily::Gemini.to_string(),  "Gemini");
         assert_eq!(ModelFamily::Copilot.to_string(), "Copilot");
         assert_eq!(ModelFamily::Human.to_string(),   "Human");
+    }
+
+    #[test]
+    fn family_id_to_model_family_known() {
+        assert_eq!(FamilyId("claude".into()).to_model_family(), Some(ModelFamily::Claude));
+        assert_eq!(FamilyId("gpt".into()).to_model_family(), Some(ModelFamily::Gpt));
+        assert_eq!(FamilyId("gemini".into()).to_model_family(), Some(ModelFamily::Gemini));
+        assert_eq!(FamilyId("copilot".into()).to_model_family(), Some(ModelFamily::Copilot));
+        assert_eq!(FamilyId("human".into()).to_model_family(), Some(ModelFamily::Human));
+    }
+
+    #[test]
+    fn family_id_to_model_family_case_insensitive() {
+        assert_eq!(FamilyId("Claude".into()).to_model_family(), Some(ModelFamily::Claude));
+        assert_eq!(FamilyId("GPT".into()).to_model_family(), Some(ModelFamily::Gpt));
+    }
+
+    #[test]
+    fn family_id_to_model_family_unknown() {
+        assert_eq!(FamilyId("deepseek".into()).to_model_family(), None);
+        assert_eq!(FamilyId("qwen".into()).to_model_family(), None);
+    }
+
+    #[test]
+    fn family_id_from_model_family_roundtrip() {
+        for &f in ModelFamily::all() {
+            let id = FamilyId::from_model_family(f);
+            assert_eq!(id.to_model_family(), Some(f));
+        }
+    }
+
+    #[test]
+    fn family_id_json_roundtrip() {
+        let id = FamilyId("claude".into());
+        let json = serde_json::to_string(&id).unwrap();
+        let back: FamilyId = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, id);
     }
 }
