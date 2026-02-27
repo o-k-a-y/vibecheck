@@ -24,10 +24,17 @@ use merkle::walk_and_hash_with;
 use pipeline::Pipeline;
 use report::Report;
 
-/// Load heuristics from a `.vibecheck` config rooted at `dir`.
-fn load_heuristics(dir: &std::path::Path) -> Box<dyn HeuristicsProvider> {
-    let cfg = IgnoreConfig::load(dir);
-    Box::new(ConfiguredHeuristics::from_config(cfg.heuristics_map()))
+fn load_config(dir: &std::path::Path) -> IgnoreConfig {
+    IgnoreConfig::load(dir)
+}
+
+fn heuristics_from_config(config: &IgnoreConfig) -> Box<dyn HeuristicsProvider> {
+    Box::new(ConfiguredHeuristics::from_config(config.heuristics_map()))
+}
+
+fn open_cache(config: &IgnoreConfig) -> Option<Cache> {
+    let path = Cache::resolve_path(config.cache_dir());
+    Cache::open(&path).ok()
 }
 
 /// Analyze a source code string and return a report.
@@ -37,15 +44,20 @@ pub fn analyze(source: &str) -> Report {
 }
 
 /// Analyze a file, using the content-addressed cache to skip re-analysis of unchanged files.
+///
+/// Cache location is resolved from (in priority order):
+/// 1. `[cache] dir` in the nearest `.vibecheck` config
+/// 2. `VIBECHECK_CACHE_DIR` environment variable
+/// 3. Platform default (`~/.cache/vibecheck/`)
 pub fn analyze_file(path: &Path) -> std::io::Result<Report> {
     let bytes = std::fs::read(path)?;
     let hash = Cache::hash_content(&bytes);
-
-    let cache = Cache::open(&Cache::default_path()).ok();
+    let dir = path.parent().unwrap_or(path);
+    let config = load_config(dir);
+    let cache = open_cache(&config);
 
     if let Some(ref c) = cache {
         if let Some(mut cached) = c.get(&hash) {
-            // Always use the caller's path, not the path stored when the cache entry was written.
             cached.metadata.file_path = Some(path.to_path_buf());
             return Ok(cached);
         }
@@ -53,11 +65,10 @@ pub fn analyze_file(path: &Path) -> std::io::Result<Report> {
 
     let source = String::from_utf8(bytes)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-    let dir = path.parent().unwrap_or(path);
     let pipeline = Pipeline::with_heuristics(
         crate::analyzers::default_analyzers(),
         crate::analyzers::default_cst_analyzers(),
-        load_heuristics(dir),
+        heuristics_from_config(&config),
     );
     let report = pipeline.run(&source, Some(path.to_path_buf()));
 
@@ -72,10 +83,11 @@ pub fn analyze_file(path: &Path) -> std::io::Result<Report> {
 pub fn analyze_file_no_cache(path: &Path) -> std::io::Result<Report> {
     let source = std::fs::read_to_string(path)?;
     let dir = path.parent().unwrap_or(path);
+    let config = load_config(dir);
     let pipeline = Pipeline::with_heuristics(
         crate::analyzers::default_analyzers(),
         crate::analyzers::default_cst_analyzers(),
-        load_heuristics(dir),
+        heuristics_from_config(&config),
     );
     Ok(pipeline.run(&source, Some(path.to_path_buf())))
 }
@@ -95,8 +107,9 @@ pub fn analyze_directory(
     dir: &Path,
     use_cache: bool,
 ) -> anyhow::Result<Vec<(PathBuf, Report)>> {
-    let ignore = IgnoreConfig::load(dir);
-    analyze_directory_with(dir, use_cache, &ignore)
+    let config = load_config(dir);
+    let cache_path = Cache::resolve_path(config.cache_dir());
+    analyze_directory_inner(dir, use_cache, &config, &cache_path)
 }
 
 /// Like [`analyze_directory`], but accepts any [`IgnoreRules`] implementation.
@@ -106,16 +119,27 @@ pub fn analyze_directory(
 /// [`ignore_rules::PatternIgnore`] for substring matching in tests, or any
 /// other [`IgnoreRules`] implementation.
 ///
-/// Heuristics are loaded automatically from the nearest `.vibecheck` config
-/// file relative to `dir`.
+/// Cache location is resolved from `VIBECHECK_CACHE_DIR` env var, falling back
+/// to the platform default (`~/.cache/vibecheck/`).  For config-file overrides,
+/// use [`analyze_directory`] which reads `[cache] dir` from `.vibecheck`.
 pub fn analyze_directory_with(
     dir: &Path,
     use_cache: bool,
     ignore: &dyn IgnoreRules,
 ) -> anyhow::Result<Vec<(PathBuf, Report)>> {
+    let cache_path = Cache::resolve_path(None);
+    analyze_directory_inner(dir, use_cache, ignore, &cache_path)
+}
+
+fn analyze_directory_inner(
+    dir: &Path,
+    use_cache: bool,
+    ignore: &dyn IgnoreRules,
+    cache_path: &Path,
+) -> anyhow::Result<Vec<(PathBuf, Report)>> {
     let supported_exts = ["rs", "py", "js", "ts", "jsx", "tsx", "go"];
     let cache = if use_cache {
-        Cache::open(&Cache::default_path()).ok()
+        Cache::open(cache_path).ok()
     } else {
         None
     };
@@ -245,7 +269,9 @@ pub fn analyze_file_symbols(file_path: &Path) -> anyhow::Result<Report> {
     let bytes = std::fs::read(file_path)
         .map_err(|e| anyhow::anyhow!("cannot read {}: {}", file_path.display(), e))?;
     let hash = Cache::hash_content(&bytes);
-    let cache = Cache::open(&Cache::default_path()).ok();
+    let dir = file_path.parent().unwrap_or(file_path);
+    let config = load_config(dir);
+    let cache = open_cache(&config);
 
     // Fast path: both layers cached.
     if let Some(ref c) = cache {

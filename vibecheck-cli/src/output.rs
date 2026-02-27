@@ -80,3 +80,54 @@ pub fn format_pretty(report: &Report, theme: &dyn ColorTheme) -> String {
 }
 
 pub use vibecheck_core::output::{format_json, format_text};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vibecheck_core::colors::DefaultTheme;
+
+    #[test]
+    fn format_pretty_with_file_path() {
+        let mut report = vibecheck_core::analyze("fn main() { println!(\"hello world\"); }");
+        report.metadata.file_path = Some(std::path::PathBuf::from("test.rs"));
+        let output = format_pretty(&report, &DefaultTheme);
+        assert!(output.contains("File:"), "should show file path");
+        assert!(output.contains("test.rs"));
+    }
+
+    #[test]
+    fn format_pretty_without_file_path() {
+        let report = vibecheck_core::analyze("fn main() {}");
+        let output = format_pretty(&report, &DefaultTheme);
+        assert!(!output.contains("File:"), "should not show file path when None");
+    }
+
+    #[test]
+    fn format_pretty_shows_scores() {
+        let report = vibecheck_core::analyze("fn main() { println!(\"hello world\"); }");
+        let output = format_pretty(&report, &DefaultTheme);
+        assert!(output.contains("Scores:"), "should show scores section");
+        assert!(output.contains('%'), "should show percentages");
+    }
+
+    #[test]
+    fn format_pretty_shows_signals_when_present() {
+        let report = vibecheck_core::analyze(
+            "/// This function does something.\n/// It is well documented.\nfn foo() {}",
+        );
+        if !report.signals.is_empty() {
+            let output = format_pretty(&report, &DefaultTheme);
+            assert!(output.contains("Signals:"), "should show signals section");
+        }
+    }
+
+    #[test]
+    fn format_pretty_insufficient_data() {
+        let report = vibecheck_core::analyze("");
+        let output = format_pretty(&report, &DefaultTheme);
+        assert!(
+            output.contains("Verdict:"),
+            "should still show verdict line"
+        );
+    }
+}

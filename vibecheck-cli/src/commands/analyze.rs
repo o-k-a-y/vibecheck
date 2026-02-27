@@ -72,6 +72,114 @@ pub fn format_report(report: &Report, fmt: OutputFormat) -> String {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vibecheck_core::ignore_rules::PatternIgnore;
+
+    #[test]
+    fn parse_format_pretty() {
+        assert_eq!(parse_format("pretty").unwrap(), OutputFormat::Pretty);
+    }
+
+    #[test]
+    fn parse_format_text() {
+        assert_eq!(parse_format("text").unwrap(), OutputFormat::Text);
+    }
+
+    #[test]
+    fn parse_format_json() {
+        assert_eq!(parse_format("json").unwrap(), OutputFormat::Json);
+    }
+
+    #[test]
+    fn parse_format_unknown_is_error() {
+        assert!(parse_format("csv").is_err());
+    }
+
+    #[test]
+    fn parse_families_known() {
+        let input = vec!["claude".into(), "gpt".into(), "human".into()];
+        let result = parse_families(&input).unwrap();
+        assert_eq!(result, vec![ModelFamily::Claude, ModelFamily::Gpt, ModelFamily::Human]);
+    }
+
+    #[test]
+    fn parse_families_case_insensitive() {
+        let input = vec!["Claude".into(), "GPT".into()];
+        let result = parse_families(&input).unwrap();
+        assert_eq!(result, vec![ModelFamily::Claude, ModelFamily::Gpt]);
+    }
+
+    #[test]
+    fn parse_families_unknown_is_error() {
+        let input = vec!["deepseek".into()];
+        assert!(parse_families(&input).is_err());
+    }
+
+    #[test]
+    fn collect_files_single_file() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../vibecheck-core/tests/fixtures/lru_cache/claude.rs");
+        let ignore = PatternIgnore(vec![]);
+        let files = collect_files(&fixture, &ignore).unwrap();
+        assert_eq!(files.len(), 1);
+        assert!(files[0].ends_with("claude.rs"));
+    }
+
+    #[test]
+    fn collect_files_filters_by_extension() {
+        let fixture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../vibecheck-core/tests/fixtures/lru_cache");
+        let ignore = PatternIgnore(vec![]);
+        let files = collect_files(&fixture_dir, &ignore).unwrap();
+        assert!(files.len() >= 20, "should find all fixture files; got {}", files.len());
+        for f in &files {
+            let ext = f.extension().unwrap().to_str().unwrap();
+            assert!(
+                ["rs", "py", "js", "go"].contains(&ext),
+                "unexpected extension: {ext}"
+            );
+        }
+    }
+
+    #[test]
+    fn collect_files_respects_ignore() {
+        let fixture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../vibecheck-core/tests/fixtures/lru_cache");
+        let ignore = PatternIgnore(vec!["claude".into()]);
+        let files = collect_files(&fixture_dir, &ignore).unwrap();
+        for f in &files {
+            assert!(
+                !f.to_string_lossy().contains("claude"),
+                "should have been ignored: {}",
+                f.display()
+            );
+        }
+    }
+
+    #[test]
+    fn format_report_text_contains_verdict() {
+        let report = vibecheck_core::analyze("fn main() { println!(\"hello\"); }");
+        let output = format_report(&report, OutputFormat::Text);
+        assert!(output.contains("Verdict:"), "text output should have Verdict");
+    }
+
+    #[test]
+    fn format_report_json_is_valid() {
+        let report = vibecheck_core::analyze("fn main() {}");
+        let output = format_report(&report, OutputFormat::Json);
+        let _: serde_json::Value = serde_json::from_str(&output).expect("should be valid JSON");
+    }
+
+    #[test]
+    fn format_report_pretty_contains_verdict() {
+        let report = vibecheck_core::analyze("fn main() { println!(\"hello\"); }");
+        let output = format_report(&report, OutputFormat::Pretty);
+        assert!(output.contains("Verdict:"), "pretty output should have Verdict");
+    }
+}
+
 pub fn run(
     path: &PathBuf,
     format: &str,

@@ -120,6 +120,45 @@ fn analyze_and_print(path: &Path, no_cache: bool) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_supported_known_extensions() {
+        assert!(is_supported(Path::new("main.rs")));
+        assert!(is_supported(Path::new("script.py")));
+        assert!(is_supported(Path::new("app.js")));
+        assert!(is_supported(Path::new("types.ts")));
+        assert!(is_supported(Path::new("component.jsx")));
+        assert!(is_supported(Path::new("component.tsx")));
+        assert!(is_supported(Path::new("server.go")));
+    }
+
+    #[test]
+    fn is_supported_rejects_unsupported() {
+        assert!(!is_supported(Path::new("README.md")));
+        assert!(!is_supported(Path::new("Cargo.toml")));
+        assert!(!is_supported(Path::new("image.png")));
+        assert!(!is_supported(Path::new("noext")));
+    }
+
+    #[test]
+    fn chrono_now_is_valid_time_format() {
+        let now = chrono_now();
+        assert_eq!(now.len(), 8, "should be HH:MM:SS; got {now}");
+        assert_eq!(&now[2..3], ":");
+        assert_eq!(&now[5..6], ":");
+    }
+
+    #[test]
+    fn supported_exts_includes_all_expected() {
+        assert_eq!(SUPPORTED_EXTS.len(), 7);
+        assert!(SUPPORTED_EXTS.contains(&"rs"));
+        assert!(SUPPORTED_EXTS.contains(&"tsx"));
+    }
+}
+
 fn chrono_now() -> String {
     // Use std time to avoid adding the chrono dep.
     use std::time::{SystemTime, UNIX_EPOCH};

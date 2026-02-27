@@ -91,6 +91,15 @@ struct ConfigFile {
     /// Optional `[heuristics]` table: signal-ID → weight override.
     #[serde(default)]
     heuristics: std::collections::HashMap<String, f64>,
+    /// Optional `[cache]` table: cache directory override.
+    #[serde(default)]
+    cache: CacheSection,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct CacheSection {
+    /// Override the cache directory (default: `~/.cache/vibecheck/`).
+    dir: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -154,6 +163,8 @@ pub struct IgnoreConfig {
     extra: Gitignore,
     /// Signal-ID → weight overrides from the `[heuristics]` TOML table.
     heuristics: std::collections::HashMap<String, f64>,
+    /// Optional cache directory override from `[cache] dir`.
+    cache_dir: Option<PathBuf>,
 }
 
 impl IgnoreConfig {
@@ -173,7 +184,7 @@ impl IgnoreConfig {
         let f: ConfigFile = toml::from_str(&s)
             .map_err(|e| anyhow::anyhow!("failed to parse {}: {e}", path.display()))?;
         let root = path.parent().unwrap_or(path).to_path_buf();
-        Ok(Self::from_section(root, f.ignore, f.heuristics))
+        Ok(Self::from_section(root, f.ignore, f.heuristics, f.cache))
     }
 
     /// Build an [`ignore::WalkBuilder`] pre-configured with gitignore settings.
@@ -210,26 +221,37 @@ impl IgnoreConfig {
         self.heuristics.clone()
     }
 
+    /// Return the cache directory override from `[cache] dir`, if configured.
+    pub fn cache_dir(&self) -> Option<&Path> {
+        self.cache_dir.as_deref()
+    }
+
     fn load_from_root(root: PathBuf) -> Self {
         let cfg_path = root.join(".vibecheck");
-        let (section, heuristics) = if cfg_path.is_file() {
+        let (section, heuristics, cache) = if cfg_path.is_file() {
             std::fs::read_to_string(&cfg_path)
                 .ok()
                 .and_then(|s| toml::from_str::<ConfigFile>(&s).ok())
-                .map(|f| (f.ignore, f.heuristics))
+                .map(|f| (f.ignore, f.heuristics, f.cache))
                 .unwrap_or_else(|| {
                     eprintln!("vibecheck: warning: failed to parse .vibecheck; using defaults");
-                    (IgnoreSection::default(), std::collections::HashMap::new())
+                    (IgnoreSection::default(), std::collections::HashMap::new(), CacheSection::default())
                 })
         } else {
-            (IgnoreSection::default(), std::collections::HashMap::new())
+            (IgnoreSection::default(), std::collections::HashMap::new(), CacheSection::default())
         };
-        Self::from_section(root, section, heuristics)
+        Self::from_section(root, section, heuristics, cache)
     }
 
-    fn from_section(root: PathBuf, section: IgnoreSection, heuristics: std::collections::HashMap<String, f64>) -> Self {
+    fn from_section(
+        root: PathBuf,
+        section: IgnoreSection,
+        heuristics: std::collections::HashMap<String, f64>,
+        cache: CacheSection,
+    ) -> Self {
         let combined = build_combined(&root, &section.patterns, section.use_gitignore);
         let extra = build_extra(&root, &section.patterns);
+        let cache_dir = cache.dir.map(PathBuf::from);
         Self {
             root,
             use_gitignore: section.use_gitignore,
@@ -237,6 +259,7 @@ impl IgnoreConfig {
             combined,
             extra,
             heuristics,
+            cache_dir,
         }
     }
 }
@@ -400,5 +423,39 @@ mod tests {
         std::fs::create_dir_all(&sub).unwrap();
         let root = find_config_root(&sub);
         assert_eq!(root, dir.path());
+    }
+
+    #[test]
+    fn cache_dir_none_when_not_configured() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = IgnoreConfig::load(dir.path());
+        assert!(cfg.cache_dir().is_none());
+    }
+
+    #[test]
+    fn cache_dir_parsed_from_config() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".vibecheck"),
+            "[cache]\ndir = \"/tmp/custom-vibecheck-cache\"\n",
+        )
+        .unwrap();
+        let cfg = IgnoreConfig::load(dir.path());
+        assert_eq!(
+            cfg.cache_dir(),
+            Some(Path::new("/tmp/custom-vibecheck-cache")),
+        );
+    }
+
+    #[test]
+    fn cache_dir_absent_section_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(".vibecheck"),
+            "[ignore]\npatterns = [\"dist/\"]\n",
+        )
+        .unwrap();
+        let cfg = IgnoreConfig::load(dir.path());
+        assert!(cfg.cache_dir().is_none());
     }
 }
